@@ -1,0 +1,137 @@
+# 🛡️ AI守护系统 - Git忽略配置
+
+# Node.js 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# 构建输出
+build/
+dist/
+*.tgz
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# 模型文件 (太大不上传)
+models/
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+
+# 数据文件
+data/datasets/
+data/processed/
+*.csv
+*.json.large
+*.jsonl
+
+# 环境变量
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 日志文件
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 运行时文件
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage目录
+coverage/
+.nyc_output
+
+# 依赖锁定文件
+package-lock.json
+yarn.lock
+
+# Docker 卷
+docker-volumes/
+
+# 临时文件
+tmp/
+temp/
+
+# 缓存
+.cache/
+.parcel-cache/
+
+# Next.js
+.next/
+out/
+
+# Nuxt.js
+.nuxt/
+dist/
+
+# React脚手架
+/build
+
+# 测试报告
+test-results/
+
+# Pytorch Lightning
+lightning_logs/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# 训练检查点
+checkpoints/
+wandb/
+
+# VSCode
+.vscode/
+
+# PyCharm
+.idea/
+
+# 本地配置
+config.local.json
+settings.local.json
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# Redis dump
+dump.rdb
+

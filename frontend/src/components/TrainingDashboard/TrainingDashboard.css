@@ -1,0 +1,390 @@
+/* 训练监控仪表板样式 */
+
+.training-dashboard {
+  padding: 20px;
+  background: #f0f2f5;
+  min-height: calc(100vh - 120px);
+}
+
+.dashboard-actions {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 训练任务卡片 */
+.training-task-card {
+  background: #fafafa;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.training-task-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #1890ff;
+}
+
+.task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.task-progress {
+  margin-bottom: 12px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: #666;
+}
+
+/* 日志控制台 */
+.task-logs {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #e8e8e8;
+}
+
+.log-console {
+  background: #1d1d1d;
+  color: #00ff00;
+  padding: 12px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.log-line {
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.log-time {
+  color: #888;
+  margin-right: 8px;
+}
+
+.log-text {
+  color: #00ff00;
+}
+
+/* 数据集统计 */
+.dataset-stats {
+  padding: 12px 0;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed #e8e8e8;
+}
+
+.stat-item:last-child {
+  border-bottom: none;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 14px;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #1890ff;
+  font-size: 16px;
+}
+
+/* 标签分布 */
+.label-distribution .ant-progress {
+  margin-bottom: 12px;
+}
+
+/* 时间线样式 */
+.timeline-item {
+  padding: 8px 0;
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.timeline-meta {
+  color: #666;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.timeline-time {
+  color: #999;
+  font-size: 12px;
+}
+
+/* 主标签页 */
+.main-tabs .ant-tabs-nav {
+  background: white;
+  padding: 0 20px;
+  border-radius: 8px 8px 0 0;
+  margin-bottom: 0;
+}
+
+.main-tabs .ant-tabs-content {
+  background: transparent;
+  padding: 0;
+}
+
+/* 卡片样式优化 */
+.ant-card {
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.ant-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 表格样式优化 */
+.ant-table-thead > tr > th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: #f0f9ff;
+}
+
+/* 进度条动画 */
+@keyframes progress-active {
+  0% {
+    opacity: 0.1;
+    transform: translateX(-100%);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateX(100%);
+  }
+}
+
+.ant-progress-status-active .ant-progress-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: progress-active 2s linear infinite;
+}
+
+/* 状态指示器 */
+.status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-indicator.running {
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
+  border: 1px solid rgba(24, 144, 255, 0.3);
+}
+
+.status-indicator.success {
+  background: rgba(82, 196, 26, 0.1);
+  color: #52c41a;
+  border: 1px solid rgba(82, 196, 26, 0.3);
+}
+
+.status-indicator.error {
+  background: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
+  border: 1px solid rgba(255, 77, 79, 0.3);
+}
+
+/* 模型卡片 */
+.model-card {
+  background: white;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.model-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #1890ff;
+}
+
+.model-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.model-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.model-metrics {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+  border-top: 1px dashed #e8e8e8;
+}
+
+.metric-item {
+  flex: 1;
+  text-align: center;
+}
+
+.metric-label {
+  color: #666;
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.metric-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .training-dashboard {
+    padding: 12px;
+  }
+  
+  .dashboard-actions {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .task-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .progress-info {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .model-metrics {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+/* 加载动画 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(24, 144, 255, 0.3);
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* 高对比度模式 */
+@media (prefers-contrast: high) {
+  .training-task-card {
+    border: 2px solid #000;
+  }
+  
+  .log-console {
+    background: #000;
+    color: #fff;
+  }
+  
+  .model-card {
+    border: 2px solid #000;
+  }
+}
+
+/* 暗黑模式支持 */
+@media (prefers-color-scheme: dark) {
+  .training-dashboard {
+    background: #141414;
+  }
+  
+  .ant-card {
+    background: #1f1f1f;
+    border-color: #303030;
+  }
+  
+  .training-task-card {
+    background: #262626;
+    border-color: #303030;
+  }
+  
+  .model-card {
+    background: #262626;
+    border-color: #303030;
+  }
+  
+  .ant-table-thead > tr > th {
+    background: #1f1f1f;
+    color: #fff;
+  }
+  
+  .ant-table-tbody > tr > td {
+    color: #fff;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .dashboard-actions {
+    display: none;
+  }
+  
+  .ant-tabs-nav {
+    display: none;
+  }
+  
+  .training-dashboard {
+    background: white;
+  }
+  
+  .ant-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
