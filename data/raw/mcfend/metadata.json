@@ -1,0 +1,15 @@
+{
+  "dataset_id": "mcfend",
+  "name": "MCFEND多模态中文假新闻数据集",
+  "total_samples": 1000,
+  "fake_samples": 500,
+  "real_samples": 500,
+  "categories": [
+    "financial",
+    "medical",
+    "marketing",
+    "news"
+  ],
+  "created_at": "2024-01-01T00:00:00Z",
+  "version": "mock_v1.0"
+}

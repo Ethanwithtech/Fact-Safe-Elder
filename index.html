@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ AI守护系统 - 老人短视频安全检测</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 15px;
+        }
+        
+        .main-container {
+            display: flex;
+            gap: 25px;
+            max-width: 1500px;
+            margin: 0 auto;
+            height: calc(100vh - 30px);
+        }
+        
+        /* 手机模拟器 */
+        .phone-section {
+            flex: 0 0 380px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .phone-simulator {
+            width: 350px;
+            height: 680px;
+            background: linear-gradient(145deg, #2c3e50, #34495e);
+            border-radius: 35px;
+            padding: 15px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+            position: relative;
+        }
+        
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 25px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .video-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+            background-size: 400% 400%;
+            animation: gradientShift 8s ease infinite;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            cursor: pointer;
+        }
+        
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* AI检测浮窗 */
+        .ai-floater {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.9);
+            border-radius: 12px;
+            padding: 12px;
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 2px solid;
+            animation: floaterPulse 2s infinite;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+        }
+        
+        .floater-safe {
+            border-color: #52c41a;
+            background: rgba(82, 196, 26, 0.15);
+        }
+        
+        .floater-warning {
+            border-color: #faad14;
+            background: rgba(250, 173, 20, 0.15);
+        }
+        
+        .floater-danger {
+            border-color: #ff4d4f;
+            background: rgba(255, 77, 79, 0.15);
+        }
+        
+        @keyframes floaterPulse {
+            0% { opacity: 0.9; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.02); }
+            100% { opacity: 0.9; transform: scale(1); }
+        }
+        
+        .floater-icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        
+        .floater-text {
+            font-size: 14px;
+            font-weight: bold;
+            flex: 1;
+        }
+        
+        /* 视频内容 */
+        .video-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            color: white;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .video-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 12px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            line-height: 1.3;
+            max-width: 280px;
+        }
+        
+        .video-description {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-bottom: 15px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            line-height: 1.4;
+            max-width: 280px;
+        }
+        
+        .video-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff9a9e, #fecfef);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 8px;
+            border: 2px solid white;
+        }
+        
+        /* 右侧操作栏 */
+        .video-actions {
+            position: absolute;
+            right: 12px;
+            bottom: 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .action-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .action-btn:hover {
+            background: rgba(255,255,255,0.4);
+            transform: scale(1.1);
+        }
+        
+        .action-count {
+            color: white;
+            font-size: 11px;
+            margin-top: 3px;
+            text-align: center;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+        
+        /* 底部信息 */
+        .video-info {
+            padding: 12px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: white;
+        }
+        
+        .username {
+            font-weight: bold;
+            margin-left: 8px;
+            font-size: 14px;
+        }
+        
+        .follow-btn {
+            margin-left: auto;
+            padding: 6px 12px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        /* 控制面板 */
+        .control-panel {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow-y: auto;
+        }
+        
+        .panel-header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .panel-header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        /* 检测结果卡片 */
+        .detection-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid;
+        }
+        
+        .detection-card.safe {
+            border-color: #52c41a;
+            background: linear-gradient(135deg, #f6ffed, #f0f9ff);
+        }
+        
+        .detection-card.warning {
+            border-color: #faad14;
+            background: linear-gradient(135deg, #fffbe6, #fff7e6);
+        }
+        
+        .detection-card.danger {
+            border-color: #ff4d4f;
+            background: linear-gradient(135deg, #fff2f0, #fff1f0);
+        }
+        
+        .detection-card h3 {
+            color: #333;
+            font-size: 18px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .detection-card .icon {
+            font-size: 20px;
+            margin-right: 8px;
+        }
+        
+        .detection-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        
+        .detail-item {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .detail-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .detail-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        /* 控制按钮 */
+        .control-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .control-btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: #1890ff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .control-btn:hover {
+            background: #40a9ff;
+            transform: translateY(-2px);
+        }
+        
+        .control-btn.secondary {
+            background: #52c41a;
+        }
+        
+        .control-btn.danger {
+            background: #ff4d4f;
+        }
+        
+        /* 统计面板 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #e8e8e8;
+        }
+        
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1890ff;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* 滑动提示 */
+        .swipe-hint {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255,255,255,0.9);
+            font-size: 12px;
+            animation: bounce 2s infinite;
+            background: rgba(0,0,0,0.3);
+            padding: 6px 12px;
+            border-radius: 15px;
+            backdrop-filter: blur(5px);
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateX(-50%) translateY(0); }
+            40% { transform: translateX(-50%) translateY(-6px); }
+            60% { transform: translateX(-50%) translateY(-3px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- 手机模拟器 -->
+        <div class="phone-section">
+            <div class="phone-simulator">
+                <div class="phone-screen">
+                    <div class="video-container" id="videoContainer">
+                        <!-- AI检测浮窗 -->
+                        <div class="ai-floater floater-danger" id="aiFloater">
+                            <span class="floater-icon">🚨</span>
+                            <span class="floater-text" id="floaterText">检测到高风险内容</span>
+                        </div>
+                        
+                        <div class="video-content">
+                            <div class="video-avatar" id="videoAvatar">💰</div>
+                            <div class="video-title" id="videoTitle">月入三万的理财秘诀，保证收益！</div>
+                            <div class="video-description" id="videoDescription">跟着老师操作，一个月翻倍，无风险投资，限时优惠！</div>
+                        </div>
+                        
+                        <!-- 右侧操作栏 -->
+                        <div class="video-actions">
+                            <div>
+                                <div class="action-btn" onclick="likeVideo(event)">❤️</div>
+                                <div class="action-count" id="likeCount">1.2万</div>
+                            </div>
+                            <div>
+                                <div class="action-btn" onclick="commentVideo(event)">💬</div>
+                                <div class="action-count">856</div>
+                            </div>
+                            <div>
+                                <div class="action-btn" onclick="shareVideo(event)">📤</div>
+                                <div class="action-count">234</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 底部信息 -->
+                        <div class="video-info">
+                            <div class="user-info">
+                                <div class="video-avatar" style="width: 30px; height: 30px; font-size: 12px;" id="userAvatar">💰</div>
+                                <span class="username" id="username">理财大师王老师</span>
+                                <button class="follow-btn" onclick="followUser(event)">+ 关注</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 滑动提示 -->
+                        <div class="swipe-hint">↑ 滑动切换 ↓</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="control-panel">
+            <div class="panel-header">
+                <h1>🛡️ AI智能检测</h1>
+                <p>实时分析短视频内容安全</p>
+            </div>
+            
+            <!-- 检测结果 -->
+            <div class="detection-card danger" id="detectionCard">
+                <h3><span class="icon">🚨</span>检测结果</h3>
+                <div class="detection-details">
+                    <div class="detail-item">
+                        <div class="detail-label">风险等级</div>
+                        <div class="detail-value" id="riskLevel">危险</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">风险评分</div>
+                        <div class="detail-value" id="riskScore">90%</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">置信度</div>
+                        <div class="detail-value" id="confidence">85%</div>
+                    </div>
+                    <div class="detail-item">
+                        <div class="detail-label">检测时间</div>
+                        <div class="detail-value" id="detectionTime">18:45:30</div>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <h4 style="color: #333; margin-bottom: 8px; font-size: 14px;">🔍 检测原因</h4>
+                    <div id="riskReasons" style="color: #666; line-height: 1.5; font-size: 13px;">
+                        • 发现高危关键词: "保证收益"<br>
+                        • 发现高危关键词: "月入万元"<br>
+                        • 含有联系方式且存在其他风险因素
+                    </div>
+                </div>
+                
+                <div style="margin-top: 15px;">
+                    <h4 style="color: #333; margin-bottom: 8px; font-size: 14px;">💡 安全建议</h4>
+                    <div id="safetyTips" style="color: #666; line-height: 1.5; font-size: 13px;">
+                        • 建议立即停止观看，谨防诈骗<br>
+                        • 投资需谨慎，高收益往往伴随高风险<br>
+                        • 如有疑问，请咨询家人或专业人士
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 控制按钮 -->
+            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin-bottom: 15px; font-size: 16px;">📱 视频控制</h3>
+                <div class="control-buttons">
+                    <button class="control-btn" onclick="previousVideo()">⬆️ 上一个</button>
+                    <button class="control-btn" onclick="nextVideo()">⬇️ 下一个</button>
+                    <button class="control-btn secondary" onclick="startDetection()">🤖 开始检测</button>
+                    <button class="control-btn danger" onclick="reportVideo()">🚫 举报视频</button>
+                </div>
+            </div>
+            
+            <!-- 统计面板 -->
+            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+                <h3 style="color: #333; margin-bottom: 15px; font-size: 16px;">📊 检测统计</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalDetections">127</div>
+                        <div class="stat-label">总检测</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="dangerCount" style="color: #ff4d4f;">23</div>
+                        <div class="stat-label">危险</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="warningCount" style="color: #faad14;">45</div>
+                        <div class="stat-label">警告</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="safeCount" style="color: #52c41a;">59</div>
+                        <div class="stat-label">安全</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- API状态 -->
+            <div style="background: #f0f9ff; border: 1px solid #1890ff; border-radius: 10px; padding: 15px;">
+                <h3 style="color: #333; margin-bottom: 10px; font-size: 16px;">🔧 系统状态</h3>
+                <p id="backendStatus" style="color: #666; margin-bottom: 8px;">后端API: 检查中...</p>
+                <p style="color: #666; font-size: 14px;">
+                    <a href="http://localhost:8008/docs" target="_blank" style="color: #1890ff;">API文档</a> | 
+                    <a href="http://localhost:8008/health" target="_blank" style="color: #1890ff;">健康检查</a>
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 视频数据
+        const videos = [
+            {
+                id: 1,
+                title: "月入三万的理财秘诀，保证收益！",
+                description: "跟着老师操作，一个月翻倍，无风险投资，限时优惠！",
+                username: "理财大师王老师",
+                avatar: "💰",
+                likes: "1.2万",
+                riskLevel: "danger"
+            },
+            {
+                id: 2,
+                title: "祖传秘方包治百病！三天见效！",
+                description: "神奇保健品，医院不告诉你的秘密，一次根治！",
+                username: "神医李大夫",
+                avatar: "🩺",
+                likes: "8756",
+                riskLevel: "danger"
+            },
+            {
+                id: 3,
+                title: "今天教大家做红烧肉",
+                description: "家常菜做法，简单易学，营养美味。",
+                username: "美食小当家",
+                avatar: "👨‍🍳",
+                likes: "2.3万",
+                riskLevel: "safe"
+            },
+            {
+                id: 4,
+                title: "限时抢购！原价999现在99！",
+                description: "机会难得，不要错过！今天最后一天！",
+                username: "超值优惠",
+                avatar: "💸",
+                likes: "5432",
+                riskLevel: "warning"
+            }
+        ];
+        
+        let currentVideoIndex = 0;
+        let statistics = { total: 127, danger: 23, warning: 45, safe: 59 };
+        
+        // 初始化
+        window.onload = function() {
+            showVideo(currentVideoIndex);
+            addSwipeListeners();
+            checkBackendStatus();
+        };
+        
+        // 显示视频
+        function showVideo(index) {
+            const video = videos[index];
+            
+            document.getElementById('videoTitle').textContent = video.title;
+            document.getElementById('videoDescription').textContent = video.description;
+            document.getElementById('username').textContent = video.username;
+            document.getElementById('videoAvatar').textContent = video.avatar;
+            document.getElementById('userAvatar').textContent = video.avatar;
+            document.getElementById('likeCount').textContent = video.likes;
+            
+            // 开始AI检测
+            performAIDetection(video);
+        }
+        
+        // 执行AI检测
+        async function performAIDetection(video) {
+            // 显示检测中
+            const floater = document.getElementById('aiFloater');
+            const floaterText = document.getElementById('floaterText');
+            
+            floater.className = 'ai-floater';
+            floater.style.background = 'rgba(100,100,100,0.2)';
+            floaterText.textContent = '🔍 AI检测中...';
+            
+            // 调用内置AI API
+            try {
+                const response = await fetch('/detect', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: video.title + ' ' + video.description })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        updateDetectionDisplay(result.data);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('使用模拟检测:', error);
+            }
+            
+            // 使用模拟数据
+            const mockResult = {
+                level: video.riskLevel,
+                score: video.riskLevel === 'danger' ? 0.9 : video.riskLevel === 'warning' ? 0.6 : 0.1,
+                confidence: 0.85,
+                reasons: ['模拟检测结果'],
+                suggestions: ['这是模拟建议']
+            };
+            
+            updateDetectionDisplay(mockResult);
+        }
+        
+        // 更新检测显示
+        function updateDetectionDisplay(result) {
+            const floater = document.getElementById('aiFloater');
+            const floaterText = document.getElementById('floaterText');
+            const detectionCard = document.getElementById('detectionCard');
+            
+            // 更新浮窗
+            floater.className = `ai-floater floater-${result.level}`;
+            
+            const levelTexts = {
+                'safe': '✅ 内容安全',
+                'warning': '⚠️ 存在风险',
+                'danger': '🚨 高风险内容'
+            };
+            
+            floaterText.textContent = levelTexts[result.level];
+            
+            // 更新检测卡片
+            detectionCard.className = `detection-card ${result.level}`;
+            
+            const icons = { 'safe': '✅', 'warning': '⚠️', 'danger': '🚨' };
+            detectionCard.querySelector('.icon').textContent = icons[result.level];
+            
+            // 更新数值
+            document.getElementById('riskLevel').textContent = {
+                'safe': '安全', 'warning': '警告', 'danger': '危险'
+            }[result.level];
+            
+            document.getElementById('riskScore').textContent = Math.round(result.score * 100) + '%';
+            document.getElementById('confidence').textContent = Math.round(result.confidence * 100) + '%';
+            document.getElementById('detectionTime').textContent = new Date().toLocaleTimeString('zh-CN');
+            
+            // 更新原因和建议
+            if (result.reasons) {
+                document.getElementById('riskReasons').innerHTML = 
+                    result.reasons.map(r => '• ' + r).join('<br>');
+            }
+            
+            if (result.suggestions) {
+                document.getElementById('safetyTips').innerHTML = 
+                    result.suggestions.map(s => '• ' + s).join('<br>');
+            }
+            
+            // 播放警告音
+            if (result.level === 'danger') {
+                playWarningSound();
+            }
+            
+            // 更新统计
+            statistics.total++;
+            statistics[result.level]++;
+            updateStatistics();
+        }
+        
+        // 播放警告音
+        function playWarningSound() {
+            try {
+                // 检查用户是否已经交互过
+                if (window.audioContextAllowed) {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                } else {
+                    // 显示视觉警告
+                    showVisualWarning();
+                }
+            } catch (error) {
+                console.log('警告音播放失败:', error);
+                showVisualWarning();
+            }
+        }
+        
+        // 显示视觉警告
+        function showVisualWarning() {
+            const warning = document.createElement('div');
+            warning.style.cssText = `
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: #ff4d4f; color: white; padding: 20px; border-radius: 10px;
+                font-size: 20px; font-weight: bold; z-index: 10000;
+                animation: shake 0.5s ease-in-out 3;
+            `;
+            warning.textContent = '🚨 检测到高风险内容！';
+            document.body.appendChild(warning);
+            
+            setTimeout(() => warning.remove(), 3000);
+        }
+        
+        // 启用音频上下文
+        function enableAudioContext() {
+            window.audioContextAllowed = true;
+        }
+        
+        // 更新统计
+        function updateStatistics() {
+            document.getElementById('totalDetections').textContent = statistics.total;
+            document.getElementById('dangerCount').textContent = statistics.danger;
+            document.getElementById('warningCount').textContent = statistics.warning;
+            document.getElementById('safeCount').textContent = statistics.safe;
+        }
+        
+        // 添加滑动监听
+        function addSwipeListeners() {
+            const container = document.getElementById('videoContainer');
+            let startY = 0;
+            let endY = 0;
+            
+            container.addEventListener('mousedown', function(e) {
+                startY = e.clientY;
+            });
+            
+            container.addEventListener('mouseup', function(e) {
+                endY = e.clientY;
+                const diff = startY - endY;
+                if (Math.abs(diff) > 30) {
+                    if (diff > 0) {
+                        nextVideo();
+                    } else {
+                        previousVideo();
+                    }
+                }
+            });
+            
+            // 键盘事件
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowUp') previousVideo();
+                if (e.key === 'ArrowDown') nextVideo();
+            });
+        }
+        
+        // 视频控制函数
+        function nextVideo() {
+            currentVideoIndex = (currentVideoIndex + 1) % videos.length;
+            showVideo(currentVideoIndex);
+        }
+        
+        function previousVideo() {
+            currentVideoIndex = (currentVideoIndex - 1 + videos.length) % videos.length;
+            showVideo(currentVideoIndex);
+        }
+        
+        // 交互函数
+        function likeVideo(event) {
+            event.stopPropagation();
+            enableAudioContext(); // 启用音频
+            const btn = event.target;
+            btn.style.color = '#ff4757';
+            btn.style.transform = 'scale(1.2)';
+            setTimeout(() => btn.style.transform = 'scale(1)', 200);
+        }
+        
+        function commentVideo(event) {
+            event.stopPropagation();
+            alert('💬 评论功能演示');
+        }
+        
+        function shareVideo(event) {
+            event.stopPropagation();
+            alert('📤 分享功能演示');
+        }
+        
+        function followUser(event) {
+            event.stopPropagation();
+            const btn = event.target;
+            btn.textContent = '已关注';
+            btn.style.background = '#52c41a';
+        }
+        
+        function startDetection() {
+            alert('🤖 AI检测已启动');
+        }
+        
+        function reportVideo() {
+            alert('🚫 已举报该视频');
+        }
+        
+        // 检查后端状态
+        async function checkBackendStatus() {
+            try {
+                const response = await fetch('/health');
+                if (response.ok) {
+                    const result = await response.json();
+                    document.getElementById('backendStatus').textContent = `内置AI: ✅ 正常 (${result.training_data || 0}个训练样本)`;
+                    document.getElementById('backendStatus').style.color = '#52c41a';
+                } else {
+                    document.getElementById('backendStatus').textContent = '内置AI: ⚠️ 响应异常';
+                    document.getElementById('backendStatus').style.color = '#faad14';
+                }
+            } catch (error) {
+                document.getElementById('backendStatus').textContent = '内置AI: ❌ 连接失败';
+                document.getElementById('backendStatus').style.color = '#ff4d4f';
+            }
+        }
+    </script>
+</body>
+</html>
