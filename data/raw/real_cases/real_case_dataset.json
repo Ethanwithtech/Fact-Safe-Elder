@@ -1,0 +1,163 @@
+[
+  {
+    "text": "某投资公司承诺年化收益30%，保本保息，实为非法集资骗局",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:e租宝非法集资案",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "虚拟货币投资平台宣称日赚千元，实际为传销组织",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:plustoken传销案",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "P2P理财平台声称国家背景，年化20%收益，最终爆雷跑路",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:多家P2P平台暴雷事件",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "养老金融骗局，以高额回报吸引老年人投资，血本无归",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:养老诈骗专项整治案例",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "外汇交易平台虚假宣传，承诺100%盈利，诱导大额投资",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:外汇黑平台诈骗",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "股票推荐群内幕消息，跟单必赚，实为操纵市场",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:荐股诈骗团伙",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "免费领取养老补贴，要求提供银行卡信息，盗取账户资金",
+    "label": 2,
+    "category": "financial",
+    "source": "真实案例:养老补贴电信诈骗",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "投资理财需谨慎，选择正规金融机构，了解风险等级",
+    "label": 0,
+    "category": "financial",
+    "source": "央行金融知识普及",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "银行理财产品有风险提示，收益不保证，投资需理性",
+    "label": 0,
+    "category": "financial",
+    "source": "银保监会投资者教育",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "权健保健品宣称包治百病，火疗能治癌症，致人死亡",
+    "label": 2,
+    "category": "health",
+    "source": "真实案例:权健事件",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "鸿茅药酒虚假宣传治疗多种疾病，实际违规添加成分",
+    "label": 2,
+    "category": "health",
+    "source": "真实案例:鸿茅药酒事件",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "网传食物相克表科学性存疑，专家辟谣无科学依据",
+    "label": 2,
+    "category": "health",
+    "source": "真实案例:食物相克谣言",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "神医张悟本绿豆治百病理论被证伪，误导大量患者",
+    "label": 2,
+    "category": "health",
+    "source": "真实案例:张悟本事件",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "酸碱体质理论被美国法院判定为骗局，创始人罚款1.05亿美元",
+    "label": 2,
+    "category": "health",
+    "source": "真实案例:酸碱体质骗局",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "减肥药虚假宣传一周瘦20斤，实际含违禁成分导致健康损害",
+    "label": 2,
+    "category": "health",
+    "source": "真实案例:非法减肥药案件",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "健康饮食需均衡营养，遵循膳食指南，适量运动",
+    "label": 0,
+    "category": "health",
+    "source": "国家卫健委健康中国行动",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "就医请选择正规医院，遵医嘱用药，定期体检",
+    "label": 0,
+    "category": "health",
+    "source": "医疗卫生机构规范指导",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "5G基站辐射致癌谣言，专家辟谣符合国际标准",
+    "label": 2,
+    "category": "technology",
+    "source": "真实案例:5G辐射谣言",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "微波炉加热食物产生致癌物质，实为虚假信息",
+    "label": 2,
+    "category": "technology",
+    "source": "真实案例:微波炉谣言",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "手机电池爆炸谣言夸大其词，正常使用安全可靠",
+    "label": 1,
+    "category": "technology",
+    "source": "真实案例:手机电池谣言",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "某地自来水有毒谣言引发抢购，官方辟谣水质安全",
+    "label": 2,
+    "category": "social",
+    "source": "真实案例:自来水谣言",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "食盐抢购谣言造成恐慌，实际供应充足",
+    "label": 2,
+    "category": "social",
+    "source": "真实案例:抢盐风波",
+    "timestamp": "2024-2025"
+  },
+  {
+    "text": "地震谣言引发社会恐慌，地震局及时辟谣",
+    "label": 2,
+    "category": "social",
+    "source": "真实案例:地震谣言",
+    "timestamp": "2024-2025"
+  }
+]

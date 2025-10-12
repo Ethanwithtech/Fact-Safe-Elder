@@ -1,0 +1,51 @@
+{
+  "datasets": {
+    "mcfend": {
+      "path": "data/raw/mcfend/mcfend_data.json",
+      "type": "multimodal",
+      "size": 1000,
+      "description": "多模态中文虚假新闻数据集"
+    },
+    "weibo_rumors": {
+      "path": "data/raw/weibo_rumors/weibo_data.json",
+      "type": "text",
+      "size": 500,
+      "description": "微博谣言检测数据集"
+    },
+    "chinese_rumor": {
+      "path": "data/raw/chinese_rumor/ced_data.json",
+      "type": "text",
+      "size": 300,
+      "description": "中文谣言检测数据集"
+    }
+  },
+  "models": {
+    "chatglm": {
+      "base_model": "THUDM/chatglm-6b",
+      "model_type": "causal_lm",
+      "training_args": {
+        "epochs": 3,
+        "batch_size": 4,
+        "learning_rate": 5e-05,
+        "use_lora": true,
+        "lora_rank": 8
+      }
+    },
+    "bert": {
+      "base_model": "hfl/chinese-bert-wwm-ext",
+      "model_type": "sequence_classification",
+      "training_args": {
+        "epochs": 5,
+        "batch_size": 16,
+        "learning_rate": 2e-05
+      }
+    }
+  },
+  "training": {
+    "output_dir": "models/finetuned",
+    "validation_split": 0.2,
+    "test_split": 0.1,
+    "save_steps": 100,
+    "logging_steps": 10
+  }
+}

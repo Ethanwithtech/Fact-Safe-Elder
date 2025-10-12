@@ -39,7 +39,7 @@ class TrainingRequest(BaseModel):
     validation_split: float = Field(default=0.2, ge=0.1, le=0.5, description="验证集比例")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "model_type": "chatglm",
                 "dataset_id": "mcfend_v1",
@@ -61,7 +61,7 @@ class DatasetUploadRequest(BaseModel):
     format: str = Field(default="json", description="数据格式: json/csv")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "name": "custom_fake_news_v1",
                 "description": "自定义虚假新闻数据集",

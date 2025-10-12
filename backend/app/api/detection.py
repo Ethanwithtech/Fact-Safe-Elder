@@ -4,7 +4,7 @@
 
 import time
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, Request, BackgroundTasks, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 from loguru import logger
@@ -206,9 +206,7 @@ async def get_detection_stats(
 
 @router.post("/detect/feedback")
 async def submit_feedback(
-    detection_id: str = Field(..., description="检测ID"),
-    feedback: str = Field(..., description="反馈内容"),
-    rating: int = Field(..., ge=1, le=5, description="评分(1-5)"),
+    feedback_request: dict,
     detection_engine: DetectionEngine = Depends(get_detection_engine)
 ):
     """
@@ -224,6 +222,10 @@ async def submit_feedback(
         dict: 反馈提交结果
     """
     try:
+        detection_id = feedback_request.get("detection_id", "")
+        feedback = feedback_request.get("feedback", "")
+        rating = feedback_request.get("rating", 3)
+        
         # 记录反馈
         await detection_engine.record_feedback(
             detection_id=detection_id,
@@ -250,8 +252,8 @@ async def submit_feedback(
 @router.get("/detect/history")
 async def get_detection_history(
     user_id: Optional[str] = None,
-    limit: int = Field(default=20, le=100, description="返回数量限制"),
-    offset: int = Field(default=0, ge=0, description="偏移量"),
+    limit: int = Query(default=20, le=100, description="返回数量限制"),
+    offset: int = Query(default=0, ge=0, description="偏移量"),
     detection_engine: DetectionEngine = Depends(get_detection_engine)
 ):
     """

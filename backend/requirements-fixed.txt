@@ -1,0 +1,51 @@
+# 修复版依赖配置 - 兼容性优先
+
+# Web框架 (兼容版本)
+fastapi==0.115.0
+uvicorn[standard]==0.32.1
+
+# 数据验证 (最新兼容版本)
+pydantic==2.11.0
+pydantic-settings==2.8.0
+
+# HTTP和异步
+httpx==0.28.1
+anyio==4.7.0
+starlette==0.41.3
+
+# 数据库 (可选，暂时移除以减少冲突)
+# sqlalchemy==2.0.23
+# psycopg2-binary==2.9.9
+
+# 缓存 (可选)
+# redis==5.0.1
+
+# 基础工具
+requests==2.32.3
+python-dotenv==1.1.0
+python-multipart==0.0.9
+
+# 数据处理
+pandas==2.2.0
+numpy==1.26.4
+
+# AI和ML (精选稳定版本)
+torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+transformers==4.46.3
+huggingface-hub==0.26.0
+tokenizers==0.20.3
+safetensors==0.4.3
+
+# NLP工具
+jieba==0.42.1
+sentencepiece==0.2.0
+
+# 日志
+loguru==0.7.2
+
+# 监控
+psutil==6.1.0
+
+# 开发工具
+pytest==8.3.3
+black==24.10.0

@@ -4,7 +4,7 @@
   "description": "老人短视频虚假信息检测系统 - 前端",
   "main": "index.js",
   "scripts": {
-    "start": "react-scripts start",
+    "start": "set REACT_APP_API_URL=http://localhost:8008 && react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
