@@ -1,336 +1,176 @@
-# 🛡️ AI守护 - 老人短视频虚假信息检测系统 v2.0
+# 🛡️ 老人短视频虚假信息检测系统
 
-<div align="center">
-  <h3>🤖 基于ChatGLM、BERT、LLaMA的智能防护系统</h3>
-  <p>
-    <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=flat-square" alt="Version">
-    <img src="https://img.shields.io/badge/AI-Powered-green?style=flat-square" alt="AI">
-    <img src="https://img.shields.io/badge/Status-Active-success?style=flat-square" alt="Status">
-  </p>
-</div>
-
-> 集成大语言模型的智能虚假信息检测平台 - 守护老年人的数字生活安全
+基于多模态AI的短视频虚假信息检测系统，专为保护老年人群体设计。
 
 ## 📋 项目简介
 
-**AI守护**是一个基于最新大语言模型技术的智能虚假信息检测系统，专为保护老年人免受短视频平台诈骗和虚假信息侵害而设计。系统集成了ChatGLM-6B、Chinese-BERT、LLaMA-7B等先进AI模型，通过多模态分析和集成学习，提供准确率超过95%的实时检测服务。
+随着短视频平台的快速发展，虚假信息传播问题日益严重，老年人群体因数字素养相对较低成为主要受害者。本系统运用先进的多模态AI技术，实时检测并预警金融诈骗、医疗错误信息和假新闻。
 
 ### 🎯 核心功能
 
-#### 🤖 AI检测能力
-- **ChatGLM-6B**: 深度语义理解和对话分析
-- **BERT分类器**: 高精度文本分类和情感分析
-- **LLaMA推理**: 多语言内容理解和逻辑推理
-- **集成学习**: 多模型投票机制，准确率95%+
-- **实时推理**: 毫秒级响应，支持流式输出
+- 🔍 **多模态检测**: 文本 + 视觉 + 音频三模态融合分析
+- ⚠️ **智能预警**: 三级风险评估（安全/警告/危险）
+- 📱 **家人通知**: 检测到高风险内容时自动通知家人
+- 📊 **可解释性**: 清晰说明风险原因和建议
 
-#### 📱 仿真体验
-- **手机模拟器**: 1:1还原抖音/快手界面
-- **滑动交互**: 上下滑动切换视频
-- **实时弹幕**: 模拟真实评论流
-- **社交互动**: 点赞、评论、分享功能
+### 🧪 技术亮点
 
-#### 🎓 训练平台
-- **在线训练**: 支持ChatGLM/BERT/LLaMA微调
-- **数据集管理**: MCFEND、微博等多源数据
-- **LoRA微调**: 高效参数微调技术
-- **实时监控**: 训练进度和指标可视化
-
-#### 👴 适老化设计
-- **大字体显示**: 18-26px自适应调节
-- **语音播报**: 检测结果语音提示
-- **颜色标识**: 绿黄红三级直观预警
-- **简化操作**: 一键启动，自动检测
-
-### 🎨 适老化设计特色
-
-- **大字体**: 18-26px字体大小，支持自定义调节
-- **高对比度**: 清晰的颜色对比，便于老人阅读
-- **简单操作**: 大按钮设计，最小44px点击区域
-- **语音提示**: 检测到风险时播放警告音
-- **直观标识**: 使用颜色和图标双重标识风险等级
-
-## 🏗️ 系统架构
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                        前端展示层                              │
-│     React 18 + TypeScript + Ant Design 5 + Swiper 11         │
-│     手机模拟器 | 训练面板 | 检测浮窗 | 适老化界面              │
-└──────────────────────────────────────────────────────────────┘
-                               ↕
-┌──────────────────────────────────────────────────────────────┐
-│                        API服务层                               │
-│              FastAPI + WebSocket + REST API                   │
-│         检测接口 | 训练API | 数据集API | 模型管理              │
-└──────────────────────────────────────────────────────────────┘
-                               ↕
-┌──────────────────────────────────────────────────────────────┐
-│                      AI推理引擎层                              │
-│   ChatGLM-6B | BERT-Chinese | LLaMA-7B | Ensemble Model      │
-│     LoRA微调 | INT8量化 | TorchServe | Triton Server         │
-└──────────────────────────────────────────────────────────────┘
-                               ↕
-┌──────────────────────────────────────────────────────────────┐
-│                       数据处理层                               │
-│    Transformers | PyTorch | Pandas | NumPy | Datasets        │
-│      文本处理 | 音频处理 | 视频处理 | 特征工程                 │
-└──────────────────────────────────────────────────────────────┘
-                               ↕
-┌──────────────────────────────────────────────────────────────┐
-│                        存储层                                  │
-│   PostgreSQL | Redis | MinIO | MongoDB | Model Registry      │
-│     业务数据 | 缓存 | 文件存储 | 日志 | 模型版本管理            │
-└──────────────────────────────────────────────────────────────┘
-```
+- **FakeSV架构**: 基于AAAI 2023最新短视频假新闻检测方法
+- **BERT中文预训练**: 使用chinese-bert-wwm-ext进行语义理解
+- **跨模态注意力**: 实现文本-视觉-音频信息融合
+- **规则引擎增强**: AI + 规则双重保障
 
 ## 🚀 快速开始
 
-### 系统要求
+### 环境要求
 
-- **操作系统**: Windows 10+, macOS 10.15+, Ubuntu 18.04+
-- **Docker**: 20.10+ 和 Docker Compose 2.0+
-- **浏览器**: Chrome 88+, Edge 88+, Firefox 78+
-- **内存**: 最小 4GB RAM
-- **存储**: 最小 2GB 可用空间
+- Python 3.9+
+- Node.js 18+ (前端开发)
+- CUDA 11.8+ (GPU训练，可选)
 
-### 一键启动
-
-1. **克隆项目**
-```bash
-git clone https://github.com/your-org/fact-safe-elder.git
-cd fact-safe-elder
-```
-
-2. **启动开发环境**
-```bash
-chmod +x start.sh
-./start.sh dev
-```
-
-3. **访问应用**
-- 🌐 前端应用: http://localhost:3000
-- 🔧 后端API: http://localhost:8000
-- 📚 API文档: http://localhost:8000/docs
-
-### 手动启动
-
-如果需要手动启动各个服务:
+### 安装步骤
 
 ```bash
-# 启动后端服务
+# 1. 克隆项目
+git clone https://github.com/yourusername/Fact-Safe-Elder.git
+cd Fact-Safe-Elder
+
+# 2. 安装后端依赖
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-# 启动前端服务
-cd frontend
+# 3. 启动后端服务
+python -m app.main
+# 或使用简化版
+uvicorn app.main_simple:app --reload --port 8000
+
+# 4. 安装前端依赖 (可选)
+cd ../frontend
 npm install
 npm start
 ```
 
-## 📖 使用说明
-
-### 老年用户操作指南
-
-1. **🎤 开始监听**
-   - 点击"开始监听"按钮
-   - 允许浏览器访问麦克风权限
-   - 系统开始实时监听短视频音频
-
-2. **📱 观看短视频**
-   - 正常使用抖音、微信等平台观看短视频
-   - 系统会自动分析视频内容
-   - 无需额外操作，后台静默检测
-
-3. **⚠️ 风险提示**
-   - 🟢 绿色: 内容安全，可正常观看
-   - 🟡 黄色: 注意风险，建议谨慎对待
-   - 🔴 红色: 高风险内容，建议立即停止
-
-4. **🔧 个人设置**
-   - 点击右上角"设置"按钮
-   - 调整字体大小和对比度
-   - 设置家人联系方式
-   - 调节检测敏感度
-
-### 家属监护功能
-
-- **📞 自动通知**: 检测到高风险内容时自动发送通知
-- **📊 查看历史**: 查看长辈的检测历史记录
-- **⚙️ 远程设置**: 帮助长辈调整系统设置
-
-## 🔧 配置说明
-
-### 环境变量配置
-
-创建 `.env` 文件并配置以下变量:
+### Docker部署
 
 ```bash
-# 基础配置
-DEBUG=true
-HOST=0.0.0.0
-PORT=8000
-
-# 数据库配置
-DATABASE_URL=postgresql://user:password@localhost:5432/elder_safety
-REDIS_URL=redis://localhost:6379/0
-
-# AI模型配置
-WHISPER_MODEL=base
-USE_GPU=false
-
-# 通知配置 (可选)
-EMAIL_ENABLED=false
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-password
-
-# 百度语音API (可选)
-BAIDU_APP_ID=your-app-id
-BAIDU_API_KEY=your-api-key
-BAIDU_SECRET_KEY=your-secret-key
+docker-compose up -d
 ```
 
-### 检测规则配置
+## 📊 数据集
 
-系统支持自定义检测规则，配置文件位于 `backend/app/data/keywords.json`:
+系统支持以下数据集进行训练:
 
-```json
+| 数据集 | 描述 | 样本量 |
+|--------|------|--------|
+| comprehensive_training_set | 自定义标注数据 | 12,000+ |
+| chinese_rumor (CED) | 微博辟谣数据 | 31,000+ |
+| weibo_rumors | 微博谣言数据 | 5,000+ |
+| mcfend | 多源中文假新闻 | 10,000+ |
+
+## 🏋️ 模型训练
+
+### 本地训练
+
+```bash
+# 使用默认参数训练
+python train_multimodal_model.py
+
+# 自定义参数
+python train_multimodal_model.py \
+    --epochs 10 \
+    --batch_size 16 \
+    --learning_rate 2e-5 \
+    --output_dir ./models \
+    --fp16
+```
+
+### Google Colab训练
+
+详见 [COLAB_训练指南.md](./COLAB_训练指南.md)
+
+```python
+# Colab快速开始
+!pip install torch transformers loguru tqdm scikit-learn
+!python train_multimodal_model.py --device cuda --fp16
+```
+
+## 📁 项目结构
+
+```
+tyt/
+├── backend/                 # 后端服务
+│   ├── app/
+│   │   ├── main.py         # FastAPI主入口
+│   │   ├── services/       # 业务逻辑
+│   │   │   ├── multimodal_detector.py  # 多模态检测器
+│   │   │   ├── family_notification.py  # 家人通知
+│   │   │   └── dataset_loader.py       # 数据加载
+│   │   └── api/            # API路由
+│   └── requirements.txt
+├── frontend/               # 前端应用
+│   ├── src/
+│   │   ├── components/     # React组件
+│   │   └── services/       # 前端服务
+│   └── package.json
+├── data/                   # 数据目录
+│   └── raw/               # 原始数据
+├── models/                # 模型文件
+├── train_multimodal_model.py  # 训练脚本
+├── PRD_老人短视频虚假信息检测系统.md
+├── 技术设计文档.md
+└── README.md
+```
+
+## 🔌 API接口
+
+### 检测接口
+
+```bash
+POST /detect
+Content-Type: application/json
+
 {
-  "financial_fraud": [
-    "保证收益", "无风险投资", "月入万元"
-  ],
-  "medical_fraud": [
-    "包治百病", "神奇疗效", "祖传秘方"
-  ]
+    "text": "投资高收益理财产品，保本保息年化30%",
+    "source": "test"
 }
 ```
 
-## 🧪 测试
-
-### 运行测试套件
-
-```bash
-# 运行所有测试
-./start.sh test
-
-# 单独运行后端测试
-cd backend
-python -m pytest tests/ -v
-
-# 单独运行前端测试
-cd frontend
-npm test
+响应示例:
+```json
+{
+    "success": true,
+    "message": "检测完成",
+    "data": {
+        "level": "danger",
+        "score": 0.92,
+        "confidence": 0.88,
+        "message": "⚠️ 高风险：检测到疑似诈骗信息",
+        "reasons": ["金融风险词汇: 高收益, 保本保息, 年化"],
+        "suggestions": ["投资需谨慎，高收益往往伴随高风险"]
+    }
+}
 ```
 
-### 手动测试案例
+### 健康检查
 
-系统内置了测试用例，包括:
+```bash
+GET /health
+```
 
-- **🔴 高风险**: "投资理财，月入3万，保证收益，无风险！"
-- **🟡 中风险**: "神奇保健品，三天见效，医院不告诉你的秘密"
-- **🟢 安全内容**: "正规银行理财产品，年化收益3.5%，风险需谨慎"
+## 📚 参考论文
 
-## 📊 性能指标
-
-- **检测延迟**: < 3秒
-- **检测准确率**: > 85%
-- **系统可用性**: > 99%
-- **内存占用**: < 512MB
-- **CPU占用**: < 20%
-
-## 🔐 安全和隐私
-
-### 数据保护
-
-- **🔒 本地处理**: 音频数据仅在本地处理，不上传服务器
-- **🛡️ 加密传输**: 所有网络通信使用HTTPS加密
-- **🗑️ 数据清理**: 支持一键清除所有本地数据
-- **👤 隐私优先**: 最小化数据收集，用户完全控制
-
-### 安全措施
-
-- **🚫 无数据收集**: 不收集用户个人信息
-- **🔐 本地存储**: 设置和历史记录仅存储在本地
-- **🛡️ 权限控制**: 仅请求必要的麦克风权限
-- **🔍 开源透明**: 代码完全开源，接受社区监督
+1. **FakeSV** - "A Multimodal Benchmark with Rich Social Context for Fake News Detection on Short Video Platforms" (AAAI 2023)
+2. **SpotFake** - "A Multimodal Framework for Fake News Detection" (IEEE BigMM 2019)
+3. **Chinese-BERT-wwm** - "Pre-Training with Whole Word Masking for Chinese BERT"
 
 ## 🤝 贡献指南
 
-我们欢迎所有形式的贡献！
-
-### 参与方式
-
-1. **🐛 报告Bug**: 提交Issue描述问题
-2. **💡 功能建议**: 提出新功能需求
-3. **🔧 代码贡献**: 提交Pull Request
-4. **📖 文档改进**: 完善文档和注释
-5. **🌍 多语言支持**: 添加其他语言支持
-
-### 开发流程
-
-1. Fork 本仓库
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
-### 代码规范
-
-- **前端**: 使用 ESLint + Prettier
-- **后端**: 使用 Black + Flake8
-- **提交**: 遵循 Conventional Commits
-- **测试**: 保持代码覆盖率 > 80%
+欢迎提交Issue和Pull Request!
 
 ## 📄 许可证
 
-本项目基于 MIT 许可证开源 - 查看 [LICENSE](LICENSE) 文件了解详情。
+MIT License
 
-## 🆘 常见问题
+## 📞 联系方式
 
-### Q: 浏览器提示"麦克风权限被拒绝"怎么办？
-
-A: 
-1. 点击浏览器地址栏左侧的锁形图标
-2. 将麦克风权限设置为"允许"
-3. 刷新页面重新尝试
-
-### Q: 检测结果不准确怎么办？
-
-A:
-1. 在设置中调整检测敏感度
-2. 查看详细检测结果了解原因
-3. 提交反馈帮助改进系统
-
-### Q: 如何添加新的检测关键词？
-
-A:
-1. 编辑 `backend/app/services/detection.py` 文件
-2. 在相应的关键词列表中添加新词汇
-3. 重启后端服务生效
-
-### Q: 系统支持哪些平台的短视频？
-
-A: 目前支持所有基于浏览器播放的短视频平台，包括抖音网页版、微信视频号、快手等。
-
-## 📞 联系我们
-
-- **项目主页**: https://github.com/your-org/fact-safe-elder
-- **问题反馈**: https://github.com/your-org/fact-safe-elder/issues
-- **邮箱联系**: contact@fact-safe-elder.com
-- **技术支持**: support@fact-safe-elder.com
-
-## 🙏 致谢
-
-感谢所有为这个项目做出贡献的开发者和用户！
-
-特别感谢：
-- 参与测试的老年用户群体
-- 提供技术支持的开源社区
-- 关心老年人数字安全的社会各界人士
-
----
-
-**让技术守护长辈，让爱传递安全** 💝
+如有问题，请提交Issue或联系项目维护者。

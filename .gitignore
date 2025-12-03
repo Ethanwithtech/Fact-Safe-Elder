@@ -135,3 +135,4 @@ settings.local.json
 # Redis dump
 dump.rdb
 
+.vercel

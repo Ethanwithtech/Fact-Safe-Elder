@@ -531,7 +531,7 @@ export default class AIDetectionService {
       }
     });
     
-    return [...new Set(suggestions)]; // 去重
+    return Array.from(new Set(suggestions)); // 去重
   }
 
   /**
