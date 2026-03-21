@@ -1,9 +1,10 @@
-/* 训练监控仪表板样式 */
+/* 训练监控仪表板样式 - 黑白蓝主题 */
 
 .training-dashboard {
   padding: 20px;
-  background: #f0f2f5;
+  background: #000000;
   min-height: calc(100vh - 120px);
+  color: #ffffff;
 }
 
 .dashboard-actions {
@@ -15,17 +16,20 @@
 
 /* 训练任务卡片 */
 .training-task-card {
-  background: #fafafa;
-  border: 1px solid #e8e8e8;
+  background: #1a1a1a;
+  border: 2px solid #0066cc;
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 16px;
   transition: all 0.3s ease;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
 }
 
 .training-task-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border-color: #1890ff;
+  box-shadow: 0 0 20px rgba(0, 102, 204, 0.5);
+  border-color: #4da3ff;
+  transform: translateY(-2px);
 }
 
 .task-header {
@@ -44,52 +48,63 @@
   justify-content: space-between;
   margin-bottom: 8px;
   font-size: 13px;
-  color: #666;
+  color: #cccccc;
 }
 
 /* 日志控制台 */
 .task-logs {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px dashed #e8e8e8;
+  border-top: 1px solid #333333;
 }
 
 .log-console {
-  background: #1d1d1d;
-  color: #00ff00;
-  padding: 12px;
+  background: #0a0a0a;
+  border: 1px solid #0066cc;
   border-radius: 4px;
+  padding: 12px;
+  max-height: 200px;
+  overflow-y: auto;
   font-family: 'Courier New', monospace;
   font-size: 12px;
-  max-height: 100px;
-  overflow-y: auto;
+  color: #00ff00;
+  box-shadow: inset 0 0 10px rgba(0, 102, 204, 0.2);
 }
 
-.log-line {
+.log-entry {
   margin-bottom: 4px;
-  white-space: pre-wrap;
-  word-break: break-all;
+  padding: 2px 4px;
+  border-radius: 2px;
+  transition: background 0.2s;
 }
 
-.log-time {
-  color: #888;
-  margin-right: 8px;
+.log-entry:hover {
+  background: rgba(0, 102, 204, 0.1);
 }
 
-.log-text {
+.log-entry.error {
+  color: #ff4444;
+}
+
+.log-entry.warning {
+  color: #ffa500;
+}
+
+.log-entry.success {
   color: #00ff00;
 }
 
-/* 数据集统计 */
-.dataset-stats {
-  padding: 12px 0;
+/* 统计卡片 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .stat-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 8px 0;
-  border-bottom: 1px dashed #e8e8e8;
+  padding: 12px 16px;
+  border-bottom: 1px solid #333333;
 }
 
 .stat-item:last-child {
@@ -97,14 +112,15 @@
 }
 
 .stat-label {
-  color: #666;
+  color: #cccccc;
   font-size: 14px;
 }
 
 .stat-value {
   font-weight: 600;
-  color: #1890ff;
+  color: #0066cc;
   font-size: 16px;
+  text-shadow: 0 0 5px #0066cc;
 }
 
 /* 标签分布 */
@@ -112,137 +128,123 @@
   margin-bottom: 12px;
 }
 
-/* 时间线样式 */
-.timeline-item {
-  padding: 8px 0;
+.label-distribution .ant-progress-text {
+  color: #ffffff !important;
 }
 
-.timeline-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.timeline-meta {
-  color: #666;
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.timeline-time {
-  color: #999;
-  font-size: 12px;
-}
-
-/* 主标签页 */
-.main-tabs .ant-tabs-nav {
-  background: white;
-  padding: 0 20px;
-  border-radius: 8px 8px 0 0;
-  margin-bottom: 0;
-}
-
-.main-tabs .ant-tabs-content {
-  background: transparent;
-  padding: 0;
-}
-
-/* 卡片样式优化 */
-.ant-card {
+/* 训练配置 */
+.training-config {
+  background: #1a1a1a;
+  border: 2px solid #0066cc;
   border-radius: 8px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
+  padding: 16px;
+  margin-bottom: 16px;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
 }
 
-.ant-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+.config-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #333333;
 }
 
-/* 表格样式优化 */
-.ant-table-thead > tr > th {
-  background: #fafafa;
-  font-weight: 600;
+.config-item:last-child {
+  border-bottom: none;
 }
 
-.ant-table-tbody > tr:hover > td {
-  background: #f0f9ff;
-}
-
-/* 进度条动画 */
-@keyframes progress-active {
-  0% {
-    opacity: 0.1;
-    transform: translateX(-100%);
-  }
-  100% {
-    opacity: 0.3;
-    transform: translateX(100%);
-  }
-}
-
-.ant-progress-status-active .ant-progress-bg::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.4),
-    transparent
-  );
-  animation: progress-active 2s linear infinite;
-}
-
-/* 状态指示器 */
-.status-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 12px;
+.config-label {
+  color: #cccccc;
   font-weight: 500;
 }
 
-.status-indicator.running {
-  background: rgba(24, 144, 255, 0.1);
-  color: #1890ff;
-  border: 1px solid rgba(24, 144, 255, 0.3);
+.config-value {
+  color: #4da3ff;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 3px #0066cc;
 }
 
-.status-indicator.success {
-  background: rgba(82, 196, 26, 0.1);
-  color: #52c41a;
-  border: 1px solid rgba(82, 196, 26, 0.3);
+/* 数据集列表 */
+.dataset-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.status-indicator.error {
-  background: rgba(255, 77, 79, 0.1);
-  color: #ff4d4f;
-  border: 1px solid rgba(255, 77, 79, 0.3);
-}
-
-/* 模型卡片 */
-.model-card {
-  background: white;
-  border: 1px solid #e8e8e8;
+.dataset-card {
+  background: #1a1a1a;
+  border: 2px solid #0066cc;
   border-radius: 8px;
   padding: 16px;
   transition: all 0.3s ease;
   cursor: pointer;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
+}
+
+.dataset-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(0, 102, 204, 0.5);
+  border-color: #4da3ff;
+}
+
+.dataset-card.selected {
+  border-color: #00ff00;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+}
+
+.dataset-name {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #4da3ff;
+  text-shadow: 0 0 5px #0066cc;
+}
+
+.dataset-info {
+  font-size: 13px;
+  color: #cccccc;
+  margin-bottom: 4px;
+}
+
+.dataset-info span {
+  color: #0066cc;
+  font-weight: 600;
+}
+
+/* 模型列表 */
+.model-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+/* 模型卡片 */
+.model-card {
+  background: #1a1a1a;
+  border: 2px solid #0066cc;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
 }
 
 .model-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #1890ff;
+  box-shadow: 0 0 20px rgba(0, 102, 204, 0.5);
+  border-color: #4da3ff;
 }
 
-.model-card-header {
+.model-card.active {
+  border-color: #00ff00;
+  box-shadow: 0 0 20px rgba(0, 255, 0, 0.4);
+}
+
+.model-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -252,13 +254,16 @@
 .model-name {
   font-size: 16px;
   font-weight: 600;
+  color: #4da3ff;
+  text-shadow: 0 0 5px #0066cc;
 }
 
 .model-metrics {
   display: flex;
   gap: 16px;
   padding: 12px 0;
-  border-top: 1px dashed #e8e8e8;
+  border-top: 1px solid #333333;
+  border-bottom: 1px solid #333333;
 }
 
 .metric-item {
@@ -267,7 +272,7 @@
 }
 
 .metric-label {
-  color: #666;
+  color: #cccccc;
   font-size: 12px;
   margin-bottom: 4px;
 }
@@ -275,7 +280,8 @@
 .metric-value {
   font-size: 20px;
   font-weight: 600;
-  color: #1890ff;
+  color: #0066cc;
+  text-shadow: 0 0 5px #0066cc;
 }
 
 /* 响应式设计 */
@@ -283,108 +289,157 @@
   .training-dashboard {
     padding: 12px;
   }
-  
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dataset-list,
+  .model-list {
+    grid-template-columns: 1fr;
+  }
+
   .dashboard-actions {
     flex-direction: column;
     gap: 12px;
   }
-  
-  .task-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+}
+
+/* Ant Design 组件覆盖 */
+.training-dashboard .ant-card {
+  background: #1a1a1a;
+  border: 2px solid #0066cc;
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
+}
+
+.training-dashboard .ant-card-head {
+  color: #ffffff;
+  border-bottom-color: #0066cc;
+  background: #0a0a0a;
+}
+
+.training-dashboard .ant-card-head-title {
+  color: #4da3ff;
+  font-weight: 600;
+  text-shadow: 0 0 5px #0066cc;
+}
+
+.training-dashboard .ant-card-body {
+  color: #ffffff;
+}
+
+.training-dashboard .ant-btn-primary {
+  background: #0066cc;
+  border-color: #0066cc;
+  box-shadow: 0 0 10px rgba(0, 102, 204, 0.4);
+}
+
+.training-dashboard .ant-btn-primary:hover {
+  background: #4da3ff;
+  border-color: #4da3ff;
+  box-shadow: 0 0 15px rgba(77, 163, 255, 0.5);
+}
+
+.training-dashboard .ant-table {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.training-dashboard .ant-table-thead > tr > th {
+  background: #0a0a0a;
+  color: #4da3ff;
+  border-bottom: 2px solid #0066cc;
+}
+
+.training-dashboard .ant-table-tbody > tr > td {
+  border-bottom: 1px solid #333333;
+  color: #ffffff;
+}
+
+.training-dashboard .ant-table-tbody > tr:hover > td {
+  background: rgba(0, 102, 204, 0.1);
+}
+
+.training-dashboard .ant-progress-text {
+  color: #ffffff !important;
+}
+
+.training-dashboard .ant-progress-bg {
+  background: linear-gradient(90deg, #0066cc, #4da3ff);
+  box-shadow: 0 0 10px rgba(0, 102, 204, 0.5);
+}
+
+.training-dashboard .ant-tabs-tab {
+  color: #cccccc;
+}
+
+.training-dashboard .ant-tabs-tab-active {
+  color: #4da3ff !important;
+}
+
+.training-dashboard .ant-tabs-ink-bar {
+  background: #0066cc;
+  box-shadow: 0 0 10px rgba(0, 102, 204, 0.5);
+}
+
+.training-dashboard .ant-select-selector {
+  background: #1a1a1a !important;
+  border-color: #0066cc !important;
+  color: #ffffff !important;
+}
+
+.training-dashboard .ant-select-item {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.training-dashboard .ant-select-item-option-selected {
+  background: #0066cc !important;
+}
+
+.training-dashboard .ant-input {
+  background: #1a1a1a;
+  border-color: #0066cc;
+  color: #ffffff;
+}
+
+.training-dashboard .ant-input:focus,
+.training-dashboard .ant-input:hover {
+  border-color: #4da3ff;
+  box-shadow: 0 0 8px rgba(0, 102, 204, 0.3);
+}
+
+/* 动画效果 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(0, 102, 204, 0.3);
   }
-  
-  .progress-info {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .model-metrics {
-    flex-direction: column;
-    gap: 8px;
+  50% {
+    box-shadow: 0 0 25px rgba(0, 102, 204, 0.6);
   }
 }
 
-/* 加载动画 */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+.training-task-card.training {
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
-.loading-spinner {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(24, 144, 255, 0.3);
-  border-top-color: #1890ff;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+/* 滚动条样式 */
+.training-dashboard *::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-/* 高对比度模式 */
-@media (prefers-contrast: high) {
-  .training-task-card {
-    border: 2px solid #000;
-  }
-  
-  .log-console {
-    background: #000;
-    color: #fff;
-  }
-  
-  .model-card {
-    border: 2px solid #000;
-  }
+.training-dashboard *::-webkit-scrollbar-track {
+  background: #0a0a0a;
+  border-radius: 4px;
 }
 
-/* 暗黑模式支持 */
-@media (prefers-color-scheme: dark) {
-  .training-dashboard {
-    background: #141414;
-  }
-  
-  .ant-card {
-    background: #1f1f1f;
-    border-color: #303030;
-  }
-  
-  .training-task-card {
-    background: #262626;
-    border-color: #303030;
-  }
-  
-  .model-card {
-    background: #262626;
-    border-color: #303030;
-  }
-  
-  .ant-table-thead > tr > th {
-    background: #1f1f1f;
-    color: #fff;
-  }
-  
-  .ant-table-tbody > tr > td {
-    color: #fff;
-  }
+.training-dashboard *::-webkit-scrollbar-thumb {
+  background: #0066cc;
+  border-radius: 4px;
 }
 
-/* 打印样式 */
-@media print {
-  .dashboard-actions {
-    display: none;
-  }
-  
-  .ant-tabs-nav {
-    display: none;
-  }
-  
-  .training-dashboard {
-    background: white;
-  }
-  
-  .ant-card {
-    box-shadow: none;
-    border: 1px solid #ccc;
-  }
+.training-dashboard *::-webkit-scrollbar-thumb:hover {
+  background: #4da3ff;
 }

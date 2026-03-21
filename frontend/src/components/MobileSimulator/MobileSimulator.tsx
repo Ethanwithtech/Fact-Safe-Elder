@@ -302,7 +302,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult }) 
                       </div>
                       <div className="music-info">
                         <span className="music-icon">🎵</span>
-                        <marquee>{video.music}</marquee>
+                        <div className="music-text">{video.music}</div>
                       </div>
                     </div>
 

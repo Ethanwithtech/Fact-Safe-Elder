@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>寻找健康的味道 - 酮伴妈妈的屋邨奇遇</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: background 0.8s ease;
+            background-attachment: fixed;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        }
+
+        body[data-scene="intro"] {
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+        }
+
+        body[data-scene="scene1"] {
+            background: linear-gradient(130deg, #ffe0b5 0%, #ffab91 100%);
+        }
+
+        body[data-scene="scene2"] {
+            background: linear-gradient(130deg, #ffe5c3 0%, #fda085 100%);
+        }
+
+        body[data-scene="scene3"] {
+            background: linear-gradient(130deg, #ffd1c1 0%, #ff9a8b 100%);
+        }
+
+        body[data-scene="scene4"] {
+            background: linear-gradient(130deg, #fff5d7 0%, #f7c6a3 100%);
+        }
+
+        body[data-scene="scene5"] {
+            background: linear-gradient(130deg, #ffe1d6 0%, #ffb6a0 100%);
+        }
+
+        body[data-scene="finish"] {
+            background: linear-gradient(130deg, #fffaf3 0%, #f3e4d3 100%);
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff9a8b 0%, #ff6a88 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .progress-bar {
+            background: rgba(255, 255, 255, 0.3);
+            height: 8px;
+            border-radius: 4px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            background: #ffcc5c;
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        .score-display {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .journey-map {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .journey-step {
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: 16px;
+            padding: 15px 12px;
+            text-align: center;
+            border: 2px solid transparent;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            transition: transform 0.3s ease, border 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .journey-step .step-badge {
+            display: inline-flex;
+            width: 36px;
+            height: 36px;
+            border-radius: 999px;
+            align-items: center;
+            justify-content: center;
+            background: #ffe0c9;
+            color: #a0522d;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .journey-step p {
+            font-size: 15px;
+            font-weight: 600;
+            color: #8a4f2d;
+        }
+
+        .journey-step small {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .journey-step.active {
+            border-color: #ff8a5c;
+            transform: translateY(-4px);
+            box-shadow: 0 12px 30px rgba(255, 138, 92, 0.35);
+        }
+
+        .journey-step.active .step-badge {
+            background: #ff8a5c;
+            color: #fff;
+        }
+
+        .journey-step.completed {
+            border-color: #28a745;
+        }
+
+        .journey-step.completed .step-badge {
+            background: #28a745;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .scene {
+            display: none;
+            animation: fadeIn 0.6s ease;
+        }
+
+        .scene.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .scene-image {
+            width: 100%;
+            height: 300px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 80px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scene-image.photo {
+            --photo: none;
+            background-image: linear-gradient(135deg, rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.45)), var(--photo);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: none;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.25);
+        }
+
+        .scene-image.photo .photo-chip {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            padding: 6px 16px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 13px;
+            font-weight: 600;
+            color: #333;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.25);
+        }
+
+        .scene-image .city-layer {
+            position: absolute;
+            width: 140%;
+            border-radius: 40% 40% 0 0;
+            left: -20%;
+            opacity: 0.5;
+            transform-origin: center;
+        }
+
+        .scene-image .layer-back {
+            height: 65%;
+            bottom: -30%;
+            background: rgba(255, 255, 255, 0.25);
+            transform: rotate(-3deg);
+        }
+
+        .scene-image .layer-mid {
+            height: 55%;
+            bottom: -28%;
+            background: rgba(255, 255, 255, 0.35);
+            transform: rotate(2deg);
+        }
+
+        .scene-image .layer-front {
+            height: 45%;
+            bottom: -25%;
+            background: rgba(255, 255, 255, 0.45);
+            transform: rotate(-1deg);
+        }
+
+        .scene-image .floating-icon {
+            position: absolute;
+            font-size: 48px;
+            opacity: 0.8;
+            animation: floaty 8s ease-in-out infinite;
+        }
+
+        .floating-icon.delay-2 {
+            animation-delay: 1.5s;
+        }
+
+        .floating-icon.delay-3 {
+            animation-delay: 3s;
+        }
+
+        @keyframes floaty {
+            0% {
+                transform: translate(0, 0);
+            }
+            50% {
+                transform: translate(6px, -12px);
+            }
+            100% {
+                transform: translate(0, 0);
+            }
+        }
+
+        .scene-badge {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #ff8a5c;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .scene-title {
+            font-size: 26px;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .story-text {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            line-height: 1.8;
+            color: #555;
+            border-left: 4px solid #ff8a5c;
+        }
+
+        .story-text p {
+            margin-bottom: 12px;
+        }
+
+        .highlight-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 3px 10px;
+            border-radius: 999px;
+            background: rgba(255, 138, 92, 0.15);
+            color: #a24b2b;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .sensory-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 18px;
+        }
+
+        .sensory-item {
+            flex: 1 1 140px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #444;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        .dialogue {
+            margin-top: 18px;
+            border-left: 3px solid #ffd166;
+            padding-left: 15px;
+        }
+
+        .dialogue-line {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .speaker-badge {
+            background: #ff7eb3;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .scene-note {
+            background: rgba(255, 188, 147, 0.18);
+            border: 1px solid rgba(255, 138, 92, 0.35);
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 30px;
+            color: #704c34;
+        }
+
+        .scene-note strong {
+            color: #d8653d;
+        }
+
+        .knowledge-card {
+            background: linear-gradient(135deg, #ffb347 0%, #ffcc33 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+        }
+
+        .knowledge-card h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .knowledge-card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .knowledge-card li {
+            margin-bottom: 10px;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .knowledge-card li:before {
+            content: "•";
+            position: absolute;
+            left: 10px;
+            font-size: 20px;
+        }
+
+        .question-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .question-box h3 {
+            color: #856404;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .option-btn {
+            background: white;
+            border: 2px solid #dee2e6;
+            padding: 15px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .option-btn:hover {
+            border-color: #ff8a5c;
+            background: #fff3eb;
+            transform: translateX(5px);
+        }
+
+        .option-btn.correct {
+            background: #d4edda;
+            border-color: #28a745;
+            animation: pulse 0.5s ease;
+        }
+
+        .option-btn.incorrect {
+            background: #f8d7da;
+            border-color: #dc3545;
+            animation: shake 0.5s ease;
+        }
+
+        .option-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        .feedback {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            display: none;
+        }
+
+        .feedback.show {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .feedback.correct {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #28a745;
+        }
+
+        .feedback.incorrect {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #dc3545;
+        }
+
+        .next-btn {
+            background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            display: none;
+            margin: 20px auto 0;
+            transition: all 0.3s ease;
+        }
+
+        .next-btn.show {
+            display: block;
+        }
+
+        .next-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255, 122, 69, 0.5);
+        }
+
+        .completion-page {
+            text-align: center;
+            display: none;
+        }
+
+        .completion-page.active {
+            display: block;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .trophy {
+            font-size: 120px;
+            margin: 30px 0;
+        }
+
+        .final-score {
+            font-size: 36px;
+            color: #ff7a45;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+
+        .reward-box {
+            background: linear-gradient(135deg, #ffb347 0%, #ff5f6d 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+        }
+
+        .reward-box h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+
+        .contact-info {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .contact-info h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .share-btn {
+            background: #25d366;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .share-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(37, 211, 102, 0.4);
+        }
+
+        .restart-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .restart-btn:hover {
+            background: #5a6268;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 25px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .journey-map {
+                grid-template-columns: repeat(2, minmax(120px, 1fr));
+            }
+
+            .scene-image {
+                height: 200px;
+                font-size: 60px;
+            }
+
+            .scene-image.photo .photo-chip {
+                bottom: 12px;
+                right: 12px;
+            }
+
+            .scene-image .floating-icon {
+                font-size: 32px;
+            }
+
+            .scene-title {
+                font-size: 22px;
+            }
+
+            .story-text {
+                padding: 20px;
+                font-size: 15px;
+            }
+
+            .sensory-strip {
+                flex-direction: column;
+            }
+
+            .option-btn {
+                padding: 12px 15px;
+                font-size: 15px;
+            }
+
+            .score-display {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+
+        .intro-screen {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .intro-screen.hidden {
+            display: none;
+        }
+
+        .intro-title {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .intro-desc {
+            font-size: 18px;
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 30px;
+        }
+
+        .intro-rules {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .intro-rules h3 {
+            color: #ff8a5c;
+            margin-bottom: 15px;
+        }
+
+        .intro-rules ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .intro-rules li {
+            padding: 10px 0;
+            padding-left: 30px;
+            position: relative;
+        }
+
+        .intro-rules li:before {
+            content: "✓";
+            position: absolute;
+            left: 5px;
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+            color: white;
+            border: none;
+            padding: 20px 60px;
+            border-radius: 40px;
+            font-size: 22px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .start-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(102, 126, 234, 0.5);
+        }
+    </style>
+</head>
+<body data-scene="intro">
+    <div class="container">
+        <div class="header">
+            <h1>🏡 寻找健康的味道</h1>
+            <p>酮伴妈妈的屋邨奇遇</p>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+            <div class="score-display">
+                <div class="score-item">
+                    <span>📍 场景</span>
+                    <span id="currentScene">0</span>/<span>5</span>
+                </div>
+                <div class="score-item">
+                    <span>⭐ 积分</span>
+                    <span id="totalScore">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <div class="journey-map" id="journeyMap">
+                <div class="journey-step active" data-scene="1">
+                    <span class="step-badge">1</span>
+                    <p>屋邨初遇</p>
+                    <small>下午茶抉择</small>
+                </div>
+                <div class="journey-step" data-scene="2">
+                    <span class="step-badge">2</span>
+                    <p>小厨房试验</p>
+                    <small>香气与配方</small>
+                </div>
+                <div class="journey-step" data-scene="3">
+                    <span class="step-badge">3</span>
+                    <p>街坊试吃</p>
+                    <small>真实好评</small>
+                </div>
+                <div class="journey-step" data-scene="4">
+                    <span class="step-badge">4</span>
+                    <p>包装创作</p>
+                    <small>孩子画笔</small>
+                </div>
+                <div class="journey-step" data-scene="5">
+                    <span class="step-badge">5</span>
+                    <p>爱里生长</p>
+                    <small>家庭温度</small>
+                </div>
+            </div>
+
+            <!-- 介绍页面 -->
+            <div class="intro-screen" id="introScreen">
+                <div class="intro-title">欢迎来到酮伴妈妈的故事世界！</div>
+                <div class="intro-desc">
+                    在香港熙攘的屋邨里，五个妈妈因孩子结缘，她们用爱心创造了健康零食品牌"酮伴妈妈"。<br>
+                    现在，让我们一起走进她们的温暖故事，探索健康饮食的秘密吧！
+                </div>
+                <div class="intro-rules">
+                    <h3>📜 游戏规则</h3>
+                    <ul>
+                        <li>共有 5 个温馨场景等你探索</li>
+                        <li>每个场景包含品牌故事 + 健康知识 + 1 道问题</li>
+                        <li>答对 1 题获得 10 积分 ⭐</li>
+                        <li>集满 30 积分即可到线下兑换生酮小食一份！🎁</li>
+                        <li>完成全部问题还能获得特别惊喜 💚</li>
+                    </ul>
+                </div>
+                <button class="start-btn" onclick="startQuiz()">🚀 开始探索</button>
+            </div>
+
+            <!-- 场景 1 -->
+            <div class="scene" id="scene1">
+                <div class="scene-image photo" aria-label="屋邨傍晚的真实街景" style="--photo:url('assets/keto/scene1.jpg');">
+                    <span class="scene-badge">场景 1/5</span>
+                    <div class="photo-chip">屋邨黄昏现场</div>
+                </div>
+                <h2 class="scene-title">屋邨的下午</h2>
+                <div class="story-text">
+                    <p><span class="highlight-tag">黄昏 · 屋邨中庭</span></p>
+                    <p>电梯大堂刚响起放学钟声，五个妈妈就随着孩子的笑闹声走到熟悉的石屎走廊。夕阳把天台晒得暖烘烘，街边蛋挞炉冒出甜香，孩子们贴在玻璃前不停嚷着要买。</p>
+                    <p>阿芬伸手拿起包装，密密麻麻的英文添加剂让她皱眉；阿珍则从书包掏出体检报告——医生提醒小儿子血糖偏高。那一刻，大家的目光默契地在空气中交汇：<em>我们是不是可以做点什么？</em></p>
+                    <div class="sensory-strip">
+                        <div class="sensory-item"><span>👃</span><span>热腾腾蛋挞甜香混着街市烟火味</span></div>
+                        <div class="sensory-item"><span>👂</span><span>叮叮车穿过德辅道西的声音</span></div>
+                        <div class="sensory-item"><span>👀</span><span>孩子指着包装上陌生配料表</span></div>
+                    </div>
+                    <div class="dialogue">
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿芬</span>
+                            <span>"睇吓呢啲字，连我都唔敢读比佢哋听，点放心俾小朋友食呀？"</span>
+                        </div>
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿珍</span>
+                            <span>"如果有办法整返啲低糖版本就好喇，既可以解谗，又唔怕血糖飙。"</span>
+                        </div>
+                    </div>
+                    <p>一句随口的念头，像在晚风中飘荡的蒲公英种子，悄悄藏进五个妈妈的心里，准备发芽。</p>
+                </div>
+                <div class="scene-note">
+                    <strong>真实感小贴士：</strong> 该场景取材自西环老屋邨的黄昏日常，保留了孩子排队买街头小食、家长翻看配料表的真实画面，让参与者仿佛闻到蛋挞香。
+                </div>
+                <div class="knowledge-card">
+                    <h3>📚 你知道吗？</h3>
+                    <p style="margin-bottom: 15px;">市面上很多零食含有大量添加糖，长期食用高糖食物可能导致：</p>
+                    <ul>
+                        <li>血糖波动，影响儿童注意力</li>
+                        <li>增加糖尿病风险</li>
+                        <li>影响牙齿健康</li>
+                        <li>容易导致肥胖</li>
+                    </ul>
+                    <p style="margin-top: 15px;">健康的零食应该：低糖、少添加剂、营养均衡！</p>
+                </div>
+                <div class="question-box">
+                    <h3>❓ 问题：传统高糖零食可能带来哪些健康隐患？</h3>
+                    <div class="options">
+                        <button class="option-btn" onclick="checkAnswer(1, 'A', false)">A. 帮助儿童集中注意力</button>
+                        <button class="option-btn" onclick="checkAnswer(1, 'B', true)">B. 导致血糖波动和肥胖风险</button>
+                        <button class="option-btn" onclick="checkAnswer(1, 'C', false)">C. 促进牙齿健康</button>
+                        <button class="option-btn" onclick="checkAnswer(1, 'D', false)">D. 增强免疫力</button>
+                    </div>
+                </div>
+                <div class="feedback" id="feedback1"></div>
+                <button class="next-btn" id="nextBtn1" onclick="nextScene(2)">继续故事 →</button>
+            </div>
+
+            <!-- 场景 2 -->
+            <div class="scene" id="scene2">
+                <div class="scene-image photo" aria-label="社区小厨房的夜间练习" style="--photo:url('assets/keto/scene2.jpg');">
+                    <span class="scene-badge">场景 2/5</span>
+                    <div class="photo-chip">社区小厨房实景</div>
+                </div>
+                <h2 class="scene-title">社区小厨房的初试</h2>
+                <div class="story-text">
+                    <p><span class="highlight-tag">晚上 · 社区小厨房</span></p>
+                    <p>社区公告板贴着「Caritas 小厨房共享时段」的通知，阿莲立刻拉着大家报名。临近晚上九点，穿过 Kennedy Town 的小巷，五个妈妈提着面粉、杏仁粉和椰子油，推开铁门就听到锅铲叮叮声。</p>
+                    <p>桌面上摊着满满的食材，每个人都把家里的「秘方本」翻到重点。有人负责改写配比，有人记录温度，有人用量勺一丝不苟地称重。烤箱的橙光把厨房照得暖暖的，空气里混着奶香与椰油味，道地又踏实。</p>
+                    <div class="sensory-strip">
+                        <div class="sensory-item"><span>👃</span><span>芝士焦香 + 椰子粉烤香</span></div>
+                        <div class="sensory-item"><span>👂</span><span>打蛋器与孩子笑声交织</span></div>
+                        <div class="sensory-item"><span>✍️</span><span>配方笔记写满了生酮比例</span></div>
+                    </div>
+                    <div class="dialogue">
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿芬</span>
+                            <span>"我读书时学过烘焙，港式鸡蛋仔都可以低糖化，不如试吓？"</span>
+                        </div>
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿莲</span>
+                            <span>"得呀！我负责调脂肪比例，等佢哋既控糖又有能量。"</span>
+                        </div>
+                    </div>
+                    <p>烤箱第一次「叮！」的一声，金黄的生酮芝士脆片散发出酥脆声。妈妈们互击掌，孩子们捧着小饭盒试吃——这股香气，像是她们碎片化时光里的隐形勋章。</p>
+                </div>
+                <div class="scene-note">
+                    <strong>真实感小贴士：</strong> 该场景参考 Caritas Mok Cheung Sui Kun Community Centre 的社区厨房配置，加入烤箱光影、香味与配方手记等细节，帮助答题者代入深夜练习的质感。
+                </div>
+                <div class="knowledge-card" style="background: linear-gradient(135deg, #ff9a8b 0%, #ff6a88 100%);">
+                    <h3>📚 什么是生酮饮食？</h3>
+                    <p style="margin-bottom: 15px;">生酮饮食（Ketogenic Diet）是一种特殊的饮食方式：</p>
+                    <ul>
+                        <li><strong>低碳水</strong>：减少糖分和淀粉摄入</li>
+                        <li><strong>高优质脂肪</strong>：用健康脂肪提供能量</li>
+                        <li><strong>适量蛋白质</strong>：维持身体机能</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>原理</strong>：当碳水不足时，身体会进入"生酮状态"，开始燃烧脂肪获取能量，从而帮助控糖和管理体重。</p>
+                </div>
+                <div class="question-box">
+                    <h3>❓ 问题：生酮饮食的核心特点是什么？</h3>
+                    <div class="options">
+                        <button class="option-btn" onclick="checkAnswer(2, 'A', false)">A. 高糖、低脂肪</button>
+                        <button class="option-btn" onclick="checkAnswer(2, 'B', false)">B. 高碳水化合物、低蛋白质</button>
+                        <button class="option-btn" onclick="checkAnswer(2, 'C', true)">C. 低碳水化合物、高优质脂肪</button>
+                        <button class="option-btn" onclick="checkAnswer(2, 'D', false)">D. 只吃蔬菜和水果</button>
+                    </div>
+                </div>
+                <div class="feedback" id="feedback2"></div>
+                <button class="next-btn" id="nextBtn2" onclick="nextScene(3)">继续故事 →</button>
+            </div>
+
+            <!-- 场景 3 -->
+            <div class="scene" id="scene3">
+                <div class="scene-image photo" aria-label="街坊试吃的真实照片" style="--photo:url('assets/keto/scene3.jpg');">
+                    <span class="scene-badge">场景 3/5</span>
+                    <div class="photo-chip">街坊试吃现场</div>
+                </div>
+                <h2 class="scene-title">街坊的好评</h2>
+                <div class="story-text">
+                    <p><span class="highlight-tag">周末 · 屋邨露天走廊</span></p>
+                    <p>周末午后，走廊边的折叠桌成了快闪试吃摊。妈妈们把脆片装进牛皮纸小袋，手写「低糖试吃」的字条。刘婆婆捧着拐杖慢慢走来，试探性地掰下一角放入口里。</p>
+                    <p>她的眼睛很快亮了起来：熟悉的芝士咸香、咬下去的喀嚓声、嘴里没有甜膩残留——一切都像回到年轻时帮街坊做饼的记忆。</p>
+                    <div class="sensory-strip">
+                        <div class="sensory-item"><span>👅</span><span>酥脆咸香、无糖回甘</span></div>
+                        <div class="sensory-item"><span>🧴</span><span>孩子们亲手画的贴纸包装</span></div>
+                        <div class="sensory-item"><span>🧑‍🤝‍🧑</span><span>街坊排队聊天互相推荐</span></div>
+                    </div>
+                    <div class="dialogue">
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">刘婆婆</span>
+                            <span>"哎呀！呢啲脆片真系冇负担，嚟紧我要介绍俾楼上嗰位阿姐。"</span>
+                        </div>
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">张太太</span>
+                            <span>"我糖尿好多年喇，第一次觉得有人咁用心照顾我哋呢班人。"</span>
+                        </div>
+                    </div>
+                    <p>消息在屋邨的 WhatsApp 群里瞬间传开，大家自发留言预约下一批。五位妈妈看着邻里间自然形成的排队秩序，第一次感受到：原来坚持做健康零食，也能让社区连结得更紧密。</p>
+                </div>
+                <div class="scene-note">
+                    <strong>真实感小贴士：</strong> 参考香港旧屋邨的露天空地与折叠桌摆摊文化，加入长者控糖需求、邻里 WhatsApp 群等真实社群细节，让答题者更有画面感。
+                </div>
+                <div class="knowledge-card" style="background: linear-gradient(135deg, #ffc371 0%, #ff5f6d 100%);">
+                    <h3>📚 谁适合生酮零食？</h3>
+                    <p style="margin-bottom: 15px;">"酮伴妈妈"的产品特别适合：</p>
+                    <ul>
+                        <li>🩺 <strong>糖尿病患者</strong>：帮助稳定血糖</li>
+                        <li>💪 <strong>减重人士</strong>：低碳水助力健康瘦身</li>
+                        <li>👨‍👩‍👧 <strong>关注健康的家庭</strong>：孩子的安心零食</li>
+                        <li>🏃 <strong>生酮践行者</strong>：符合饮食方案</li>
+                    </ul>
+                    <p style="margin-top: 15px;">但记得：开始任何饮食改变前，建议先咨询医生或营养师哦！</p>
+                </div>
+                <div class="question-box">
+                    <h3>❓ 问题："酮伴妈妈"品牌诞生的初心是什么？</h3>
+                    <div class="options">
+                        <button class="option-btn" onclick="checkAnswer(3, 'A', false)">A. 为了赚更多钱</button>
+                        <button class="option-btn" onclick="checkAnswer(3, 'B', true)">B. 让家人吃得健康，关怀需要控糖的人群</button>
+                        <button class="option-btn" onclick="checkAnswer(3, 'C', false)">C. 追赶市场潮流</button>
+                        <button class="option-btn" onclick="checkAnswer(3, 'D', false)">D. 打发无聊时间</button>
+                    </div>
+                </div>
+                <div class="feedback" id="feedback3"></div>
+                <button class="next-btn" id="nextBtn3" onclick="nextScene(4)">继续故事 →</button>
+            </div>
+
+            <!-- 场景 4 -->
+            <div class="scene" id="scene4">
+                <div class="scene-image photo" aria-label="孩子们设计包装的照片" style="--photo:url('assets/keto/scene4.jpg');">
+                    <span class="scene-badge">场景 4/5</span>
+                    <div class="photo-chip">孩子创作瞬间</div>
+                </div>
+                <h2 class="scene-title">孩子们的包装设计</h2>
+                <div class="story-text">
+                    <p><span class="highlight-tag">周日 · 客厅地毯工作坊</span></p>
+                    <p>“妈妈，我们也想帮忙！”孩子们围坐在地毯上，彩色马克笔、蜡笔和贴纸撒满一地。妈妈们忽然想到：如果包装由孩子来设计，那岂不是连品牌的灵魂都多了童真？</p>
+                    <p>有人画出五位牵手的妈妈，有人画出暖灯下的小厨房，还有孩子把芝士脆片画成星星。每张图都写着稚嫩的口号：“要让婆婆都食得安心！”、“妈妈做的最好吃！”</p>
+                    <div class="sensory-strip">
+                        <div class="sensory-item"><span>🖍️</span><span>蜡笔、麦克笔的混色纹理</span></div>
+                        <div class="sensory-item"><span>📦</span><span>便携防潮小包装 + 手写WhatsApp二维码</span></div>
+                        <div class="sensory-item"><span>💬</span><span>孩子互相点评："我画嘅脆片似唔似？"</span></div>
+                    </div>
+                    <div class="dialogue">
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">小宝</span>
+                            <span>"呢个卡通妈妈要戴围裙，咁先似你哋吖！"</span>
+                        </div>
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿珍</span>
+                            <span>"好呀！包装上再印QR code，扫咗就可以搵我哋售后同落单。"</span>
+                        </div>
+                    </div>
+                    <p>最终定稿的包装袋简洁又鲜明：手绘图案、可撕拉防潮设计、QR code 连到 WhatsApp 预约。每一份产品都是孩子与妈妈共同完成的小作品，也让“酮伴妈妈”这个名字更具温度。</p>
+                </div>
+                <div class="scene-note">
+                    <strong>真实感小贴士：</strong> 场景融入了“便携防潮包装、扫码售后、抽奖赠品”等品牌设定，方便在后续营销执行中直接调用这些视觉资产。
+                </div>
+                <div class="knowledge-card" style="background: linear-gradient(135deg, #ff9a8b 0%, #fecf71 100%);">
+                    <h3>📚 "酮伴妈妈"的产品特色</h3>
+                    <ul>
+                        <li>✨ <strong>妈妈亲手制作</strong>：每一份都用心调配</li>
+                        <li>🎨 <strong>孩子参与设计</strong>：包装融入孩子们的画作</li>
+                        <li>🇭🇰 <strong>港式风味</strong>：熟悉的味道，健康的配方</li>
+                        <li>🚫 <strong>零添加剂</strong>：只用天然食材，拒绝化学添加</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>明星产品：</strong></p>
+                    <ul>
+                        <li>生酮芝士脆片（Keto Cheese Crisps）</li>
+                        <li>生酮松饼（Keto Muffins）</li>
+                    </ul>
+                </div>
+                <div class="question-box">
+                    <h3>❓ 问题："酮伴妈妈"产品包装的设计者是谁？</h3>
+                    <div class="options">
+                        <button class="option-btn" onclick="checkAnswer(4, 'A', false)">A. 专业设计师</button>
+                        <button class="option-btn" onclick="checkAnswer(4, 'B', false)">B. 五位创始妈妈</button>
+                        <button class="option-btn" onclick="checkAnswer(4, 'C', true)">C. 孩子们用画笔创作</button>
+                        <button class="option-btn" onclick="checkAnswer(4, 'D', false)">D. 市场营销团队</button>
+                    </div>
+                </div>
+                <div class="feedback" id="feedback4"></div>
+                <button class="next-btn" id="nextBtn4" onclick="nextScene(5)">继续故事 →</button>
+            </div>
+
+            <!-- 场景 5 -->
+            <div class="scene" id="scene5">
+                <div class="scene-image photo" aria-label="家庭共享酮伴妈妈的温馨照片" style="--photo:url('assets/keto/scene5.jpg');">
+                    <span class="scene-badge">场景 5/5</span>
+                    <div class="photo-chip">家庭共享时光</div>
+                </div>
+                <h2 class="scene-title">在爱里生长</h2>
+                <div class="story-text">
+                    <p><span class="highlight-tag">一年后 · 爱在日常流转</span></p>
+                    <p>“酮伴妈妈”已经成为屋邨 WhatsApp 群里的常客：有人分享孩子带去课室做健康分享，有人晒出婆婆饭后血糖稳定的截图。每逢放学，孩子们冲回家第一句还是：“今日有冇芝士脆片？”</p>
+                    <p>刘婆婆控制血糖的纪录一周比一周漂亮，她逢人就说：“多亏呢班妈妈。”妈妈们则在厨房与客厅之间来回穿梭，继续平衡家庭与品牌。</p>
+                    <div class="sensory-strip">
+                        <div class="sensory-item"><span>🏡</span><span>家庭餐桌摆着一盘生酮脆片</span></div>
+                        <div class="sensory-item"><span>📱</span><span>WhatsApp 订单提示声此起彼落</span></div>
+                        <div class="sensory-item"><span>❤️</span><span>长辈甜蜜、孩子健康的笑脸</span></div>
+                    </div>
+                    <div class="dialogue">
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿珍</span>
+                            <span>"我哋都系妈妈，最想睇到係一家人食得安心得开心。"</span>
+                        </div>
+                        <div class="dialogue-line">
+                            <span class="speaker-badge">阿芬</span>
+                            <span>"品牌大唔大唔紧要，紧要係令更多家庭有健康选择。"</span>
+                        </div>
+                    </div>
+                    <p>“酮伴妈妈”不仅是孩子的放学小食、长辈控糖期的甜蜜慰藉，更是五个妈妈彼此扶持、在家庭与自我之间酿出的幸福答卷。</p>
+                </div>
+                <div class="scene-note">
+                    <strong>真实感小贴士：</strong> 在最终场景加入“WhatsApp 下单”“线下兑换”与“社区口碑”元素，方便把故事转化为线下引流与复购动力。
+                </div>
+                <div class="knowledge-card" style="background: linear-gradient(135deg, #ffb347 0%, #ff7e5f 100%);">
+                    <h3>📚 如何购买"酮伴妈妈"产品？</h3>
+                    <p style="margin-bottom: 15px;"><strong>🛒 线上购买：</strong></p>
+                    <ul>
+                        <li>添加 WhatsApp：[电话号码]</li>
+                        <li>扫描二维码直接联系妈妈团队</li>
+                    </ul>
+                    <p style="margin: 15px 0;"><strong>📞 电话预订：</strong>[电话号码]</p>
+                    <p style="margin: 15px 0;"><strong>🏪 线下购买：</strong></p>
+                    <ul>
+                        <li>Kennedy Town, Caritas Mok Cheung Sui Kun Community Centre</li>
+                    </ul>
+                    <p style="margin-top: 15px;"><strong>🎁 当前优惠：</strong></p>
+                    <ul>
+                        <li>满额赠送活动</li>
+                        <li>优惠券抽奖</li>
+                        <li>新客试吃装</li>
+                    </ul>
+                </div>
+                <div class="question-box">
+                    <h3>❓ 问题："酮伴妈妈"的产品理念是什么？</h3>
+                    <div class="options">
+                        <button class="option-btn" onclick="checkAnswer(5, 'A', false)">A. 只关注利润最大化</button>
+                        <button class="option-btn" onclick="checkAnswer(5, 'B', false)">B. 追随所有市场趋势</button>
+                        <button class="option-btn" onclick="checkAnswer(5, 'C', true)">C. 让每一块零食都藏着对孩子的呵护、对邻里的真诚、对健康的坚守</button>
+                        <button class="option-btn" onclick="checkAnswer(5, 'D', false)">D. 快速扩张品牌</button>
+                    </div>
+                </div>
+                <div class="feedback" id="feedback5"></div>
+                <button class="next-btn" id="nextBtn5" onclick="showCompletion()">查看结果 →</button>
+            </div>
+
+            <!-- 完成页面 -->
+            <div class="completion-page" id="completionPage">
+                <div class="trophy">🏆</div>
+                <h2 style="font-size: 32px; color: #333; margin-bottom: 20px;">恭喜您完成《寻找健康的味道》！</h2>
+                <div class="final-score">
+                    您的总积分：<span id="finalScore">0</span> 分
+                </div>
+                <div class="reward-box">
+                    <h3>🎁 您的奖励</h3>
+                    <div id="rewardMessage" style="font-size: 18px; margin-top: 15px;"></div>
+                </div>
+                <div class="contact-info">
+                    <h3>📍 兑换地点</h3>
+                    <div class="contact-item">
+                        🏪 Kennedy Town, Caritas Mok Cheung Sui Kun Community Centre
+                    </div>
+                    <div class="contact-item">
+                        ⏰ 营业时间：[请填写营业时间]
+                    </div>
+                </div>
+                <div class="contact-info">
+                    <h3>💚 想要购买更多？</h3>
+                    <div class="contact-item">
+                        📱 WhatsApp：[请填写电话号码]
+                    </div>
+                    <div class="contact-item">
+                        📞 电话预订：[请填写电话号码]
+                    </div>
+                    <p style="margin-top: 15px; color: #666;">扫描二维码或添加 WhatsApp，直接联系我们的妈妈团队！</p>
+                </div>
+                <div style="margin-top: 30px;">
+                    <button class="share-btn" onclick="shareResults()">📤 分享到社交媒体</button>
+                    <button class="restart-btn" onclick="restartQuiz()">🔄 重新开始</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const TOTAL_SCENES = 5;
+        let currentSceneNum = 0;
+        let totalScore = 0;
+        let answeredScenes = [];
+
+        function startQuiz() {
+            document.getElementById('introScreen').classList.add('hidden');
+            nextScene(1);
+        }
+
+        function updateProgress() {
+            const progress = (currentSceneNum / TOTAL_SCENES) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('currentScene').textContent = currentSceneNum;
+            document.getElementById('totalScore').textContent = totalScore;
+        }
+
+        function updateJourneyMap(activeScene) {
+            const steps = document.querySelectorAll('.journey-step');
+            steps.forEach(step => {
+                const stepNum = parseInt(step.dataset.scene, 10);
+                if (!activeScene) {
+                    step.classList.toggle('active', stepNum === 1);
+                    step.classList.remove('completed');
+                    return;
+                }
+                step.classList.toggle('active', stepNum === activeScene);
+                if (answeredScenes.includes(stepNum)) {
+                    step.classList.add('completed');
+                } else {
+                    step.classList.remove('completed');
+                }
+            });
+        }
+
+        function nextScene(sceneNum) {
+            // 隐藏所有场景
+            document.querySelectorAll('.scene').forEach(scene => {
+                scene.classList.remove('active');
+            });
+
+            // 显示指定场景
+            document.getElementById('scene' + sceneNum).classList.add('active');
+            currentSceneNum = sceneNum;
+            document.body.setAttribute('data-scene', 'scene' + sceneNum);
+            updateProgress();
+            updateJourneyMap(sceneNum);
+
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function checkAnswer(sceneNum, option, isCorrect) {
+            // 防止重复回答
+            if (answeredScenes.includes(sceneNum)) {
+                return;
+            }
+
+            const feedback = document.getElementById('feedback' + sceneNum);
+            const nextBtn = document.getElementById('nextBtn' + sceneNum);
+            const buttons = document.querySelectorAll('#scene' + sceneNum + ' .option-btn');
+
+            // 禁用所有按钮
+            buttons.forEach(btn => btn.disabled = true);
+
+            // 标记当前按钮
+            event.target.classList.add(isCorrect ? 'correct' : 'incorrect');
+
+            // 显示反馈
+            feedback.classList.add('show');
+            if (isCorrect) {
+                totalScore += 10;
+                feedback.classList.add('correct');
+                feedback.innerHTML = '🎉 答对了！+10积分<br><br>' + 
+                    (sceneNum === 1 ? '妈妈们也是为了这个原因才决心做出改变的。' : '') +
+                    (sceneNum === 2 ? '太棒了！妈妈们就是用这个原理创造出健康零食的。' : '') +
+                    (sceneNum === 3 ? '说得对！' + (totalScore >= 30 ? '<br><br>🎊 <strong>恭喜您已集满30积分！可以到线下兑换美食啦～</strong>' : '') : '') +
+                    (sceneNum === 4 ? '答对啦！每个包装都藏着孩子们的童真与爱心。' : '') +
+                    (sceneNum === 5 ? '完美！您已完全理解"酮伴妈妈"的理念。' : '');
+            } else {
+                feedback.classList.add('incorrect');
+                feedback.innerHTML = '❌ 不太对哦，再想想看～<br>提示：回顾一下上面的知识卡片吧！';
+            }
+
+            // 显示下一步按钮
+            nextBtn.classList.add('show');
+            answeredScenes.push(sceneNum);
+            updateProgress();
+            updateJourneyMap(sceneNum);
+        }
+
+        function showCompletion() {
+            // 隐藏所有场景
+            document.querySelectorAll('.scene').forEach(scene => {
+                scene.classList.remove('active');
+            });
+
+            // 显示完成页面
+            const completionPage = document.getElementById('completionPage');
+            completionPage.classList.add('active');
+            document.getElementById('finalScore').textContent = totalScore;
+            document.body.setAttribute('data-scene', 'finish');
+            updateJourneyMap(TOTAL_SCENES);
+
+            // 根据分数显示不同奖励信息
+            const rewardMessage = document.getElementById('rewardMessage');
+            if (totalScore >= 30) {
+                rewardMessage.innerHTML = '🎊 <strong>恭喜！您已集满30积分！</strong><br><br>凭此页面到线下兑换生酮小食一份！<br>我们期待与您见面 💚';
+            } else {
+                rewardMessage.innerHTML = '感谢您完成问卷！虽然未达到30积分，但您已经了解了"酮伴妈妈"的温暖故事。<br><br>欢迎您到线下品尝我们的产品，首次购买享受新客优惠！';
+            }
+
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function shareResults() {
+            const text = `我刚完成了"酮伴妈妈的屋邨奇遇"故事问卷，获得了${totalScore}积分！🎉 这是五位香港妈妈用爱心创造的健康零食品牌，快来了解这个温暖的故事吧！`;
+            
+            // 尝试使用 Web Share API
+            if (navigator.share) {
+                navigator.share({
+                    title: '寻找健康的味道 - 酮伴妈妈',
+                    text: text,
+                    url: window.location.href
+                }).catch(err => console.log('分享取消'));
+            } else {
+                // 备用方案：复制到剪贴板
+                navigator.clipboard.writeText(text + '\n\n' + window.location.href).then(() => {
+                    alert('内容已复制到剪贴板！您可以粘贴到社交媒体分享 😊');
+                });
+            }
+        }
+
+        function restartQuiz() {
+            currentSceneNum = 0;
+            totalScore = 0;
+            answeredScenes = [];
+            
+            // 重置所有反馈和按钮
+            document.querySelectorAll('.feedback').forEach(fb => {
+                fb.classList.remove('show', 'correct', 'incorrect');
+            });
+            
+            document.querySelectorAll('.next-btn').forEach(btn => {
+                btn.classList.remove('show');
+            });
+            
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('correct', 'incorrect');
+            });
+            
+            // 隐藏完成页面
+            document.getElementById('completionPage').classList.remove('active');
+            
+            // 显示介绍页面
+            document.getElementById('introScreen').classList.remove('hidden');
+            document.body.setAttribute('data-scene', 'intro');
+            updateJourneyMap(0);
+            
+            updateProgress();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        updateJourneyMap(0);
+    </script>
+</body>
+</html>

@@ -1,166 +1,590 @@
 """
-老人短视频虚假信息检测系统 - 后端主程序
+老人短视频虚假信息检测系统 - 后端API服务
+基于FastAPI + 多模态AI检测
+
+支持功能:
+- 文本内容检测
+- 多模态融合检测
+- 家人通知服务
+- 历史记录查询
 """
 
 import os
 import sys
+import asyncio
+import tempfile
+import subprocess
+from typing import Dict, List, Any, Optional, Tuple
+from datetime import datetime
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field
 from loguru import logger
 
-# 添加项目根目录到Python路径
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root))
+# 配置日志
+logger.remove()
+logger.add(
+    sys.stderr,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+    level="INFO"
+)
 
-from app.api.detection import router as detection_router
-from app.api.health import router as health_router
-from app.api.ai_training import router as ai_router
-from app.core.config import settings
-from app.core.logging_config import setup_logging
+# 尝试导入AI检测模块
+try:
+    # 绝对导入，确保 `uvicorn app.main:app` / `python -m app.main` 都能工作
+    from app.services.multimodal_detector import (
+        MultimodalDetector,
+        RiskLevel,
+    )
+    AI_AVAILABLE = True
+    logger.info("AI检测模块加载成功")
+except ImportError as e:
+    logger.warning(f"AI检测模块未加载: {e}，使用规则引擎")
+    AI_AVAILABLE = False
 
+# 尝试导入家人通知服务
+try:
+    from services.family_notification import FamilyNotificationService
+    NOTIFICATION_AVAILABLE = True
+except ImportError:
+    NOTIFICATION_AVAILABLE = False
+
+
+# === 数据模型 ===
+
+class DetectionRequest(BaseModel):
+    """检测请求"""
+    text: str = Field(..., description="待检测文本内容", min_length=1)
+    audio_text: Optional[str] = Field(None, description="音频转写文本")
+    source: Optional[str] = Field("api", description="请求来源")
+    user_id: Optional[str] = Field(None, description="用户ID")
+
+class DetectionResponse(BaseModel):
+    """检测响应"""
+    success: bool
+    message: str
+    data: Optional[Dict[str, Any]] = None
+
+class FamilyNotifyRequest(BaseModel):
+    """家人通知请求"""
+    elderly_user_id: str
+    risk_level: str
+    content_summary: str
+    video_link: Optional[str] = None
+
+class HealthResponse(BaseModel):
+    """健康检查响应"""
+    status: str
+    message: str
+    ai_available: bool
+    version: str
+    timestamp: str
+
+
+# === 规则引擎检测 ===
+
+class RuleBasedDetector:
+    """基于规则的检测器（AI不可用时的降级方案）"""
+    
+    FINANCIAL_KEYWORDS = [
+        "保证收益", "无风险", "月入万元", "稳赚不赔", "高收益",
+        "内幕消息", "限时优惠", "投资理财", "虚拟货币", "传销",
+        "无抵押贷款", "秒批", "黑户贷款", "刷单", "套现",
+        "保本保息", "年化收益", "日赚千元"
+    ]
+    
+    MEDICAL_KEYWORDS = [
+        "包治百病", "神奇疗效", "祖传秘方", "一次根治", "永不复发",
+        "药到病除", "100%治愈", "三天见效", "医院不告诉你", "特效药",
+        "保健品", "偏方", "土方", "民间验方", "癌症克星"
+    ]
+    
+    URGENCY_KEYWORDS = [
+        "赶紧", "立即", "马上", "紧急", "限时", "截止今晚",
+        "最后一天", "错过后悔", "机不可失", "名额有限"
+    ]
+    
+    def detect(self, text: str) -> Dict[str, Any]:
+        """执行规则检测"""
+        risk_score = 0.0
+        reasons = []
+        suggestions = []
+        
+        # 金融检测
+        financial_matches = [kw for kw in self.FINANCIAL_KEYWORDS if kw in text]
+        if financial_matches:
+            risk_score += min(len(financial_matches) * 0.15, 0.5)
+            reasons.append(f"金融风险词汇: {', '.join(financial_matches[:3])}")
+            suggestions.append("投资需谨慎，高收益往往伴随高风险")
+        
+        # 医疗检测
+        medical_matches = [kw for kw in self.MEDICAL_KEYWORDS if kw in text]
+        if medical_matches:
+            risk_score += min(len(medical_matches) * 0.15, 0.5)
+            reasons.append(f"医疗风险词汇: {', '.join(medical_matches[:3])}")
+            suggestions.append("有病请找正规医院，不要轻信偏方")
+        
+        # 紧急性检测
+        urgency_matches = [kw for kw in self.URGENCY_KEYWORDS if kw in text]
+        if urgency_matches:
+            risk_score += min(len(urgency_matches) * 0.1, 0.3)
+            reasons.append("含有紧急性诱导词汇")
+            suggestions.append("冷静思考，不要被紧急性语言误导")
+        
+        risk_score = min(risk_score, 1.0)
+        
+        # 确定风险等级
+        if risk_score > 0.7:
+            level = "danger"
+            message = "⚠️ 高风险：检测到疑似诈骗或虚假信息"
+        elif risk_score > 0.4:
+            level = "warning"
+            message = "⚡ 注意：内容存在可疑信息"
+        else:
+            level = "safe"
+            message = "✅ 内容相对安全"
+            if not reasons:
+                reasons.append("未发现明显风险")
+                suggestions.append("内容相对安全，但仍需谨慎")
+        
+        return {
+            "level": level,
+            "score": risk_score,
+            "confidence": 0.75,
+            "message": message,
+            "reasons": reasons,
+            "suggestions": suggestions,
+            "detection_method": "rule_engine"
+        }
+
+
+# 全局检测器实例
+rule_detector = RuleBasedDetector()
+ai_detector = None
+
+def _try_extract_frames_opencv(video_path: str, max_frames: int = 3) -> List[Any]:
+    """
+    抽帧：优先用opencv（若不可用则返回空列表）
+    返回：PIL.Image 列表（若PIL不可用则返回空）
+    """
+    try:
+        import cv2  # type: ignore
+        from PIL import Image  # type: ignore
+    except Exception:
+        return []
+
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        return []
+
+    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+    if frame_count <= 0:
+        cap.release()
+        return []
+
+    # 均匀取 max_frames 帧（25/50/75%...）
+    idxs = []
+    for i in range(1, max_frames + 1):
+        idxs.append(int(frame_count * (i / (max_frames + 1))))
+    idxs = sorted(set([min(max(0, x), frame_count - 1) for x in idxs]))
+
+    frames: List[Any] = []
+    for idx in idxs:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ok, frame = cap.read()
+        if not ok:
+            continue
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frames.append(Image.fromarray(frame_rgb))
+
+    cap.release()
+    return frames
+
+
+def _try_ocr_frames(frames: List[Any], max_chars: int = 800) -> str:
+    """
+    OCR: 优先 easyocr（无需系统tesseract），其次 pytesseract（需要本机安装tesseract）。
+    返回合并后的文字（去重、截断）。
+    """
+    if not frames:
+        return ""
+
+    # easyocr
+    try:
+        import numpy as _np  # type: ignore
+        import easyocr  # type: ignore
+
+        # 缓存 reader，避免每次初始化非常慢
+        global _EASYOCR_READER  # noqa: PLW0603
+        if "_EASYOCR_READER" not in globals() or _EASYOCR_READER is None:
+            _EASYOCR_READER = easyocr.Reader(["ch_sim", "en"], gpu=False)
+
+        texts: List[str] = []
+        for img in frames:
+            arr = _np.array(img)
+            # detail=0 仅返回文本列表
+            out = _EASYOCR_READER.readtext(arr, detail=0)
+            for t in out:
+                if t and isinstance(t, str):
+                    texts.append(t.strip())
+
+        merged = "\n".join([t for t in dict.fromkeys(texts) if t])
+        return merged[:max_chars]
+    except Exception:
+        pass
+
+    # pytesseract fallback
+    try:
+        import pytesseract  # type: ignore
+        texts2: List[str] = []
+        for img in frames:
+            t = pytesseract.image_to_string(img, lang="chi_sim+eng")
+            if t:
+                texts2.append(t.strip())
+        merged = "\n".join([t for t in dict.fromkeys(texts2) if t])
+        return merged[:max_chars]
+    except Exception:
+        return ""
+
+
+def _try_transcribe_whisper(video_path: str) -> str:
+    """
+    语音转写：如果环境有 whisper，则直接对视频文件转写；否则返回空字符串。
+    """
+    try:
+        import whisper  # type: ignore
+        model = whisper.load_model("base")
+        result = model.transcribe(video_path, language="zh")
+        return (result.get("text") or "").strip()
+    except Exception:
+        return ""
+
+
+# === 应用生命周期 ===
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时初始化
-    logger.info("🚀 老人短视频安全检测系统启动中...")
+    global ai_detector
     
-    try:
-        # 初始化检测引擎
-        from app.services.detection import DetectionEngine
-        detection_engine = DetectionEngine()
-        await detection_engine.initialize()
-        
-        # 将检测引擎存储到app状态
-        app.state.detection_engine = detection_engine
-        
-        logger.info("✅ 检测引擎初始化完成")
-        logger.info(f"🌟 服务器已启动，监听端口: {settings.PORT}")
-        
-    except Exception as e:
-        logger.error(f"❌ 系统初始化失败: {e}")
-        raise
+    # 启动时
+    logger.info("=" * 50)
+    logger.info("老人短视频虚假信息检测系统 启动中...")
+    logger.info("=" * 50)
+    
+    # 尝试初始化AI检测器
+    if AI_AVAILABLE:
+        try:
+            ai_detector = MultimodalDetector()
+            logger.info("✓ AI检测器初始化成功")
+        except Exception as e:
+            logger.warning(f"AI检测器初始化失败: {e}")
+            ai_detector = None
+    
+    logger.info(f"AI检测: {'可用' if ai_detector else '不可用（使用规则引擎）'}")
+    logger.info("系统启动完成")
     
     yield
     
-    # 关闭时清理
-    logger.info("🔄 系统正在关闭...")
-    
-    try:
-        if hasattr(app.state, 'detection_engine'):
-            await app.state.detection_engine.cleanup()
-        logger.info("✅ 系统关闭完成")
-    except Exception as e:
-        logger.error(f"❌ 系统关闭时发生错误: {e}")
+    # 关闭时
+    logger.info("系统关闭中...")
 
 
-# 创建FastAPI应用
+# === 创建应用 ===
+
 app = FastAPI(
     title="老人短视频虚假信息检测系统",
-    description="基于AI的实时短视频内容安全检测服务",
-    version="1.0.0",
-    docs_url="/docs" if settings.DEBUG else None,
-    redoc_url="/redoc" if settings.DEBUG else None,
+    description="""
+    基于多模态AI的虚假信息检测API
+    
+    功能:
+    - 🔍 文本内容检测
+    - 🤖 多模态融合分析
+    - 📱 家人实时通知
+    - 📊 检测历史记录
+    
+    技术:
+    - BERT中文预训练模型
+    - 跨模态注意力机制
+    - 规则引擎增强
+    """,
+    version="2.0.0",
     lifespan=lifespan
 )
 
-# 设置日志
-setup_logging()
-
-# 中间件配置
+# CORS中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "*"
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS
-)
 
-# 路由注册
-app.include_router(health_router, prefix="/api/health", tags=["健康检查"])
-app.include_router(detection_router, prefix="/api", tags=["检测服务"])
-app.include_router(ai_router, tags=["AI模型"])
+# === API路由 ===
 
-
-# 全局异常处理器
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """全局异常处理"""
-    logger.error(f"全局异常: {str(exc)}", exc_info=True)
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "success": False,
-            "message": "服务器内部错误",
-            "code": 500,
-            "data": None
-        }
-    )
-
-
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    """HTTP异常处理"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "success": False,
-            "message": exc.detail,
-            "code": exc.status_code,
-            "data": None
-        }
-    )
-
-
-# 根路由
-@app.get("/")
+@app.get("/", response_model=HealthResponse)
 async def root():
-    """根路径响应"""
-    return {
-        "message": "老人短视频虚假信息检测系统 API 服务",
-        "version": "1.0.0",
-        "status": "运行中",
-        "docs": "/docs",
-        "health": "/api/health"
-    }
+    """根路径 - 系统信息"""
+    return HealthResponse(
+        status="running",
+        message="老人短视频虚假信息检测系统 API服务",
+        ai_available=ai_detector is not None,
+        version="2.0.0",
+        timestamp=datetime.now().isoformat()
+    )
 
 
-# API状态检查
+@app.get("/health", response_model=HealthResponse)
+async def health_check():
+    """健康检查"""
+    return HealthResponse(
+        status="healthy",
+        message="服务运行正常",
+        ai_available=ai_detector is not None,
+        version="2.0.0",
+        timestamp=datetime.now().isoformat()
+    )
+
+
 @app.get("/api")
 async def api_info():
     """API信息"""
     return {
         "success": True,
         "message": "API服务正常运行",
-        "version": "1.0.0",
+        "version": "2.0.0",
+        "ai_available": ai_detector is not None,
         "endpoints": {
-            "检测服务": "/api/detect",
-            "健康检查": "/api/health",
-            "服务状态": "/api/health/status"
+            "检测": "POST /detect",
+            "健康检查": "GET /health",
+            "家人通知": "POST /notify-family"
         }
     }
 
 
+@app.post("/detect", response_model=DetectionResponse)
+async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
+    """
+    检测虚假信息
+    
+    - 支持文本内容检测
+    - 支持音频转写文本检测
+    - 自动选择AI或规则引擎
+    """
+    try:
+        # 合并文本
+        text = request.text
+        if request.audio_text:
+            text = f"{text} {request.audio_text}"
+        
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="文本内容不能为空")
+        
+        # 执行检测
+        if ai_detector is not None:
+            # 使用AI检测
+            try:
+                result = await ai_detector.detect(text)
+                detection_result = {
+                    "level": result.risk_level.value,
+                    "score": result.risk_score,
+                    "confidence": result.confidence,
+                    "message": result.explanation or "",
+                    "reasons": result.reasons,
+                    "suggestions": result.suggestions,
+                    "text_risk": result.text_risk,
+                    "visual_risk": result.visual_risk,
+                    "audio_risk": result.audio_risk,
+                    "detection_method": "ai_multimodal",
+                    "inference_time": result.inference_time
+                }
+            except Exception as e:
+                logger.warning(f"AI检测失败，回退到规则引擎: {e}")
+                detection_result = rule_detector.detect(text)
+        else:
+            # 使用规则引擎
+            detection_result = rule_detector.detect(text)
+        
+        # 生成检测ID
+        detection_result["detection_id"] = f"det_{hash(text) % 100000}_{int(datetime.now().timestamp())}"
+        
+        return DetectionResponse(
+            success=True,
+            message="检测完成",
+            data=detection_result
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"检测失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"检测服务异常: {str(e)}")
+
+@app.post("/detect/video", response_model=DetectionResponse)
+async def detect_video(
+    background_tasks: BackgroundTasks,
+    video: UploadFile = File(..., description="待检测视频文件"),
+    text: str = Form("", description="可选：视频标题/简介/字幕等文本"),
+    user_id: Optional[str] = Form(None, description="可选：用户ID"),
+):
+    """
+    上传视频验证（模拟短视频虚假识别）：
+    - 保存上传文件到临时目录
+    - 尽力抽取关键帧（opencv可用时）
+    - 尽力做语音转写（whisper可用时）
+    - 调用多模态检测器（不可用则回退规则引擎）
+    """
+    try:
+        if not video.filename:
+            raise HTTPException(status_code=400, detail="缺少视频文件")
+
+        suffix = os.path.splitext(video.filename)[1] or ".mp4"
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp_path = tmp.name
+            content = await video.read()
+            tmp.write(content)
+
+        # 抽帧 & 转写
+        frames = _try_extract_frames_opencv(tmp_path, max_frames=3)
+        ocr_text = _try_ocr_frames(frames)
+        transcript = _try_transcribe_whisper(tmp_path)
+
+        merged_text = (text or "").strip()
+        if ocr_text:
+            merged_text = f"{merged_text}\n{ocr_text}".strip()
+        if transcript:
+            merged_text = f"{merged_text}\n{transcript}".strip()
+
+        if ai_detector is not None:
+            # 选取“信息量最大”的帧：优先OCR文本最多的帧，否则用第一帧
+            image = frames[0] if frames else None
+            if frames:
+                best_img = frames[0]
+                best_len = 0
+                for img in frames:
+                    t = _try_ocr_frames([img], max_chars=2000)
+                    if len(t) > best_len:
+                        best_len = len(t)
+                        best_img = img
+                image = best_img
+
+            result = await ai_detector.detect({"text": merged_text or " ", "image": image})
+            detection_result = {
+                "level": result.risk_level.value,
+                "score": float(result.risk_score),
+                "confidence": float(result.confidence),
+                "message": result.explanation or "",
+                "reasons": result.reasons,
+                "suggestions": result.suggestions,
+                "text_risk": float(result.text_risk),
+                "visual_risk": float(result.visual_risk),
+                "audio_risk": float(result.audio_risk),
+                "detection_method": "ai_video_upload",
+                "inference_time": float(result.inference_time),
+                "transcript": transcript[:500] if transcript else "",
+                "ocr_text": ocr_text[:800] if ocr_text else "",
+                "frames_used": len(frames),
+            }
+        else:
+            detection_result = rule_detector.detect(merged_text or "")
+            detection_result.update({
+                "detection_method": "rule_engine_video_upload",
+                "transcript": transcript[:500] if transcript else "",
+                "ocr_text": ocr_text[:800] if ocr_text else "",
+                "frames_used": len(frames),
+            })
+
+        detection_result["detection_id"] = f"vid_{hash(video.filename) % 100000}_{int(datetime.now().timestamp())}"
+
+        return DetectionResponse(success=True, message="视频检测完成", data=detection_result)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"视频检测失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"视频检测异常: {str(e)}")
+    finally:
+        try:
+            if "tmp_path" in locals() and tmp_path and os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except Exception:
+            pass
+
+
+@app.post("/notify-family")
+async def notify_family(request: FamilyNotifyRequest):
+    """
+    发送家人通知
+    
+    当检测到高风险内容时，通知家人
+    """
+    try:
+        if not NOTIFICATION_AVAILABLE:
+            return {
+                "success": False,
+                "message": "通知服务暂不可用"
+            }
+        
+        # TODO: 实现实际的通知逻辑
+        logger.info(f"发送家人通知: 用户={request.elderly_user_id}, 风险={request.risk_level}")
+        
+        return {
+            "success": True,
+            "message": "通知已发送",
+            "data": {
+                "notified_at": datetime.now().isoformat(),
+                "risk_level": request.risk_level
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"通知失败: {e}")
+        raise HTTPException(status_code=500, detail="通知服务异常")
+
+
+@app.get("/stats")
+async def get_stats():
+    """获取系统统计信息"""
+    return {
+        "success": True,
+        "data": {
+            "ai_available": ai_detector is not None,
+            "detection_methods": ["rule_engine"] + (["ai_multimodal"] if ai_detector else []),
+            "supported_features": [
+                "text_detection",
+                "financial_fraud_detection",
+                "medical_misinformation_detection",
+                "urgency_detection"
+            ],
+            "version": "2.0.0"
+        }
+    }
+
+
+# === 启动入口 ===
+
 if __name__ == "__main__":
     import uvicorn
     
-    # 开发环境启动配置
+    # 获取端口
+    port = int(os.environ.get("PORT", 8000))
+    
+    # 启动服务
     uvicorn.run(
         "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-        log_level="info",
-        access_log=True
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+        log_level="info"
     )

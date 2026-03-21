@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App.simple';
+import App from './App';
 import './index.css';
 
 // 检查浏览器兼容性

@@ -1,17 +1,17 @@
 /* 适老化设计的主应用样式 */
 
-/* 全局变量定义 */
+/* 全局变量定义 - 黑白蓝主题 */
 :root {
-  --primary-color: #1890ff;
-  --success-color: #52c41a;
-  --warning-color: #faad14;
-  --danger-color: #ff4d4f;
-  --text-color: #262626;
-  --text-color-secondary: #8c8c8c;
-  --background-color: #f5f5f5;
-  --card-background: #ffffff;
-  --border-color: #d9d9d9;
-  --shadow-color: rgba(0, 0, 0, 0.1);
+  --primary-color: #0066cc;
+  --success-color: #00ff00;
+  --warning-color: #ffaa00;
+  --danger-color: #ff4444;
+  --text-color: #ffffff;
+  --text-color-secondary: #cccccc;
+  --background-color: #000000;
+  --card-background: #1a1a1a;
+  --border-color: #0066cc;
+  --shadow-color: rgba(0, 102, 204, 0.3);
   
   /* 适老化尺寸 */
   --font-size-base: 18px;
@@ -67,13 +67,15 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: #000000;
+  color: #ffffff;
 }
 
 /* 头部样式 */
 .app-header {
-  background: var(--card-background);
-  box-shadow: 0 2px 8px var(--shadow-color);
+  background: #0a0a0a;
+  box-shadow: 0 0 20px rgba(0, 102, 204, 0.5);
+  border-bottom: 2px solid #0066cc;
   padding: 16px 0;
   position: sticky;
   top: 0;
@@ -93,8 +95,8 @@ body {
   margin: 0;
   font-size: 28px;
   font-weight: 600;
-  color: var(--primary-color);
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+  color: #4da3ff;
+  text-shadow: 0 0 10px #0066cc;
 }
 
 .header-actions {
@@ -336,6 +338,7 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+
 }
 
 /* 打印样式 */
@@ -358,6 +361,7 @@ body {
     box-shadow: none;
     border: 1px solid #ccc;
   }
+
 }
 
 /* 高对比度媒体查询支持 */

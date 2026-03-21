@@ -63,6 +63,15 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
     },
     {
       id: 3,
+      title: '⚠️ 限时优惠活动',
+      description: '商品促销，数量有限',
+      duration: 60,
+      platform: 'douyin' as const,
+      riskLevel: 'warning' as const,
+      content: '限时抢购，原价999现在只要99！数量有限，先到先得！点击下方链接立即购买。'
+    },
+    {
+      id: 4,
       title: '🍎 健康饮食小贴士',
       description: '营养专家分享日常饮食建议',
       duration: 120,
@@ -71,7 +80,7 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
       content: '大家好，我是营养师李医生。今天给大家分享一些健康饮食的小贴士。均衡饮食很重要，建议每天摄入足够的蔬菜水果，适量的蛋白质，少油少盐。如有健康问题，建议咨询专业医生。'
     },
     {
-      id: 4,
+      id: 5,
       title: '💳 正规银行理财产品介绍',
       description: '某银行官方发布的理财产品说明',
       duration: 90,
