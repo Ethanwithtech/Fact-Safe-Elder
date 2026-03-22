@@ -53,6 +53,21 @@ python start_system.py
    python start_system.py
    ```
 
+### 方式三：从 GitHub Releases 下载大模型（推荐，另一台电脑也可用）
+
+大文件（如 `best_text_model.pt`，约数百 MB）**不能**用普通 `git clone` 带上，请按下面做：
+
+1. 在仓库 **Releases** 页面下载附件（由维护者上传）。
+2. 将 `best_text_model.pt` 放到项目根目录，或复制为 `models/fraud_detector_final.pth`（需与 `enhanced_backend.py` 中加载逻辑一致）。
+3. 可选：在 PowerShell 中运行（**先修改**脚本里的 Tag / 仓库名，且 **Release 已发布**）：
+
+   ```powershell
+   .\scripts\download_models_from_release.ps1 -Tag "v1.0.0-models"
+   ```
+
+**完整步骤（含网页上传 Release、直链下载）**：见  
+[`docs/GITHUB_RELEASE_模型分发完整指南.md`](docs/GITHUB_RELEASE_模型分发完整指南.md)
+
 ## 📁 项目结构
 
 ```

@@ -30,7 +30,8 @@ python train_real_model.py
 
 ## 大文件分发方式（任选）
 
-1. **GitHub Releases**：上传 `.joblib` 或 `.pth` 作为 Release 附件。  
+1. **GitHub Releases**（推荐）：上传 `best_text_model.pt`、`.joblib` 作为 Release 附件；**另一台电脑**在 Release 页下载即可。  
+   → 操作说明：[`docs/GITHUB_RELEASE_模型分发完整指南.md`](../docs/GITHUB_RELEASE_模型分发完整指南.md)  
 2. **网盘 / 对象存储**：放链接在本文档或 `README.md`。  
 3. **仅团队使用**：不公开权重，只公开代码与指标。
 
