@@ -36,4 +36,7 @@ python train_real_model.py
 
 ---
 
+**更完整的说明**（已上传 vs 未上传、后端调用顺序、各文件内容）：请读  
+[`docs/模型上传与后端调用说明.md`](../docs/模型上传与后端调用说明.md)。
+
 与 AI 检测相关的其它代码（不在 `models/` 内）见仓库根目录 `README.md` 与 `enhanced_backend.py`。
