@@ -1,0 +1,9 @@
+{
+  "model_name": "bert",
+  "dataset": "mcfend",
+  "epochs": 5,
+  "final_train_acc": 1.090875900644544,
+  "final_val_acc": 1.01143648162752,
+  "model_path": "C:\\Users\\dyc06\\.cursor\\worktrees\\Fact-Safe-Elder\\vfg\\models\\finetuned\\bert_mcfend",
+  "training_completed": true
+}

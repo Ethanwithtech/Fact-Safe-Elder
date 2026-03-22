@@ -24,13 +24,22 @@ ENV/
 env.bak/
 venv.bak/
 
-# 模型文件 (太大不上传)
-models/
+# 模型权重与二进制（体积大，不上传 GitHub；代码与小配置见 models/）
+models/**/*.joblib
+models/**/*.pkl
+models/**/*.pickle
+models/**/*.h5
+models/**/*.onnx
+models/**/*.npz
+models/**/*.npy
+# 通用深度学习权重（若放在项目根或其它目录也忽略）
 *.bin
 *.pt
 *.pth
 *.ckpt
 *.safetensors
+*.gguf
+*.mlmodel
 
 # 数据文件
 data/datasets/
@@ -135,3 +144,4 @@ settings.local.json
 # Redis dump
 dump.rdb
 
+.vercel
