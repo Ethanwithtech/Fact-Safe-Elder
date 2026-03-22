@@ -1,0 +1,116 @@
+{
+  "id": "factsafe-elder-alert",
+  "name": "FactSafe 老人短视频安全守护",
+  "version": "1.0.0",
+  "description": "当 AI 检测到老人观看的短视频包含诈骗、虚假医疗、高风险理财等内容时，自动通过 QClaw 通知家属。",
+  "author": "FactSafe Team",
+  "icon": "🛡️",
+  "license": "MIT",
+  "repository": "https://github.com/yuchendeng/Fact-Safe-Elder/tree/main/qclaw-skill",
+
+  "install": {
+    "description": "QClaw 从 GitHub 下载本 Skill 后自动安装，注册 webhook 端点",
+    "steps": [
+      "QClaw 下载本仓库",
+      "运行 npm install（无额外依赖）",
+      "QClaw 注册 Skill，分配 webhook endpoint",
+      "用户将 webhook URL 配置到 FactSafe 系统设置中",
+      "FactSafe 检测到风险时自动 POST 到该 webhook",
+      "QClaw Agent 收到告警后推送给家属"
+    ]
+  },
+
+  "webhook": {
+    "description": "QClaw 为本 Skill 注册的 webhook 入口，接收来自 FactSafe 后端的风险告警",
+    "event": "risk_alert",
+    "method": "POST",
+    "payload": {
+      "level": {
+        "type": "string",
+        "enum": ["danger", "warning"],
+        "description": "风险等级"
+      },
+      "score": {
+        "type": "number",
+        "min": 0,
+        "max": 1,
+        "description": "风险评分 (0-1)"
+      },
+      "video_title": {
+        "type": "string",
+        "description": "视频标题"
+      },
+      "reasons": {
+        "type": "string[]",
+        "description": "风险因素列表"
+      },
+      "suggestions": {
+        "type": "string[]",
+        "description": "安全建议列表"
+      },
+      "detection_method": {
+        "type": "string",
+        "enum": ["ai_multimodal", "hybrid", "rule_engine"],
+        "description": "检测方法"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "ISO8601",
+        "description": "检测时间"
+      }
+    }
+  },
+
+  "handlers": {
+    "onAlert": {
+      "description": "收到风险告警时，格式化消息并通过 QClaw Agent 推送",
+      "entry": "src/index.js",
+      "function": "handleRiskAlert"
+    }
+  },
+
+  "channels": [
+    {
+      "type": "wecom",
+      "name": "企业微信",
+      "messageTypes": ["markdown", "text"],
+      "description": "将风险告警以 markdown 格式推送到企业微信群"
+    },
+    {
+      "type": "qq",
+      "name": "QQ 机器人",
+      "messageTypes": ["text"],
+      "description": "将风险告警以纯文本推送到 QQ"
+    }
+  ],
+
+  "settings": {
+    "factsafe_backend_url": {
+      "label": "FactSafe 后端地址",
+      "type": "string",
+      "default": "http://localhost:8000",
+      "description": "FactSafe AI 检测系统的后端地址，用于反向验证和状态同步"
+    },
+    "notify_threshold": {
+      "label": "告警阈值",
+      "type": "number",
+      "default": 50,
+      "min": 0,
+      "max": 100,
+      "description": "风险评分超过此值时发送告警（0-100）"
+    },
+    "notify_levels": {
+      "label": "告警级别",
+      "type": "multi_select",
+      "options": ["danger", "warning"],
+      "default": ["danger", "warning"],
+      "description": "选择哪些风险级别触发告警"
+    },
+    "quiet_hours": {
+      "label": "免打扰时段",
+      "type": "time_range",
+      "default": { "start": "23:00", "end": "07:00" },
+      "description": "此时段内的 warning 级别不发送通知（danger 始终通知）"
+    }
+  }
+}

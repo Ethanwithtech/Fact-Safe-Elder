@@ -17,7 +17,7 @@ app = FastAPI(
 # CORS中间件
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5173", "http://127.0.0.1:5173", "*"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
@@ -60,6 +60,17 @@ async def api_info():
 @app.post("/detect")
 async def detect_simple(text_data: dict):
     """简化版检测服务"""
+    return await _do_detect(text_data)
+
+
+@app.post("/api/detect")
+async def detect_simple_api(text_data: dict):
+    """简化版检测服务 (兼容前端 /api/detect 路径)"""
+    return await _do_detect(text_data)
+
+
+async def _do_detect(text_data: dict):
+    """检测逻辑实现"""
     text = text_data.get("text", "")
     
     if not text:

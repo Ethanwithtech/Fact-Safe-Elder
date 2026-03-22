@@ -6,7 +6,15 @@ export interface DetectionResult {
   message: string;
   reasons: string[];
   suggestions: string[];
+  categories?: string[];
+  keywords?: string[];
   timestamp: Date;
+  detection_id?: string;
+  detection_method?: string;
+  // AI特有字段
+  ai_models_used?: string[];
+  explanation_report?: any;
+  feature_importance?: any;
 }
 
 // 音频捕获类型
@@ -90,20 +98,3 @@ export interface VideoContent {
   }>;
 }
 
-// 扩展的检测结果类型（包含AI特有字段）
-export interface DetectionResult {
-  level: 'safe' | 'warning' | 'danger';
-  score: number;
-  confidence: number;
-  message: string;
-  reasons: string[];
-  suggestions: string[];
-  categories?: string[];
-  keywords?: string[];
-  timestamp: Date;
-  detection_id?: string;
-  // AI特有字段
-  ai_models_used?: string[];
-  explanation_report?: any;
-  feature_importance?: any;
-}

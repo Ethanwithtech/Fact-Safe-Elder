@@ -41,9 +41,17 @@ try:
     )
     AI_AVAILABLE = True
     logger.info("AI检测模块加载成功")
-except ImportError as e:
-    logger.warning(f"AI检测模块未加载: {e}，使用规则引擎")
-    AI_AVAILABLE = False
+except ImportError:
+    try:
+        from services.multimodal_detector import (
+            MultimodalDetector,
+            RiskLevel,
+        )
+        AI_AVAILABLE = True
+        logger.info("AI检测模块加载成功（相对导入）")
+    except ImportError as e:
+        logger.warning(f"AI检测模块未加载: {e}，使用规则引擎")
+        AI_AVAILABLE = False
 
 # 尝试导入家人通知服务
 try:
@@ -275,10 +283,36 @@ async def lifespan(app: FastAPI):
     logger.info("老人短视频虚假信息检测系统 启动中...")
     logger.info("=" * 50)
     
+    # 自动检测模型文件路径
+    # 模型可能在项目根目录、backend目录或当前工作目录
+    import pathlib
+    possible_roots = [
+        pathlib.Path(__file__).resolve().parent.parent.parent,  # backend/../.. = 项目根
+        pathlib.Path(__file__).resolve().parent.parent,          # backend/.. = backend
+        pathlib.Path.cwd(),                                       # 当前工作目录
+        pathlib.Path.cwd().parent,                                # cwd 上级
+    ]
+    
+    bert_model_path = None
+    simple_model_path = None
+    
+    for root in possible_roots:
+        p = root / "best_text_model.pt"
+        if p.exists() and bert_model_path is None:
+            bert_model_path = str(p)
+            logger.info(f"发现 BERT 模型: {bert_model_path} ({p.stat().st_size / 1024 / 1024:.0f}MB)")
+        p2 = root / "simple_ai_model.joblib"
+        if p2.exists() and simple_model_path is None:
+            simple_model_path = str(p2)
+            logger.info(f"发现简单AI模型: {simple_model_path} ({p2.stat().st_size / 1024:.0f}KB)")
+    
     # 尝试初始化AI检测器
     if AI_AVAILABLE:
         try:
-            ai_detector = MultimodalDetector()
+            ai_detector = MultimodalDetector(
+                model_path=bert_model_path,
+                simple_model_path=simple_model_path
+            )
             logger.info("✓ AI检测器初始化成功")
         except Exception as e:
             logger.warning(f"AI检测器初始化失败: {e}")
@@ -321,6 +355,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:3005",
+        "http://127.0.0.1:3005",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "*"
@@ -406,7 +442,7 @@ async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
                     "text_risk": result.text_risk,
                     "visual_risk": result.visual_risk,
                     "audio_risk": result.audio_risk,
-                    "detection_method": "ai_multimodal",
+                    "detection_method": getattr(result, 'detection_method', 'ai_multimodal'),
                     "inference_time": result.inference_time
                 }
             except Exception as e:
@@ -553,6 +589,12 @@ async def notify_family(request: FamilyNotifyRequest):
         raise HTTPException(status_code=500, detail="通知服务异常")
 
 
+@app.post("/api/detect", response_model=DetectionResponse)
+async def detect_api(request: DetectionRequest, background_tasks: BackgroundTasks):
+    """检测虚假信息 (API前缀版本，兼容前端)"""
+    return await detect(request, background_tasks)
+
+
 @app.get("/stats")
 async def get_stats():
     """获取系统统计信息"""
@@ -570,6 +612,168 @@ async def get_stats():
             "version": "2.0.0"
         }
     }
+
+
+# === QClaw Skill 集成 ===
+# 
+# 架构说明:
+#   1. QClaw 从 GitHub 下载我们的 Skill（qclaw-skill/）并安装
+#   2. 安装时 QClaw 分配一个 webhook URL
+#   3. 用户把该 webhook URL 配到本系统的 OpenClaw 设置里
+#   4. 检测到风险时，本系统 POST 告警到 QClaw webhook
+#   5. QClaw 调用 Skill 的 handleRiskAlert() → 推送给家属
+#
+# 本后端提供:
+#   - POST /api/qclaw/push   → 主动推送告警到 QClaw webhook（前端调用）
+#   - POST /api/qclaw/config → 配置 QClaw webhook URL
+#   - GET  /api/qclaw/status → 查看当前配置和连通性
+
+class QClawPushRequest(BaseModel):
+    """推送告警到 QClaw 的请求（前端检测完后调用）"""
+    level: str = Field(..., description="风险等级: danger | warning | safe")
+    score: float = Field(..., ge=0, le=1, description="风险评分 0-1")
+    video_title: str = Field("", description="视频标题")
+    reasons: List[str] = Field(default_factory=list, description="风险因素列表")
+    suggestions: List[str] = Field(default_factory=list, description="安全建议列表")
+    detection_method: str = Field("ai_multimodal", description="检测方法")
+    timestamp: Optional[str] = Field(None, description="检测时间 ISO8601")
+
+class QClawWebhookConfig(BaseModel):
+    """QClaw Webhook 配置 — 用户安装 Skill 后从 QClaw 获取的 URL"""
+    webhook_url: Optional[str] = Field(None, description="QClaw 分配的 Webhook URL")
+    enabled: bool = Field(True, description="是否启用")
+
+# 全局配置：存储 QClaw 分配给我们的 webhook URL
+_qclaw_webhook: Dict[str, Any] = {
+    "webhook_url": os.environ.get("QCLAW_WEBHOOK_URL", ""),
+    "enabled": True,
+}
+
+
+@app.post("/api/qclaw/push")
+async def qclaw_push(request: QClawPushRequest):
+    """
+    推送风险告警到 QClaw
+    
+    前端检测到风险后调用此接口，我们将告警数据 POST 到 QClaw 分配的 webhook URL，
+    QClaw 收到后调用已安装的 factsafe-elder-alert Skill 推送给家属。
+    """
+    if not _qclaw_webhook.get("enabled"):
+        return {"success": False, "message": "QClaw 推送未启用"}
+
+    webhook_url = _qclaw_webhook.get("webhook_url", "")
+    if not webhook_url:
+        return {
+            "success": False,
+            "message": "未配置 QClaw Webhook URL。请先在 QClaw 中安装 factsafe-elder-alert Skill，然后将分配的 Webhook URL 填入设置。",
+        }
+
+    # safe 不推送
+    if request.level == "safe":
+        return {"success": True, "message": "安全内容，无需推送", "pushed": False}
+
+    # 构造 webhook payload（与 Skill 的 skill.json webhook.payload 格式一致）
+    payload = {
+        "level": request.level,
+        "score": request.score,
+        "video_title": request.video_title or "未知视频",
+        "reasons": request.reasons,
+        "suggestions": request.suggestions,
+        "detection_method": request.detection_method,
+        "timestamp": request.timestamp or datetime.now().isoformat(),
+    }
+
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                webhook_url,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if resp.status_code >= 400:
+                logger.warning(f"QClaw webhook failed: {resp.status_code} {resp.text}")
+                return {
+                    "success": False,
+                    "message": f"QClaw 返回 {resp.status_code}",
+                    "pushed": False,
+                }
+
+            result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text}
+            logger.info(f"QClaw push success: level={request.level}, score={round(request.score * 100)}")
+            return {
+                "success": True,
+                "message": "告警已推送到 QClaw",
+                "pushed": True,
+                "data": result,
+            }
+
+    except ImportError:
+        return {"success": False, "message": "httpx 未安装"}
+    except Exception as e:
+        logger.warning(f"QClaw push error: {e}")
+        return {
+            "success": False,
+            "message": f"QClaw 不可达: {str(e)}",
+            "pushed": False,
+        }
+
+
+@app.post("/api/qclaw/config")
+async def update_qclaw_config(config: QClawWebhookConfig):
+    """
+    配置 QClaw Webhook URL
+    
+    用户在 QClaw 安装 Skill 后获得一个 webhook URL，通过此接口保存到后端。
+    """
+    global _qclaw_webhook
+    if config.webhook_url is not None:
+        _qclaw_webhook["webhook_url"] = config.webhook_url
+    _qclaw_webhook["enabled"] = config.enabled
+    logger.info(f"QClaw config updated: url={'***' + _qclaw_webhook['webhook_url'][-20:] if _qclaw_webhook['webhook_url'] else '(empty)'}, enabled={config.enabled}")
+    return {
+        "success": True,
+        "message": "QClaw 配置已更新",
+        "data": {
+            "webhook_url_set": bool(_qclaw_webhook.get("webhook_url")),
+            "enabled": _qclaw_webhook["enabled"],
+        },
+    }
+
+
+@app.get("/api/qclaw/status")
+async def qclaw_status():
+    """查看 QClaw 集成状态"""
+    webhook_url = _qclaw_webhook.get("webhook_url", "")
+    result = {
+        "enabled": _qclaw_webhook.get("enabled", False),
+        "webhook_configured": bool(webhook_url),
+        "skill_repo": "https://github.com/yuchendeng/Fact-Safe-Elder/tree/main/qclaw-skill",
+        "install_instructions": [
+            "1. 在 QClaw 中安装 Skill: qclaw skill install https://github.com/yuchendeng/Fact-Safe-Elder/qclaw-skill",
+            "2. 安装后 QClaw 会分配一个 Webhook URL",
+            "3. 将 Webhook URL 配到 FactSafe 设置 → OpenClaw 配置中",
+            "4. 检测到风险时会自动推送到 QClaw → 通知家属",
+        ],
+    }
+
+    # 尝试检测连通性
+    if webhook_url:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.options(webhook_url)
+                result["reachable"] = resp.status_code < 500
+                result["status_code"] = resp.status_code
+        except Exception as e:
+            result["reachable"] = False
+            result["error"] = str(e)
+    else:
+        result["reachable"] = False
+
+    return {"success": True, "data": result}
 
 
 # === 启动入口 ===

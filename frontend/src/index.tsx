@@ -29,8 +29,9 @@ const checkBrowserSupport = () => {
 
 // 全局错误处理
 window.addEventListener('error', (event) => {
+  // 跨域脚本错误 event.error 为 null，属于正常现象，忽略
+  if (!event.error) return;
   console.error('全局错误:', event.error);
-  // 可以在这里添加错误上报逻辑
 });
 
 window.addEventListener('unhandledrejection', (event) => {

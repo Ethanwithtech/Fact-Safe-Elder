@@ -1,20 +1,111 @@
-/* 设置组件样式 - 适老化设计 */
+/* ===== Settings 纯 CSS 覆盖层（无 antd Modal）===== */
 
-.settings-modal {
-  max-width: 90vw;
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  animation: settingsFadeIn 0.2s ease;
 }
 
-.settings-modal .ant-modal-content {
+@keyframes settingsFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.settings-panel {
+  width: 700px;
+  max-width: 92vw;
+  max-height: 85vh;
+  background: #fff;
   border-radius: 16px;
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  animation: settingsPanelIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.settings-modal .ant-modal-header {
+@keyframes settingsPanelIn {
+  from { transform: scale(0.92) translateY(20px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
   background: linear-gradient(135deg, #f0f9ff 0%, #e6f7ff 100%);
   border-bottom: 1px solid #e6f7ff;
-  padding: 24px;
 }
 
+.settings-panel-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.settings-panel-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #333;
+}
+
+.settings-panel-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #e8e8e8;
+  background: #fafafa;
+}
+
+.settings-footer-btn {
+  height: 40px;
+  font-size: 15px;
+  font-weight: 500;
+  border-radius: 8px;
+  min-width: 90px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #333;
+  padding: 0 20px;
+}
+.settings-footer-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+.settings-footer-btn.save {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+.settings-footer-btn.save:hover {
+  background: #40a9ff;
+}
+.settings-footer-btn.reset {
+  color: #999;
+  border-color: #e0e0e0;
+}
+.settings-footer-btn.reset:hover {
+  color: #ff4d4f;
+  border-color: #ff4d4f;
+}
+
+/* ===== 标题 ===== */
 .settings-title {
   display: flex;
   align-items: center;
@@ -28,29 +119,12 @@
   font-size: 28px;
 }
 
-.settings-modal .ant-modal-body {
-  padding: 0;
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.settings-modal .ant-modal-footer {
-  padding: 20px 24px;
-  border-top: 1px solid #e8e8e8;
-  background: #fafafa;
-}
-
-.settings-modal .ant-modal-footer .ant-btn {
-  height: 44px;
-  font-size: 16px;
-  font-weight: 500;
-  border-radius: 8px;
-  min-width: 100px;
-}
-
-/* 设置内容容器 */
+/* ===== 设置内容容器 ===== */
 .settings-content {
   padding: 0;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(85vh - 140px);
 }
 
 /* 设置部分 */
@@ -173,82 +247,12 @@
   background-color: #52c41a;
 }
 
-.setting-control .ant-switch::after {
-  width: 20px;
-  height: 20px;
-}
-
 /* 输入框样式 */
 .setting-control .ant-input {
   min-width: 200px;
   height: 44px;
   font-size: 16px;
   border-radius: 8px;
-}
-
-/* 帮助内容 */
-.help-content {
-  background: #f6ffed;
-  border: 1px solid #d9f7be;
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.help-item {
-  margin-bottom: 20px;
-}
-
-.help-item:last-child {
-  margin-bottom: 0;
-}
-
-.help-item strong {
-  display: block;
-  font-size: 16px;
-  color: #389e0d;
-  margin-bottom: 8px;
-}
-
-.help-item p {
-  margin: 0 0 8px 0;
-  font-size: 15px;
-  color: #595959;
-  line-height: 1.6;
-}
-
-.help-item ul {
-  margin: 8px 0 0 0;
-  padding-left: 20px;
-}
-
-.help-item li {
-  font-size: 15px;
-  color: #595959;
-  line-height: 1.6;
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.risk-color {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-right: 4px;
-}
-
-.risk-color.safe {
-  background: #52c41a;
-}
-
-.risk-color.warning {
-  background: #faad14;
-}
-
-.risk-color.danger {
-  background: #ff4d4f;
 }
 
 /* 隐私保护部分 */
@@ -286,33 +290,29 @@
 
 /* 响应式设计 */
 @media (max-width: 768px) {
-  .settings-modal {
+  .settings-panel {
     max-width: 95vw;
   }
-  
-  .settings-modal .ant-modal-body {
-    max-height: 60vh;
-  }
-  
+
   .setting-item {
     flex-direction: column;
     gap: 12px;
     align-items: stretch;
   }
-  
+
   .setting-control {
     align-self: flex-start;
   }
-  
+
   .setting-control .ant-radio-group {
     width: 100%;
   }
-  
+
   .setting-control .ant-radio-wrapper {
     width: 100%;
     padding: 12px;
   }
-  
+
   .setting-control .ant-input {
     min-width: auto;
     width: 100%;
@@ -323,36 +323,25 @@
   .settings-section {
     padding: 16px;
   }
-  
-  .settings-modal .ant-modal-header {
+
+  .settings-panel-header {
     padding: 16px;
   }
-  
-  .settings-modal .ant-modal-footer {
-    padding: 16px;
+
+  .settings-panel-footer {
+    padding: 12px 16px;
   }
-  
+
   .settings-title {
     font-size: 20px;
   }
-  
+
   .settings-section h3 {
     font-size: 18px;
   }
-  
+
   .setting-item {
     padding: 12px 0;
-  }
-  
-  .help-content,
-  .privacy-info {
-    padding: 16px;
-  }
-  
-  .settings-modal .ant-modal-footer .ant-btn {
-    height: 40px;
-    font-size: 14px;
-    min-width: 80px;
   }
 }
 
@@ -369,29 +358,25 @@
   .settings-section {
     border-bottom-color: #000;
   }
-  
+
   .setting-item {
     border-bottom-color: #000;
   }
-  
+
   .setting-control .ant-radio-wrapper {
     border-color: #000;
   }
-  
+
   .setting-control .ant-radio-wrapper:hover {
     border-color: #000;
     background: #f0f0f0;
   }
-  
+
   .setting-control .ant-radio-wrapper-checked {
     border-color: #000;
     background: #e0e0e0;
   }
-  
-  .help-content {
-    border-color: #000;
-  }
-  
+
   .privacy-section {
     border-color: #000;
   }
@@ -423,25 +408,47 @@
   .settings-section {
     animation: none;
   }
-  
+
   .setting-control .ant-radio-wrapper {
     transition: none;
   }
 }
 
-/* 打印样式 */
-@media print {
-  .settings-modal .ant-modal-footer {
-    display: none;
-  }
-  
-  .settings-content {
-    max-height: none;
-    overflow: visible;
-  }
-  
-  .settings-section {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
+/* OpenClaw 配置区 */
+.openclaw-section .section-desc {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin: -12px 0 16px 0;
+  line-height: 1.5;
+}
+
+.openclaw-skill-info {
+  background: linear-gradient(135deg, #f0f5ff 0%, #e6f7ff 100%);
+  border: 1px solid #91d5ff;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 8px;
+}
+
+.skill-info-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1890ff;
+  margin-bottom: 10px;
+}
+
+.skill-info-content p {
+  font-size: 13px;
+  color: #595959;
+  margin: 4px 0;
+  line-height: 1.6;
+}
+
+.skill-info-content code {
+  background: rgba(24, 144, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #1890ff;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
 }

@@ -1,283 +1,138 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Modal } from 'antd';
 import { DetectionResult } from '../../types/detection';
+import { Language, t } from '../../i18n';
 import './DetectionFloater.css';
 
 interface DetectionFloaterProps {
   result: DetectionResult;
   onClose: () => void;
+  embedded?: boolean;
+  lang?: Language;
 }
 
-const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose }) => {
-  const [showDetail, setShowDetail] = useState(false);
-  const [position, setPosition] = useState({ x: 20, y: 20 });
+const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, embedded = false, lang = 'zh' }) => {
+  const [expanded, setExpanded] = useState(false);
+  const [visible, setVisible] = useState(true);
 
-  // 根据风险等级获取样式和信息
-  const getRiskInfo = () => {
-    switch (result.level) {
+  const reasons = result?.reasons || [];
+  const suggestions = result?.suggestions || [];
+  const score = result?.score ?? 0;
+  const level = result?.level || 'safe';
+  const scoreNum = Math.round(score * 100);
+
+  const riskInfo = (() => {
+    switch (level) {
       case 'danger':
-        return {
-          color: '#ff4d4f',
-          bgColor: '#fff2f0',
-          borderColor: '#ffccc7',
-          icon: '🚨',
-          title: '高风险警告',
-          description: '检测到可能的诈骗或虚假信息',
-          action: '建议立即停止观看'
-        };
+        return { color: '#ff4d4f', icon: '🚨', label: lang === 'zh' ? '高风险' : 'HIGH RISK' };
       case 'warning':
-        return {
-          color: '#faad14',
-          bgColor: '#fffbe6',
-          borderColor: '#ffe58f',
-          icon: '⚠️',
-          title: '注意风险',
-          description: '内容存在可疑信息',
-          action: '建议谨慎对待'
-        };
-      case 'safe':
-        return {
-          color: '#52c41a',
-          bgColor: '#f6ffed',
-          borderColor: '#b7eb8f',
-          icon: '✅',
-          title: '内容安全',
-          description: '未发现明显风险',
-          action: '可以正常观看'
-        };
-      default:
-        return {
-          color: '#666',
-          bgColor: '#fafafa',
-          borderColor: '#d9d9d9',
-          icon: '❓',
-          title: '检测中',
-          description: '正在分析内容',
-          action: '请稍候'
-        };
+        return { color: '#faad14', icon: '⚠️', label: lang === 'zh' ? '注意' : 'CAUTION' };
+      case 'safe': default:
+        return { color: '#52c41a', icon: '✅', label: lang === 'zh' ? '安全' : 'SAFE' };
     }
-  };
+  })();
 
-  const riskInfo = getRiskInfo();
-
-  // 自动隐藏安全提示
   useEffect(() => {
-    if (result.level === 'safe') {
+    if (level === 'safe') {
       const timer = setTimeout(() => {
-        onClose();
-      }, 3000);
+        setVisible(false);
+        setTimeout(onClose, 300);
+      }, 2500);
       return () => clearTimeout(timer);
     }
-  }, [result.level, onClose]);
+  }, [level, onClose]);
 
-  // 拖拽功能
-  const handleMouseDown = (e: React.MouseEvent) => {
-    const startX = e.clientX - position.x;
-    const startY = e.clientY - position.y;
+  if (!visible && level === 'safe') return null;
 
-    const handleMouseMove = (e: MouseEvent) => {
-      setPosition({
-        x: e.clientX - startX,
-        y: e.clientY - startY
-      });
-    };
+  // ===== 灵动岛模式（手机内嵌）=====
+  if (embedded) {
+    return (
+      <>
+        {/* 迷你药丸 — 灵动岛风格 */}
+        <div
+          className={`island-pill ${level} ${visible ? 'show' : 'hide'} ${expanded ? 'expanded' : ''}`}
+          onClick={() => level !== 'safe' && setExpanded(!expanded)}
+        >
+          <span className="island-icon">{riskInfo.icon}</span>
+          <span className="island-label">{riskInfo.label}</span>
+          <span className="island-score" style={{ color: riskInfo.color }}>{scoreNum}</span>
+          <button className="island-dismiss" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
+        </div>
 
-    const handleMouseUp = () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
+        {/* 展开详情面板 */}
+        {expanded && level !== 'safe' && (
+          <div className="island-detail-backdrop" onClick={() => setExpanded(false)}>
+            <div className="island-detail-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="island-detail-head" style={{ borderBottomColor: riskInfo.color }}>
+                <span>{riskInfo.icon} {riskInfo.label}</span>
+                <span className="island-detail-score" style={{ color: riskInfo.color }}>{scoreNum}</span>
+              </div>
+              {reasons.length > 0 && (
+                <div className="island-detail-sec">
+                  <div className="island-detail-label">⚡ {lang === 'zh' ? '风险因素' : 'Risk Factors'}</div>
+                  {reasons.map((r, i) => (
+                    <div key={i} className="island-detail-reason" style={{ borderLeftColor: riskInfo.color }}>• {r}</div>
+                  ))}
+                </div>
+              )}
+              {suggestions.length > 0 && (
+                <div className="island-detail-sec">
+                  <div className="island-detail-label">💡 {lang === 'zh' ? '安全建议' : 'Suggestions'}</div>
+                  {suggestions.map((s, i) => (
+                    <div key={i} className="island-detail-suggestion">💡 {s}</div>
+                  ))}
+                </div>
+              )}
+              <button className="island-detail-close-btn" onClick={() => setExpanded(false)}>
+                {t(lang!, 'iKnow')}
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
 
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
+  // ===== 桌面灵动岛浮窗 =====
   return (
     <>
-      {/* 主浮窗 */}
-      <div 
-        className={`detection-floater ${result.level}`}
-        style={{
-          left: position.x,
-          top: position.y,
-          backgroundColor: riskInfo.bgColor,
-          borderColor: riskInfo.borderColor,
-          color: riskInfo.color
-        }}
-        onMouseDown={handleMouseDown}
+      <div
+        className={`desktop-island ${level} ${expanded ? 'expanded' : ''}`}
+        onClick={() => level !== 'safe' && setExpanded(!expanded)}
       >
-        {/* 拖拽手柄 */}
-        <div className="drag-handle">
-          <span className="drag-dots">⋮⋮</span>
-        </div>
-
-        {/* 主要内容 */}
-        <div className="floater-content">
-          <div className="risk-icon">{riskInfo.icon}</div>
-          <div className="risk-info">
-            <div className="risk-title">{riskInfo.title}</div>
-            <div className="risk-score">
-              风险评分: {Math.round(result.score * 100)}/100
-            </div>
-          </div>
-        </div>
-
-        {/* 操作按钮 */}
-        <div className="floater-actions">
-          <Button 
-            type="text" 
-            size="small"
-            onClick={() => setShowDetail(true)}
-            className="detail-btn"
-          >
-            详情
-          </Button>
-          <Button 
-            type="text" 
-            size="small"
-            onClick={onClose}
-            className="close-btn"
-          >
-            ✕
-          </Button>
-        </div>
-
-        {/* 简要提示 */}
-        <div className="quick-tip">
-          {riskInfo.description}
-        </div>
+        <span className="island-icon">{riskInfo.icon}</span>
+        <span className="island-label">{riskInfo.label}</span>
+        <span className="island-score" style={{ color: riskInfo.color }}>{scoreNum}</span>
+        <button className="island-dismiss" onClick={(e) => { e.stopPropagation(); onClose(); }}>✕</button>
       </div>
 
-      {/* 详细信息弹窗 */}
-      <Modal
-        title={
-          <div className="modal-title">
-            <span className="modal-icon">{riskInfo.icon}</span>
-            <span>{riskInfo.title}</span>
-          </div>
-        }
-        open={showDetail}
-        onCancel={() => setShowDetail(false)}
-        footer={[
-          <Button key="close" onClick={() => setShowDetail(false)}>
-            关闭
-          </Button>
-        ]}
-        className="detection-detail-modal"
-        width={600}
-      >
-        <div className="detection-details">
-          {/* 风险概况 */}
-          <div className="detail-section">
-            <h4>🔍 检测结果</h4>
-            <div className="result-summary">
-              <div className="summary-item">
-                <span className="label">风险等级：</span>
-                <span className={`value ${result.level}`}>
-                  {riskInfo.title}
-                </span>
-              </div>
-              <div className="summary-item">
-                <span className="label">风险评分：</span>
-                <span className="value">{Math.round(result.score * 100)}/100</span>
-              </div>
-              <div className="summary-item">
-                <span className="label">检测时间：</span>
-                <span className="value">
-                  {result.timestamp.toLocaleString('zh-CN')}
-                </span>
-              </div>
+      {/* 桌面详情覆盖层 */}
+      {expanded && (
+        <div className="desktop-detail-overlay" onClick={() => setExpanded(false)}>
+          <div className="desktop-detail-panel" onClick={(e) => e.stopPropagation()}>
+            <div className="desktop-detail-header" style={{ borderBottomColor: riskInfo.color }}>
+              <span className="desktop-detail-title">{riskInfo.icon} {riskInfo.label} — {scoreNum}/100</span>
+              <button className="desktop-detail-close" onClick={() => setExpanded(false)}>✕</button>
             </div>
-          </div>
-
-          {/* 风险原因 */}
-          {result.reasons.length > 0 && (
-            <div className="detail-section">
-              <h4>⚡ 识别到的风险因素</h4>
-              <ul className="risk-reasons">
-                {result.reasons.map((reason, index) => (
-                  <li key={index}>{reason}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 建议措施 */}
-          {result.suggestions.length > 0 && (
-            <div className="detail-section">
-              <h4>💡 安全建议</h4>
-              <ul className="suggestions">
-                {result.suggestions.map((suggestion, index) => (
-                  <li key={index}>{suggestion}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {/* 通用安全提示 */}
-          <div className="detail-section safety-tips">
-            <h4>🛡️ 防骗提醒</h4>
-            <div className="tips-grid">
-              <div className="tip-item">
-                <div className="tip-icon">💰</div>
-                <div className="tip-text">
-                  <strong>投资理财</strong><br/>
-                  保证高收益的都是骗局，正规投资都有风险
+            <div className="desktop-detail-body">
+              {reasons.length > 0 && (
+                <div className="detail-section">
+                  <h4>{t(lang!, 'riskFactors')}</h4>
+                  {reasons.map((r, i) => <div key={i} className="reason-tag" style={{ borderLeftColor: riskInfo.color }}>{r}</div>)}
                 </div>
-              </div>
-              <div className="tip-item">
-                <div className="tip-icon">💊</div>
-                <div className="tip-text">
-                  <strong>医疗健康</strong><br/>
-                  包治百病的产品不存在，有病请找正规医院
+              )}
+              {suggestions.length > 0 && (
+                <div className="detail-section">
+                  <h4>{t(lang!, 'safetySuggestions')}</h4>
+                  {suggestions.map((s, i) => <div key={i} className="suggestion-tag">{s}</div>)}
                 </div>
-              </div>
-              <div className="tip-item">
-                <div className="tip-icon">📞</div>
-                <div className="tip-text">
-                  <strong>紧急情况</strong><br/>
-                  遇到可疑情况，立即咨询家人或拨打110
-                </div>
-              </div>
+              )}
             </div>
-          </div>
-
-          {/* 举报功能 */}
-          <div className="detail-section">
-            <h4>🚨 举报可疑内容</h4>
-            <div className="report-actions">
-              <Button 
-                type="primary" 
-                danger={result.level === 'danger'}
-                onClick={() => {
-                  // 这里可以实现举报功能
-                  Modal.info({
-                    title: '举报成功',
-                    content: '感谢您的举报，我们会及时处理可疑内容。',
-                  });
-                }}
-              >
-                举报此内容
-              </Button>
-              <Button 
-                type="default"
-                onClick={() => {
-                  // 这里可以实现通知家人功能
-                  Modal.confirm({
-                    title: '通知家人',
-                    content: '是否要将此检测结果发送给您的家人？',
-                    onOk: () => {
-                      // 实现通知家人的逻辑
-                      console.log('通知家人:', result);
-                    }
-                  });
-                }}
-              >
-                通知家人
-              </Button>
+            <div className="desktop-detail-footer">
+              <button className="desktop-detail-ok-btn" onClick={() => setExpanded(false)}>{t(lang!, 'close')}</button>
             </div>
           </div>
         </div>
-      </Modal>
+      )}
     </>
   );
 };

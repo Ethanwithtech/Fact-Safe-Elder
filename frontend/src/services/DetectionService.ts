@@ -6,67 +6,92 @@ import { DetectionResult } from '../types/detection';
  */
 export default class DetectionService {
   private baseURL: string;
-  private cache: Map<string, DetectionResult> = new Map();
-  private cacheTimeout = 5 * 60 * 1000; // 5分钟缓存
+  private cache: Map<string, { result: DetectionResult; time: number }> = new Map();
+  private cacheTimeout = 30 * 1000; // 30秒缓存（缩短以支持实时检测体验）
 
   constructor() {
     this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    console.log('[DetectionService] 初始化, API地址:', this.baseURL);
   }
 
   /**
    * 检测内容是否为虚假信息
+   * 策略：始终调用后端 AI API 进行深度检测，本地规则作为补充
    */
   async detectContent(content: string): Promise<DetectionResult> {
     try {
-      // 检查缓存
+      // 检查缓存（带过期时间）
       const cacheKey = this.generateCacheKey(content);
-      const cachedResult = this.cache.get(cacheKey);
+      const cached = this.cache.get(cacheKey);
       
-      if (cachedResult) {
-        console.log('使用缓存的检测结果');
-        return cachedResult;
+      if (cached && (Date.now() - cached.time < this.cacheTimeout)) {
+        console.log('[DetectionService] 使用缓存结果 (剩余', Math.round((this.cacheTimeout - (Date.now() - cached.time)) / 1000), '秒过期)');
+        return cached.result;
       }
 
-      // 本地快速检测 (降低服务器负载)
+      // 本地快速检测（用于兜底和辅助判断，不再短路）
       const quickResult = this.quickLocalDetection(content);
-      if (quickResult.level === 'danger') {
-        // 如果本地检测到高风险，立即返回
-        this.cache.set(cacheKey, quickResult);
-        return quickResult;
-      }
+      console.log('[DetectionService] 本地预检测:', quickResult.level, '分数:', quickResult.score.toFixed(2));
 
-      // 调用后端API进行深度检测
+      // 始终调用后端 AI API 进行深度检测
       try {
+        console.log('[DetectionService] 正在调用后端 AI API:', `${this.baseURL}/api/detect`);
         const response = await axios.post(`${this.baseURL}/api/detect`, {
           text: content,
           timestamp: new Date().toISOString()
         }, {
-          timeout: 5000, // 5秒超时
+          timeout: 10000, // 10秒超时（BERT推理可能需要更长时间）
           headers: {
             'Content-Type': 'application/json'
           }
         });
 
+        console.log('[DetectionService] 后端响应:', response.status, response.data?.success);
+
+        // 后端返回 { success, message, data: { level, score, ... } }
+        const apiData = response.data?.data || response.data;
+        
         const result: DetectionResult = {
-          ...response.data,
+          level: apiData.level || quickResult.level,
+          score: apiData.score ?? quickResult.score,
+          confidence: apiData.confidence ?? 0.8,
+          message: apiData.message || '',
+          reasons: apiData.reasons || [],
+          suggestions: apiData.suggestions || [],
+          detection_method: apiData.detection_method || 'ai_multimodal',
           timestamp: new Date()
         };
 
+        // 融合策略：如果 AI 判断为 safe 但本地关键词检测为 danger/warning，取更严格的
+        if (result.level === 'safe' && quickResult.level !== 'safe') {
+          result.level = quickResult.level;
+          result.score = Math.max(result.score, quickResult.score);
+          result.reasons = [...(quickResult.reasons || []), ...(result.reasons || [])];
+          result.suggestions = [...new Set([...(quickResult.suggestions || []), ...(result.suggestions || [])])];
+          result.message = quickResult.message;
+          result.detection_method = 'hybrid';
+        }
+
+        console.log('[DetectionService] 最终结果:', result.level, '分数:', result.score, '方法:', result.detection_method);
+
         // 缓存结果
-        this.cache.set(cacheKey, result);
+        this.cache.set(cacheKey, { result, time: Date.now() });
         
         // 清理过期缓存
         this.cleanExpiredCache();
 
         return result;
-      } catch (apiError) {
-        console.warn('API检测失败，使用本地检测:', apiError);
-        // API失败时使用本地检测结果
+      } catch (apiError: any) {
+        console.warn('[DetectionService] 后端 API 调用失败:', apiError?.message || apiError);
+        console.warn('[DetectionService] 降级使用本地规则引擎检测');
+        // API 失败时使用本地检测结果，标记检测方法
+        quickResult.detection_method = 'local_rule_engine';
+        this.cache.set(cacheKey, { result: quickResult, time: Date.now() });
         return quickResult;
       }
 
     } catch (error) {
-      console.error('检测服务错误:', error);
+      console.error('[DetectionService] 检测服务错误:', error);
       
       // 返回默认安全结果，避免系统崩溃
       return {
@@ -76,6 +101,7 @@ export default class DetectionService {
         message: '检测服务暂时不可用',
         reasons: ['系统检测异常'],
         suggestions: ['建议谨慎对待此内容'],
+        detection_method: 'error_fallback',
         timestamp: new Date()
       };
     }
@@ -226,8 +252,8 @@ export default class DetectionService {
     const now = Date.now();
     const keysToDelete: string[] = [];
 
-    this.cache.forEach((result, key) => {
-      if (now - result.timestamp.getTime() > this.cacheTimeout) {
+    this.cache.forEach((entry, key) => {
+      if (now - entry.time > this.cacheTimeout) {
         keysToDelete.push(key);
       }
     });
@@ -235,6 +261,10 @@ export default class DetectionService {
     keysToDelete.forEach(key => {
       this.cache.delete(key);
     });
+
+    if (keysToDelete.length > 0) {
+      console.log(`[DetectionService] 清理了 ${keysToDelete.length} 条过期缓存`);
+    }
   }
 
   /**
@@ -264,8 +294,8 @@ export default class DetectionService {
     riskDetections: number;
   } {
     let riskCount = 0;
-    this.cache.forEach(result => {
-      if (result.level !== 'safe') {
+    this.cache.forEach(entry => {
+      if (entry.result.level !== 'safe') {
         riskCount++;
       }
     });

@@ -1,0 +1,32 @@
+{
+  "skill": {
+    "id": "factsafe-elder-alert",
+    "name": "FactSafe 老人短视频安全守护",
+    "version": "1.0.0",
+    "description": "当 AI 检测到老人观看的短视频包含诈骗、虚假医疗、高风险理财等内容时，通过 QClaw 自动通知家属。",
+    "author": "FactSafe Team",
+    "icon": "🛡️",
+    "license": "MIT",
+    "repository": "https://github.com/factsafe/factsafe-elder-alert-skill",
+
+    "architecture": {
+      "description": "Skill 上传 GitHub → QClaw 下载安装 → 分配 Webhook URL → FactSafe 后端 POST 告警 → Skill 通过 QClaw Agent 推送给家属",
+      "flow": [
+        "1. 将 qclaw-skill/ 目录上传到 GitHub 仓库",
+        "2. QClaw 安装: qclaw skill install <github-url>",
+        "3. QClaw 分配 Webhook URL 给本 Skill",
+        "4. 用户将 Webhook URL 填入 FactSafe 设置 → OpenClaw 配置",
+        "5. FactSafe 检测到风险 → POST /api/qclaw/push → POST 到 QClaw Webhook",
+        "6. QClaw 调用 Skill handleRiskAlert() → agent.send() → 企业微信/QQ"
+      ]
+    },
+
+    "local_skill_path": "qclaw-skill/",
+
+    "backend_api": {
+      "push": "POST /api/qclaw/push   — 推送告警到 QClaw (前端调用)",
+      "config": "POST /api/qclaw/config — 保存 QClaw Webhook URL",
+      "status": "GET  /api/qclaw/status — 查看 QClaw 集成状态"
+    }
+  }
+}

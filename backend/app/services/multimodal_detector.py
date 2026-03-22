@@ -1,5 +1,3 @@
-<<<<<<< Current (Your changes)
-=======
 """
 多模态虚假信息检测器
 基于FakeSV和SpotFake论文架构
@@ -14,6 +12,14 @@ from dataclasses import dataclass
 from enum import Enum
 import numpy as np
 from loguru import logger
+
+# scikit-learn 模型加载
+try:
+    import joblib
+    JOBLIB_AVAILABLE = True
+except ImportError:
+    logger.warning("joblib未安装，简单AI模型不可用")
+    JOBLIB_AVAILABLE = False
 
 # 深度学习框架
 try:
@@ -49,6 +55,32 @@ except ImportError:
     WHISPER_AVAILABLE = False
 
 
+# === 训练好的文本分类模型（与 train_multimodal_model.py 中的 TextClassifier 对齐） ===
+if TORCH_AVAILABLE:
+    class TextClassifier(nn.Module):
+        """
+        BERT 文本分类器 - 与训练脚本 train_multimodal_model.py 中结构一致
+        encoder: MacBERT (hfl/chinese-macbert-base), hidden=768
+        head: Linear(768,384) -> GELU -> Dropout -> Linear(384,2)
+        """
+        def __init__(self, model_name: str = "hfl/chinese-macbert-base", num_labels: int = 2, dropout: float = 0.3):
+            super().__init__()
+            self.encoder = AutoModel.from_pretrained(model_name)
+            hidden = self.encoder.config.hidden_size  # 768
+            self.dropout = nn.Dropout(dropout)
+            self.head = nn.Sequential(
+                nn.Linear(hidden, hidden // 2),
+                nn.GELU(),
+                nn.Dropout(dropout),
+                nn.Linear(hidden // 2, num_labels),
+            )
+
+        def forward(self, input_ids, attention_mask=None, token_type_ids=None):
+            out = self.encoder(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+            cls_emb = self.dropout(out.last_hidden_state[:, 0])  # [CLS] token
+            return self.head(cls_emb)
+
+
 class RiskLevel(Enum):
     """风险等级"""
     SAFE = "safe"
@@ -80,6 +112,7 @@ class DetectionOutput:
     attention_weights: Optional[Dict] = None
     explanation: Optional[str] = None
     inference_time: float = 0.0
+    detection_method: str = "rule_engine"
 
 
 class CrossModalAttention(nn.Module):
@@ -598,6 +631,7 @@ class MultimodalDetector:
     def __init__(
         self,
         model_path: Optional[str] = None,
+        simple_model_path: Optional[str] = None,
         device: str = "auto",
         fusion_strategy: str = "attention"
     ):
@@ -605,39 +639,105 @@ class MultimodalDetector:
         初始化检测器
         
         Args:
-            model_path: 预训练模型路径
+            model_path: BERT文本分类模型路径 (best_text_model.pt)
+            simple_model_path: 简单AI模型路径 (simple_ai_model.joblib)
             device: 运行设备
             fusion_strategy: 融合策略
         """
         # 设置设备
         if device == "auto":
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if TORCH_AVAILABLE else "cpu"
         else:
-            self.device = torch.device(device)
+            self.device = torch.device(device) if TORCH_AVAILABLE else device
         
         logger.info(f"检测器运行设备: {self.device}")
         
-        # 初始化模型
-        self.model = MultimodalFusionModel(
-            hidden_dim=768,
-            num_classes=3,
-            fusion_strategy=fusion_strategy
-        )
+        # === 真实AI模型：BERT TextClassifier (F1=0.93) ===
+        self.text_classifier = None
+        self.text_tokenizer = None
+        self._text_model_loaded = False
         
-        # 加载预训练权重
-        if model_path and os.path.exists(model_path):
-            self._load_model(model_path)
+        if TORCH_AVAILABLE and model_path and os.path.exists(model_path):
+            self._load_text_classifier(model_path)
         
-        self.model.to(self.device)
-        self.model.eval()
+        # === 简单AI模型：TF-IDF + VotingClassifier (Acc=99.7%) ===
+        self.simple_model = None
+        self.simple_vectorizer = None
+        self._simple_model_loaded = False
+        
+        if JOBLIB_AVAILABLE and simple_model_path and os.path.exists(simple_model_path):
+            self._load_simple_model(simple_model_path)
+        
+        # === 原始多模态融合模型（保留向后兼容，但无训练权重） ===
+        self.model = None
+        if TORCH_AVAILABLE:
+            try:
+                self.model = MultimodalFusionModel(
+                    hidden_dim=768,
+                    num_classes=3,
+                    fusion_strategy=fusion_strategy
+                )
+                self.model.to(self.device)
+                self.model.eval()
+            except Exception as e:
+                logger.warning(f"多模态融合模型初始化失败（非必须）: {e}")
         
         # 风险等级映射
         self.risk_levels = [RiskLevel.SAFE, RiskLevel.WARNING, RiskLevel.DANGER]
         
-        logger.info("多模态检测器初始化完成")
+        # 日志总结
+        ai_status = []
+        if self._text_model_loaded:
+            ai_status.append("BERT文本分类器✅")
+        if self._simple_model_loaded:
+            ai_status.append("TF-IDF集成模型✅")
+        if not ai_status:
+            ai_status.append("仅规则引擎（无AI模型）")
+        logger.info(f"多模态检测器初始化完成 | AI模型: {', '.join(ai_status)}")
+    
+    def _load_text_classifier(self, model_path: str):
+        """加载BERT文本分类器权重"""
+        try:
+            logger.info(f"正在加载BERT文本分类模型: {model_path}")
+            # 构建与训练一致的 TextClassifier
+            self.text_classifier = TextClassifier(
+                model_name="hfl/chinese-macbert-base",
+                num_labels=2,
+                dropout=0.3
+            )
+            checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
+            self.text_classifier.load_state_dict(checkpoint['model_state_dict'])
+            self.text_classifier.to(self.device)
+            self.text_classifier.eval()
+            
+            # 加载对应的 tokenizer
+            self.text_tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
+            
+            best_f1 = checkpoint.get('best_f1', 'N/A')
+            logger.info(f"✅ BERT文本分类模型加载成功 | Best F1: {best_f1:.4f}" if isinstance(best_f1, float) else f"✅ BERT模型加载成功")
+            self._text_model_loaded = True
+        except Exception as e:
+            logger.error(f"❌ 加载BERT文本分类模型失败: {e}")
+            self.text_classifier = None
+            self.text_tokenizer = None
+    
+    def _load_simple_model(self, model_path: str):
+        """加载简单AI模型 (TF-IDF + VotingClassifier)"""
+        try:
+            logger.info(f"正在加载简单AI模型: {model_path}")
+            data = joblib.load(model_path)
+            self.simple_model = data['model']
+            self.simple_vectorizer = data['vectorizer']
+            metrics = data.get('metrics', {})
+            logger.info(f"✅ 简单AI模型加载成功 | Accuracy: {metrics.get('accuracy', 'N/A'):.4f}, F1: {metrics.get('f1_score', 'N/A'):.4f}")
+            self._simple_model_loaded = True
+        except Exception as e:
+            logger.error(f"❌ 加载简单AI模型失败: {e}")
+            self.simple_model = None
+            self.simple_vectorizer = None
     
     def _load_model(self, model_path: str):
-        """加载模型权重"""
+        """加载模型权重（向后兼容）"""
         try:
             checkpoint = torch.load(model_path, map_location=self.device)
             self.model.load_state_dict(checkpoint['model_state_dict'])
@@ -650,13 +750,13 @@ class MultimodalDetector:
         input_data: Union[MultimodalInput, str, Dict]
     ) -> DetectionOutput:
         """
-        执行多模态检测
+        执行多模态检测（优先使用真实 AI 模型）
         
-        Args:
-            input_data: 多模态输入数据
-            
-        Returns:
-            检测结果
+        检测优先级:
+        1. BERT TextClassifier (best_text_model.pt) — F1=0.93
+        2. TF-IDF + VotingClassifier (simple_ai_model.joblib) — Acc=99.7%
+        3. 规则引擎关键词检测
+        结果通过加权融合策略合并
         """
         start_time = time.time()
         
@@ -666,59 +766,126 @@ class MultimodalDetector:
         elif isinstance(input_data, dict):
             input_data = MultimodalInput(**input_data)
         
+        text = input_data.text or ""
+        detection_method = "rule_engine"
+        
         try:
-            # 准备输入数据
-            texts = [input_data.text] if input_data.text else None
-            images = [input_data.image] if input_data.image else None
-            audios = [input_data.audio] if input_data.audio else None
+            # === 1. BERT 文本分类器推理 ===
+            bert_risk_score = None
+            bert_is_risky = None
             
-            # 模型推理
-            with torch.no_grad():
-                outputs = self.model(
-                    texts=texts,
-                    images=images,
-                    audios=audios,
-                    return_attention=True
-                )
+            if self._text_model_loaded and text and self.text_classifier and self.text_tokenizer:
+                try:
+                    inputs = self.text_tokenizer(
+                        text,
+                        return_tensors="pt",
+                        max_length=512,
+                        truncation=True,
+                        padding=True
+                    )
+                    inputs = {k: v.to(self.device) for k, v in inputs.items()}
+                    
+                    with torch.no_grad():
+                        logits = self.text_classifier(**inputs)
+                        probs = F.softmax(logits, dim=-1)
+                        # class 0=safe, class 1=risk
+                        bert_risk_score = probs[0][1].item()  # risk 概率
+                        bert_is_risky = bert_risk_score > 0.5
+                    
+                    detection_method = "ai_bert"
+                    logger.info(f"BERT推理: risk_score={bert_risk_score:.4f}, risky={bert_is_risky}")
+                except Exception as e:
+                    logger.warning(f"BERT推理异常: {e}")
             
-            # 获取预测结果
-            predicted_class = outputs['predicted_class'][0].item()
-            probabilities = outputs['probabilities'][0]
+            # === 2. 简单 AI 模型推理 ===
+            simple_risk_score = None
+            simple_is_risky = None
             
-            risk_level = self.risk_levels[predicted_class]
-            confidence = probabilities[predicted_class].item()
-            risk_score = probabilities[2].item()  # danger类概率
+            if self._simple_model_loaded and text and self.simple_model and self.simple_vectorizer:
+                try:
+                    features = self.simple_vectorizer.transform([text])
+                    pred = self.simple_model.predict(features)[0]
+                    if hasattr(self.simple_model, 'predict_proba'):
+                        proba = self.simple_model.predict_proba(features)[0]
+                        simple_risk_score = float(proba[1]) if len(proba) > 1 else float(pred)
+                    else:
+                        simple_risk_score = float(pred)
+                    simple_is_risky = pred == 1
+                    
+                    if detection_method == "rule_engine":
+                        detection_method = "ai_tfidf"
+                    else:
+                        detection_method = "ai_multimodal"
+                    logger.info(f"TF-IDF推理: risk_score={simple_risk_score:.4f}, risky={simple_is_risky}")
+                except Exception as e:
+                    logger.warning(f"TF-IDF推理异常: {e}")
             
-            # 获取各模态风险
-            text_risk = outputs['text_risk'][0].item() if texts else 0.0
-            visual_risk = outputs['visual_risk'][0].item() if images else 0.0
-            audio_risk = outputs['audio_risk'][0].item() if audios else 0.0
+            # === 3. 规则引擎检测 ===
+            rule_result = self._rule_based_detection(text)
             
-            # 规则增强检测
-            rule_result = self._rule_based_detection(input_data.text or "")
+            # === 4. 融合策略：多模型投票 + 规则增强 ===
+            risk_score = 0.0
+            risk_contributions = []
             
-            # 综合风险评估
-            if rule_result['risk_score'] > 0.7:
+            if bert_risk_score is not None:
+                risk_contributions.append(("BERT", bert_risk_score, 0.50))  # 50% 权重
+            if simple_risk_score is not None:
+                risk_contributions.append(("TF-IDF", simple_risk_score, 0.30))  # 30% 权重
+            if rule_result['risk_score'] > 0:
+                risk_contributions.append(("Rules", rule_result['risk_score'], 0.20))  # 20% 权重
+            
+            if risk_contributions:
+                total_weight = sum(w for _, _, w in risk_contributions)
+                risk_score = sum(s * w for _, s, w in risk_contributions) / total_weight
+            
+            # 安全阀：如果任一 AI 模型高置信度判断为风险，直接提升分数
+            if bert_risk_score is not None and bert_risk_score > 0.8:
+                risk_score = max(risk_score, bert_risk_score * 0.9)
+            if simple_risk_score is not None and simple_risk_score > 0.8:
+                risk_score = max(risk_score, simple_risk_score * 0.85)
+            # 规则引擎兜底：关键词明确命中时强制提升
+            if rule_result['risk_score'] > 0.3:
                 risk_score = max(risk_score, rule_result['risk_score'])
-                if risk_score > 0.7:
-                    risk_level = RiskLevel.DANGER
-                elif risk_score > 0.4:
-                    risk_level = RiskLevel.WARNING
             
-            # 生成解释
-            reasons = rule_result['reasons']
-            suggestions = rule_result['suggestions']
-            explanation = self._generate_explanation(
-                risk_level, text_risk, visual_risk, audio_risk, reasons
+            risk_score = min(risk_score, 1.0)
+            
+            # 确定风险等级
+            if risk_score > 0.65:
+                risk_level = RiskLevel.DANGER
+            elif risk_score > 0.35:
+                risk_level = RiskLevel.WARNING
+            else:
+                risk_level = RiskLevel.SAFE
+            
+            confidence = max(
+                bert_risk_score if bert_risk_score is not None else 0,
+                simple_risk_score if simple_risk_score is not None else 0,
+                rule_result['risk_score'],
+                0.5
             )
             
-            # 处理注意力权重
-            attention_weights = None
-            if outputs['attention_weights']:
-                attention_weights = {
-                    k: v[0].cpu().numpy().tolist() 
-                    for k, v in outputs['attention_weights'].items()
-                }
+            # 生成检测理由和建议
+            reasons = rule_result['reasons']
+            suggestions = rule_result['suggestions']
+            
+            if bert_is_risky and bert_risk_score is not None:
+                reasons.insert(0, f"BERT AI模型判定为风险内容（置信度 {bert_risk_score:.0%}）")
+            if simple_is_risky and simple_risk_score is not None:
+                reasons.insert(0 if not bert_is_risky else 1, f"TF-IDF AI模型判定为风险内容（置信度 {simple_risk_score:.0%}）")
+            
+            if not reasons:
+                if risk_level == RiskLevel.SAFE:
+                    reasons = ["AI模型和规则引擎均未发现风险"]
+                else:
+                    reasons = ["综合分析发现潜在风险"]
+            
+            if not suggestions and risk_level != RiskLevel.SAFE:
+                suggestions = ["建议谨慎对待该内容", "如遇可疑情况请拨打96110反诈热线"]
+            
+            # 生成解释
+            explanation = self._generate_explanation(
+                risk_level, risk_score, 0.0, 0.0, reasons
+            )
             
             inference_time = time.time() - start_time
             
@@ -726,14 +893,15 @@ class MultimodalDetector:
                 risk_level=risk_level,
                 confidence=confidence,
                 risk_score=risk_score,
-                text_risk=text_risk,
-                visual_risk=visual_risk,
-                audio_risk=audio_risk,
+                text_risk=bert_risk_score if bert_risk_score is not None else rule_result['risk_score'],
+                visual_risk=0.0,
+                audio_risk=0.0,
                 reasons=reasons,
                 suggestions=suggestions,
-                attention_weights=attention_weights,
+                attention_weights=None,
                 explanation=explanation,
-                inference_time=inference_time
+                inference_time=inference_time,
+                detection_method=detection_method
             )
             
         except Exception as e:
@@ -870,11 +1038,14 @@ class MultimodalDetector:
 _detector: Optional[MultimodalDetector] = None
 
 
-def get_detector() -> MultimodalDetector:
+def get_detector(model_path: Optional[str] = None, simple_model_path: Optional[str] = None) -> MultimodalDetector:
     """获取检测器实例（单例模式）"""
     global _detector
     if _detector is None:
-        _detector = MultimodalDetector()
+        _detector = MultimodalDetector(
+            model_path=model_path,
+            simple_model_path=simple_model_path
+        )
     return _detector
 
 
@@ -909,10 +1080,4 @@ __all__ = [
     'get_detector',
     'detect_content'
 ]
-
-
-
-
-
->>>>>>> Incoming (Background Agent changes)
 

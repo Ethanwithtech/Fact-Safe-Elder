@@ -1,0 +1,30 @@
+{
+  "name": "factsafe-elder-alert",
+  "version": "1.0.0",
+  "description": "FactSafe 老人短视频安全守护 - QClaw Skill。安装后 QClaw 可接收来自 FactSafe AI 检测系统的风险告警，自动推送给家属。",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node test/test.js"
+  },
+  "keywords": [
+    "qclaw",
+    "qclaw-skill",
+    "factsafe",
+    "elder-safety",
+    "anti-fraud",
+    "video-detection",
+    "misinformation"
+  ],
+  "author": "FactSafe Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yuchendeng/Fact-Safe-Elder",
+    "directory": "qclaw-skill"
+  },
+  "qclaw": {
+    "skillId": "factsafe-elder-alert",
+    "minVersion": "1.0.0"
+  }
+}

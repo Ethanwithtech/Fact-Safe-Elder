@@ -1,178 +1,132 @@
-import React, { useState, useEffect } from 'react';
-import { ConfigProvider, Tabs, Badge } from 'antd';
+import React, { useState, useEffect, useRef } from 'react';
+import { ConfigProvider, theme as antTheme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
 import './App.css';
 import MobileSimulator from './components/MobileSimulator/MobileSimulator';
-import VideoSimulator from './components/VideoSimulator/VideoSimulator';
-import DetectionFloater from './components/DetectionFloater/DetectionFloater';
 import Settings from './components/Settings/Settings';
-import TrainingDashboard from './components/TrainingDashboard/TrainingDashboard';
 import { DetectionResult } from './types/detection';
+import { Language, t } from './i18n';
+import { ThemeMode, applyTheme } from './theme';
+
+// 从 localStorage 读取初始值
+function loadSavedSettings() {
+  try {
+    const saved = localStorage.getItem('elderSafetySettings');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return null;
+}
+
+const savedSettings = loadSavedSettings();
 
 function App() {
-  const [detectionResult, setDetectionResult] = useState<DetectionResult | null>(null);
-  const [isListening, setIsListening] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'extra-large'>('large');
-  const [highContrast, setHighContrast] = useState(true);
+  const [fontSize, setFontSize] = useState<'normal' | 'large' | 'extra-large'>(savedSettings?.fontSize || 'large');
+  const [highContrast, setHighContrast] = useState(savedSettings?.highContrast || false);
+  const [totalDetections, setTotalDetections] = useState(0);
+  const [riskyDetections, setRiskyDetections] = useState(0);
+  const [lang, setLang] = useState<Language>(savedSettings?.lang || 'zh');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(savedSettings?.themeMode || 'dark');
+  const initialized = useRef(false);
 
-  // 应用适老化设置
+  // 初始化主题（只执行一次）
   useEffect(() => {
-    const body = document.body;
-    
-    // 字体大小设置
-    body.classList.remove('large-font', 'extra-large-font');
-    if (fontSize === 'large') {
-      body.classList.add('large-font');
-    } else if (fontSize === 'extra-large') {
-      body.classList.add('extra-large-font');
+    if (!initialized.current) {
+      initialized.current = true;
+      applyTheme(savedSettings?.themeMode || 'dark');
     }
-    
-    // 高对比度设置
-    if (highContrast) {
-      body.classList.add('high-contrast');
-    } else {
-      body.classList.remove('high-contrast');
-    }
+  });
+
+  // 应用字体设置
+  useEffect(() => {
+    document.body.classList.remove('large-font', 'extra-large-font');
+    if (fontSize === 'large') document.body.classList.add('large-font');
+    if (fontSize === 'extra-large') document.body.classList.add('extra-large-font');
+    if (highContrast) { document.body.classList.add('high-contrast'); }
+    else { document.body.classList.remove('high-contrast'); }
   }, [fontSize, highContrast]);
 
+  const handleThemeChange = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    applyTheme(mode);
+  };
+
   const handleDetectionResult = (result: DetectionResult) => {
-    setDetectionResult(result);
-    
-    // 如果检测到高风险，播放警告音
+    setTotalDetections(prev => prev + 1);
+    if (result.level === 'danger' || result.level === 'warning') {
+      setRiskyDetections(prev => prev + 1);
+    }
     if (result.level === 'danger') {
-      // 创建警告音频
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      
-      oscillator.start();
-      oscillator.stop(audioContext.currentTime + 0.5);
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        osc.start(); osc.stop(ctx.currentTime + 0.4);
+      } catch (e) {}
     }
   };
 
-  const tabItems = [
-    {
-      key: 'mobile',
-      label: (
-        <span>
-          📱 手机模拟
-          <Badge 
-            count="AI" 
-            style={{ 
-              backgroundColor: '#52c41a',
-              marginLeft: 8,
-              fontSize: 10
-            }}
-          />
-        </span>
-      ),
-      children: (
-        <MobileSimulator 
-          onDetectionResult={handleDetectionResult}
-        />
-      )
-    },
-    {
-      key: 'desktop',
-      label: '🖥️ 桌面检测',
-      children: (
-        <div className="desktop-container">
-          <VideoSimulator 
-            isListening={isListening}
-            onListeningChange={setIsListening}
-            onDetectionResult={handleDetectionResult}
-          />
-          <div className="info-panel">
-            <div className="status-card">
-              <h3>🔍 检测状态</h3>
-              <div className={`status-indicator ${isListening ? 'listening' : 'stopped'}`}>
-                {isListening ? '🟢 正在监听' : '🔴 已停止'}
-              </div>
-              <p>
-                {isListening 
-                  ? 'AI模型正在实时分析视频内容' 
-                  : '点击"开始监听"激活AI检测'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
-      key: 'training',
-      label: (
-        <span>
-          🎓 模型训练
-          <Badge 
-            count="New" 
-            style={{ 
-              backgroundColor: '#ff4d4f',
-              marginLeft: 8,
-              fontSize: 10
-            }}
-          />
-        </span>
-      ),
-      children: <TrainingDashboard />
-    }
-  ];
-
   return (
-    <ConfigProvider locale={zhCN}>
-      <div className={`app ${highContrast ? 'high-contrast' : ''}`}>
+    <ConfigProvider
+      locale={lang === 'zh' ? zhCN : enUS}
+      theme={{
+        algorithm: themeMode === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
+      }}
+    >
+      <div className={`app ${themeMode}`}>
         <header className="app-header">
-          <div className="header-content">
-            <h1>
-              🛡️ AI守护 - 老人短视频虚假信息检测系统
-              <span className="version-badge">v2.0 AI版</span>
-            </h1>
-            <div className="header-actions">
-              <span className="ai-status">
-                🤖 AI状态: <span className="status-online">在线</span>
-              </span>
-              <button 
-                className="settings-btn"
-                onClick={() => setShowSettings(true)}
-                title="设置"
-              >
-                ⚙️ 设置
+          <div className="header-inner">
+            <div className="header-left">
+              <span className="logo">🛡️</span>
+              <div>
+                <h1>{t(lang, 'appName')}</h1>
+                <p>{t(lang, 'appDesc')}</p>
+              </div>
+            </div>
+            <div className="header-right">
+              <div className="header-stat">
+                <span className="stat-value">{totalDetections}</span>
+                <span className="stat-name">{t(lang, 'detected')}</span>
+              </div>
+              <div className="header-stat risky">
+                <span className="stat-value">{riskyDetections}</span>
+                <span className="stat-name">{t(lang, 'riskBlocked')}</span>
+              </div>
+              <div className="header-status">
+                <span className="status-dot"></span>
+                {t(lang, 'aiOnline')}
+              </div>
+              <button className="theme-toggle-btn" onClick={() => handleThemeChange(themeMode === 'dark' ? 'light' : 'dark')} title={t(lang, 'themeMode')}>
+                {themeMode === 'dark' ? '☀️' : '🌙'}
+              </button>
+              <button className="lang-toggle-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} title={t(lang, 'language')}>
+                {lang === 'zh' ? 'EN' : '中'}
+              </button>
+              <button className="settings-btn" onClick={() => setShowSettings(true)}>
+                ⚙️
               </button>
             </div>
           </div>
         </header>
 
-        <main className="app-main-v2">
-          <Tabs
-            defaultActiveKey="mobile"
-            size="large"
-            className="main-tabs"
-            items={tabItems}
-          />
-          
-          {/* 全局检测浮窗 */}
-          {detectionResult && (
-            <DetectionFloater 
-              result={detectionResult}
-              onClose={() => setDetectionResult(null)}
-            />
-          )}
+        <main className="app-main">
+          <MobileSimulator onDetectionResult={handleDetectionResult} lang={lang} />
         </main>
 
-        {/* 设置面板 */}
         {showSettings && (
-          <Settings 
+          <Settings
             fontSize={fontSize}
             highContrast={highContrast}
+            lang={lang}
+            themeMode={themeMode}
             onFontSizeChange={setFontSize}
             onHighContrastChange={setHighContrast}
+            onLanguageChange={setLang}
+            onThemeChange={handleThemeChange}
             onClose={() => setShowSettings(false)}
           />
         )}
