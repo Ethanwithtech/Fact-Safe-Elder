@@ -75,6 +75,7 @@ function App() {
       locale={lang === 'zh' ? zhCN : enUS}
       theme={{
         algorithm: themeMode === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
+        token: { motion: false },
       }}
       wave={{ disabled: true }}
     >

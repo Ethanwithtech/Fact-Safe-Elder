@@ -776,6 +776,87 @@ async def qclaw_status():
     return {"success": True, "data": result}
 
 
+@app.post("/api/qclaw/webhook")
+async def qclaw_webhook_receiver(request: Dict[str, Any] = None):
+    """
+    QClaw 回调端点 — 接收来自 QClaw 的消息/状态更新
+    
+    QClaw 安装 Skill 后可以通过此端点与 FactSafe 后端通信：
+    - 通知 webhook URL 已分配
+    - 接收 Skill 执行结果
+    - 健康检查
+    """
+    if not request:
+        return {"success": True, "message": "FactSafe QClaw Webhook Receiver is running", "version": "1.0.0"}
+    
+    action = request.get("action", "")
+    
+    # QClaw 通知 webhook URL 已分配
+    if action == "webhook_registered":
+        webhook_url = request.get("webhook_url", "")
+        if webhook_url:
+            global _qclaw_webhook
+            _qclaw_webhook["webhook_url"] = webhook_url
+            _qclaw_webhook["enabled"] = True
+            logger.info(f"QClaw webhook registered: {webhook_url[:50]}...")
+            return {"success": True, "message": "Webhook URL 已接收并保存"}
+    
+    # QClaw 推送 Skill 执行结果
+    if action == "skill_result":
+        logger.info(f"QClaw skill result: {request.get('data', {})}")
+        return {"success": True, "message": "收到 Skill 执行结果"}
+    
+    # QClaw 健康检查
+    if action == "ping":
+        return {"success": True, "message": "pong", "ai_available": ai_detector is not None}
+    
+    logger.info(f"QClaw webhook received: {request}")
+    return {"success": True, "message": "已接收"}
+
+
+@app.post("/api/qclaw/test")
+async def qclaw_test():
+    """
+    测试 QClaw 连接 — 发送一条模拟告警
+    """
+    webhook_url = _qclaw_webhook.get("webhook_url", "")
+    
+    if not webhook_url:
+        return {
+            "success": False,
+            "message": "未配置 QClaw Webhook URL",
+            "hint": "请先让 QClaw 为 factsafe-elder-alert Skill 注册 webhook，然后配置到系统设置中",
+            "our_callback_url": "http://localhost:8000/api/qclaw/webhook",
+        }
+    
+    test_payload = {
+        "level": "warning",
+        "score": 0.75,
+        "video_title": "🧪 测试视频 - AI守护系统连接测试",
+        "reasons": ["这是一条测试告警，验证 QClaw 连接是否正常"],
+        "suggestions": ["如果您看到此消息，说明 FactSafe → QClaw 链路正常！"],
+        "detection_method": "test",
+        "timestamp": datetime.now().isoformat(),
+    }
+    
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(webhook_url, json=test_payload, headers={"Content-Type": "application/json"})
+            
+            return {
+                "success": resp.status_code < 400,
+                "message": f"测试告警已发送到 QClaw (HTTP {resp.status_code})",
+                "status_code": resp.status_code,
+                "response": resp.text[:500],
+                "webhook_url": webhook_url[:50] + "...",
+            }
+    except ImportError:
+        return {"success": False, "message": "httpx 未安装，请 pip install httpx"}
+    except Exception as e:
+        return {"success": False, "message": f"连接失败: {str(e)}", "webhook_url": webhook_url[:50] + "..."}
+
+
 # === 启动入口 ===
 
 if __name__ == "__main__":

@@ -31,6 +31,12 @@ const checkBrowserSupport = () => {
 window.addEventListener('error', (event) => {
   // 跨域脚本错误 event.error 为 null，属于正常现象，忽略
   if (!event.error) return;
+  // antd 内部动画组件偶发的 getBoundingClientRect 错误，无害，静默忽略
+  const msg = String(event.error?.message || '');
+  if (msg.includes('getBoundingClientRect')) {
+    event.preventDefault();
+    return;
+  }
   console.error('全局错误:', event.error);
 });
 
