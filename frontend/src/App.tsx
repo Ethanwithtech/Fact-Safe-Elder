@@ -76,6 +76,7 @@ function App() {
       theme={{
         algorithm: themeMode === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
       }}
+      wave={{ disabled: true }}
     >
       <div className={`app ${themeMode}`}>
         <header className="app-header">
