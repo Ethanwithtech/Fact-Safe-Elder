@@ -645,7 +645,8 @@ class QClawWebhookConfig(BaseModel):
 
 # 全局配置：存储 QClaw 分配给我们的 webhook URL
 _qclaw_webhook: Dict[str, Any] = {
-    "webhook_url": os.environ.get("QCLAW_WEBHOOK_URL", ""),
+    "webhook_url": os.environ.get("QCLAW_WEBHOOK_URL", "http://127.0.0.1:28789/hooks/factsafe"),
+    "auth_token": os.environ.get("QCLAW_AUTH_TOKEN", "factsafe-secret-token-2024"),
     "enabled": True,
 }
 
@@ -686,11 +687,16 @@ async def qclaw_push(request: QClawPushRequest):
     try:
         import httpx
 
+        headers = {"Content-Type": "application/json"}
+        auth_token = _qclaw_webhook.get("auth_token", "")
+        if auth_token:
+            headers["Authorization"] = f"Bearer {auth_token}"
+
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.post(
                 webhook_url,
                 json=payload,
-                headers={"Content-Type": "application/json"},
+                headers=headers,
             )
 
             if resp.status_code >= 400:
@@ -841,8 +847,14 @@ async def qclaw_test():
     
     try:
         import httpx
+
+        headers = {"Content-Type": "application/json"}
+        auth_token = _qclaw_webhook.get("auth_token", "")
+        if auth_token:
+            headers["Authorization"] = f"Bearer {auth_token}"
+
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(webhook_url, json=test_payload, headers={"Content-Type": "application/json"})
+            resp = await client.post(webhook_url, json=test_payload, headers=headers)
             
             return {
                 "success": resp.status_code < 400,
