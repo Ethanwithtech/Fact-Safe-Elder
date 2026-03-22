@@ -1,7 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ConfigProvider, theme as antTheme } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
-import enUS from 'antd/locale/en_US';
 import './App.css';
 import MobileSimulator from './components/MobileSimulator/MobileSimulator';
 import Settings from './components/Settings/Settings';
@@ -71,69 +68,60 @@ function App() {
   };
 
   return (
-    <ConfigProvider
-      locale={lang === 'zh' ? zhCN : enUS}
-      theme={{
-        algorithm: themeMode === 'dark' ? antTheme.darkAlgorithm : antTheme.defaultAlgorithm,
-        token: { motion: false },
-      }}
-      wave={{ disabled: true }}
-    >
-      <div className={`app ${themeMode}`}>
-        <header className="app-header">
-          <div className="header-inner">
-            <div className="header-left">
-              <span className="logo">🛡️</span>
-              <div>
-                <h1>{t(lang, 'appName')}</h1>
-                <p>{t(lang, 'appDesc')}</p>
-              </div>
-            </div>
-            <div className="header-right">
-              <div className="header-stat">
-                <span className="stat-value">{totalDetections}</span>
-                <span className="stat-name">{t(lang, 'detected')}</span>
-              </div>
-              <div className="header-stat risky">
-                <span className="stat-value">{riskyDetections}</span>
-                <span className="stat-name">{t(lang, 'riskBlocked')}</span>
-              </div>
-              <div className="header-status">
-                <span className="status-dot"></span>
-                {t(lang, 'aiOnline')}
-              </div>
-              <button className="theme-toggle-btn" onClick={() => handleThemeChange(themeMode === 'dark' ? 'light' : 'dark')} title={t(lang, 'themeMode')}>
-                {themeMode === 'dark' ? '☀️' : '🌙'}
-              </button>
-              <button className="lang-toggle-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} title={t(lang, 'language')}>
-                {lang === 'zh' ? 'EN' : '中'}
-              </button>
-              <button className="settings-btn" onClick={() => setShowSettings(true)}>
-                ⚙️
-              </button>
+    <div className={`app ${themeMode}`}>
+      <header className="app-header">
+        <div className="header-inner">
+          <div className="header-left">
+            <span className="logo">🛡️</span>
+            <div>
+              <h1>{t(lang, 'appName')}</h1>
+              <p>{t(lang, 'appDesc')}</p>
             </div>
           </div>
-        </header>
+          <div className="header-right">
+            <div className="header-stat">
+              <span className="stat-value">{totalDetections}</span>
+              <span className="stat-name">{t(lang, 'detected')}</span>
+            </div>
+            <div className="header-stat risky">
+              <span className="stat-value">{riskyDetections}</span>
+              <span className="stat-name">{t(lang, 'riskBlocked')}</span>
+            </div>
+            <div className="header-status">
+              <span className="status-dot"></span>
+              {t(lang, 'aiOnline')}
+            </div>
+            <button className="theme-toggle-btn" onClick={() => handleThemeChange(themeMode === 'dark' ? 'light' : 'dark')} title={t(lang, 'themeMode')}>
+              {themeMode === 'dark' ? '☀️' : '🌙'}
+            </button>
+            <button className="lang-toggle-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} title={t(lang, 'language')}>
+              {lang === 'zh' ? 'EN' : '中'}
+            </button>
+            <button className="settings-btn" onClick={() => setShowSettings(true)}>
+              ⚙️
+            </button>
+          </div>
+        </div>
+      </header>
 
-        <main className="app-main">
-          <MobileSimulator onDetectionResult={handleDetectionResult} lang={lang} />
-        </main>
+      <main className="app-main">
+        <MobileSimulator onDetectionResult={handleDetectionResult} lang={lang} />
+      </main>
 
-        {showSettings && (
-          <Settings
-            fontSize={fontSize}
-            highContrast={highContrast}
-            lang={lang}
-            themeMode={themeMode}
-            onFontSizeChange={setFontSize}
-            onHighContrastChange={setHighContrast}
-            onLanguageChange={setLang}
-            onThemeChange={handleThemeChange}
-            onClose={() => setShowSettings(false)}
-          />
-        )}
-      </div>
-    </ConfigProvider>
+      {showSettings && (
+        <Settings
+          fontSize={fontSize}
+          highContrast={highContrast}
+          lang={lang}
+          themeMode={themeMode}
+          onFontSizeChange={setFontSize}
+          onHighContrastChange={setHighContrast}
+          onLanguageChange={setLang}
+          onThemeChange={handleThemeChange}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+    </div>
   );
 }
 

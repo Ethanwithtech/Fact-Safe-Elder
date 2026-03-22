@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { Switch, Radio, Button, Input, message } from 'antd';
 import { Language, t } from '../../i18n';
 import { ThemeMode } from '../../theme';
 import OpenClawService, { OpenClawConfig } from '../../services/OpenClawService';
@@ -15,6 +14,25 @@ interface SettingsProps {
   onLanguageChange: (lang: Language) => void;
   onThemeChange: (mode: ThemeMode) => void;
   onClose: () => void;
+}
+
+/* ---------- 轻量级 toast 代替 antd message ---------- */
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+function showToast(text: string, type: 'success' | 'info' | 'warning' | 'error' = 'info') {
+  const existing = document.getElementById('settings-toast');
+  if (existing) existing.remove();
+  if (toastTimer) clearTimeout(toastTimer);
+
+  const el = document.createElement('div');
+  el.id = 'settings-toast';
+  el.className = `settings-toast settings-toast-${type}`;
+  el.textContent = text;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  toastTimer = setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2500);
 }
 
 const Settings: React.FC<SettingsProps> = ({
@@ -41,7 +59,7 @@ const Settings: React.FC<SettingsProps> = ({
     localStorage.setItem('elderSafetySettings', JSON.stringify({
       fontSize, highContrast, sensitivity, enableSound, familyContact, lang, themeMode,
     }));
-    message.success(t(lang, 'settingsSaved'));
+    showToast(t(lang, 'settingsSaved'), 'success');
     onClose();
   };
 
@@ -55,37 +73,40 @@ const Settings: React.FC<SettingsProps> = ({
     setFamilyContact('');
     setEnableNotification(true);
     updateOpenClaw({ enabled: false, qclawWebhookUrl: '', directWebhookUrl: '', channel: 'wecom', threshold: 70, useQClaw: true });
-    message.info(t(lang, 'settingsReset'));
+    showToast(t(lang, 'settingsReset'), 'info');
   };
 
   const testAlert = () => {
     if (enableSound) {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.setValueAtTime(800, ctx.currentTime);
-      gain.gain.setValueAtTime(0.3, ctx.currentTime);
-      osc.start(); osc.stop(ctx.currentTime + 0.5);
+      try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        osc.start(); osc.stop(ctx.currentTime + 0.5);
+      } catch {}
     }
-    message.success(lang === 'zh' ? '测试警报已播放' : 'Test alert played');
+    showToast(lang === 'zh' ? '测试警报已播放' : 'Test alert played', 'success');
   };
 
   const handleTestOpenClaw = async () => {
-    if (!openClawConfig.qclawWebhookUrl && !openClawConfig.directWebhookUrl) {
-      message.warning(lang === 'zh' ? '请先填写 QClaw Webhook 或直接 Webhook 地址' : 'Please enter a Webhook URL first');
+    // useQClaw 模式下 URL 在后端，不要求前端填
+    if (!openClawConfig.useQClaw && !openClawConfig.qclawWebhookUrl && !openClawConfig.directWebhookUrl) {
+      showToast(lang === 'zh' ? '请先填写 Webhook 地址' : 'Please enter a Webhook URL first', 'warning');
       return;
     }
     setTestingSending(true);
     try {
       const success = await openClawService.sendTestAlert();
       if (success) {
-        message.success(t(lang, 'openclawTestSuccess'));
+        showToast(t(lang, 'openclawTestSuccess'), 'success');
       } else {
-        message.error(lang === 'zh' ? '发送失败，请检查 Webhook 地址' : 'Failed. Check Webhook URL');
+        showToast(lang === 'zh' ? '发送失败，请检查配置' : 'Failed. Check config', 'error');
       }
     } catch {
-      message.error(lang === 'zh' ? '发送失败' : 'Send failed');
+      showToast(lang === 'zh' ? '发送失败' : 'Send failed', 'error');
     } finally {
       setTestingSending(false);
     }
@@ -109,10 +130,16 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'languageDesc')}</span>
             </div>
             <div className="setting-control">
-              <Radio.Group value={lang} onChange={(e) => onLanguageChange(e.target.value)} size="large">
-                <Radio value="zh">🇨🇳 中文</Radio>
-                <Radio value="en">🇺🇸 English</Radio>
-              </Radio.Group>
+              <div className="native-radio-group">
+                <label className={`native-radio ${lang === 'zh' ? 'checked' : ''}`}>
+                  <input type="radio" name="lang" checked={lang === 'zh'} onChange={() => onLanguageChange('zh')} />
+                  <span className="radio-dot" /><span>🇨🇳 中文</span>
+                </label>
+                <label className={`native-radio ${lang === 'en' ? 'checked' : ''}`}>
+                  <input type="radio" name="lang" checked={lang === 'en'} onChange={() => onLanguageChange('en')} />
+                  <span className="radio-dot" /><span>🇺🇸 English</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -122,10 +149,16 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'themeModeDesc')}</span>
             </div>
             <div className="setting-control">
-              <Radio.Group value={themeMode} onChange={(e) => onThemeChange(e.target.value)} size="large">
-                <Radio value="dark">🌙 {t(lang, 'themeDark')}</Radio>
-                <Radio value="light">☀️ {t(lang, 'themeLight')}</Radio>
-              </Radio.Group>
+              <div className="native-radio-group">
+                <label className={`native-radio ${themeMode === 'dark' ? 'checked' : ''}`}>
+                  <input type="radio" name="theme" checked={themeMode === 'dark'} onChange={() => onThemeChange('dark')} />
+                  <span className="radio-dot" /><span>🌙 {t(lang, 'themeDark')}</span>
+                </label>
+                <label className={`native-radio ${themeMode === 'light' ? 'checked' : ''}`}>
+                  <input type="radio" name="theme" checked={themeMode === 'light'} onChange={() => onThemeChange('light')} />
+                  <span className="radio-dot" /><span>☀️ {t(lang, 'themeLight')}</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -135,11 +168,14 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'fontSizeDesc')}</span>
             </div>
             <div className="setting-control">
-              <Radio.Group value={fontSize} onChange={(e) => onFontSizeChange(e.target.value)} size="large">
-                <Radio value="normal">{t(lang, 'fontNormal')}</Radio>
-                <Radio value="large">{t(lang, 'fontLarge')}</Radio>
-                <Radio value="extra-large">{t(lang, 'fontExtraLarge')}</Radio>
-              </Radio.Group>
+              <div className="native-radio-group">
+                {(['normal', 'large', 'extra-large'] as const).map((s) => (
+                  <label key={s} className={`native-radio ${fontSize === s ? 'checked' : ''}`}>
+                    <input type="radio" name="fontSize" checked={fontSize === s} onChange={() => onFontSizeChange(s)} />
+                    <span className="radio-dot" /><span>{t(lang, s === 'normal' ? 'fontNormal' : s === 'large' ? 'fontLarge' : 'fontExtraLarge')}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -149,7 +185,10 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'highContrastDesc')}</span>
             </div>
             <div className="setting-control">
-              <Switch checked={highContrast} onChange={onHighContrastChange} checkedChildren={t(lang, 'on')} unCheckedChildren={t(lang, 'off')} />
+              <button className={`native-switch ${highContrast ? 'on' : ''}`} onClick={() => onHighContrastChange(!highContrast)} role="switch" aria-checked={highContrast}>
+                <span className="switch-knob" />
+                <span className="switch-label">{highContrast ? t(lang, 'on') : t(lang, 'off')}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -164,11 +203,18 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'sensitivityDesc')}</span>
             </div>
             <div className="setting-control">
-              <Radio.Group value={sensitivity} onChange={(e) => setSensitivity(e.target.value)} size="large">
-                <Radio value="low"><div><div>{t(lang, 'sensitivityLow')}</div><small>{t(lang, 'sensitivityLowDesc')}</small></div></Radio>
-                <Radio value="medium"><div><div>{t(lang, 'sensitivityMedium')}</div><small>{t(lang, 'sensitivityMediumDesc')}</small></div></Radio>
-                <Radio value="high"><div><div>{t(lang, 'sensitivityHigh')}</div><small>{t(lang, 'sensitivityHighDesc')}</small></div></Radio>
-              </Radio.Group>
+              <div className="native-radio-group">
+                {(['low', 'medium', 'high'] as const).map((s) => (
+                  <label key={s} className={`native-radio ${sensitivity === s ? 'checked' : ''}`}>
+                    <input type="radio" name="sensitivity" checked={sensitivity === s} onChange={() => setSensitivity(s)} />
+                    <span className="radio-dot" />
+                    <span>
+                      <span>{t(lang, s === 'low' ? 'sensitivityLow' : s === 'medium' ? 'sensitivityMedium' : 'sensitivityHigh')}</span>
+                      <small>{t(lang, s === 'low' ? 'sensitivityLowDesc' : s === 'medium' ? 'sensitivityMediumDesc' : 'sensitivityHighDesc')}</small>
+                    </span>
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -178,8 +224,11 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'soundAlertDesc')}</span>
             </div>
             <div className="setting-control">
-              <Switch checked={enableSound} onChange={setEnableSound} checkedChildren={t(lang, 'on')} unCheckedChildren={t(lang, 'off')} />
-              <Button size="small" onClick={testAlert} style={{ marginLeft: 10 }}>{t(lang, 'testSound')}</Button>
+              <button className={`native-switch ${enableSound ? 'on' : ''}`} onClick={() => setEnableSound(!enableSound)} role="switch" aria-checked={enableSound}>
+                <span className="switch-knob" />
+                <span className="switch-label">{enableSound ? t(lang, 'on') : t(lang, 'off')}</span>
+              </button>
+              <button className="native-btn small" onClick={testAlert}>{t(lang, 'testSound')}</button>
             </div>
           </div>
         </div>
@@ -194,7 +243,14 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'familyPhoneDesc')}</span>
             </div>
             <div className="setting-control">
-              <Input value={familyContact} onChange={(e) => setFamilyContact(e.target.value)} placeholder={t(lang, 'familyPhonePlaceholder')} size="large" maxLength={20} />
+              <input
+                className="native-input"
+                type="text"
+                value={familyContact}
+                onChange={(e) => setFamilyContact(e.target.value)}
+                placeholder={t(lang, 'familyPhonePlaceholder')}
+                maxLength={20}
+              />
             </div>
           </div>
 
@@ -204,7 +260,10 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'riskNotifyDesc')}</span>
             </div>
             <div className="setting-control">
-              <Switch checked={enableNotification} onChange={setEnableNotification} checkedChildren={t(lang, 'on')} unCheckedChildren={t(lang, 'off')} />
+              <button className={`native-switch ${enableNotification ? 'on' : ''}`} onClick={() => setEnableNotification(!enableNotification)} role="switch" aria-checked={enableNotification}>
+                <span className="switch-knob" />
+                <span className="switch-label">{enableNotification ? t(lang, 'on') : t(lang, 'off')}</span>
+              </button>
             </div>
           </div>
         </div>
@@ -220,7 +279,10 @@ const Settings: React.FC<SettingsProps> = ({
               <span className="setting-desc">{t(lang, 'openclawEnableDesc')}</span>
             </div>
             <div className="setting-control">
-              <Switch checked={openClawConfig.enabled} onChange={(v) => updateOpenClaw({ enabled: v })} checkedChildren={t(lang, 'on')} unCheckedChildren={t(lang, 'off')} />
+              <button className={`native-switch ${openClawConfig.enabled ? 'on' : ''}`} onClick={() => updateOpenClaw({ enabled: !openClawConfig.enabled })} role="switch" aria-checked={openClawConfig.enabled}>
+                <span className="switch-knob" />
+                <span className="switch-label">{openClawConfig.enabled ? t(lang, 'on') : t(lang, 'off')}</span>
+              </button>
             </div>
           </div>
 
@@ -228,22 +290,21 @@ const Settings: React.FC<SettingsProps> = ({
             <>
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>{lang === 'zh' ? 'QClaw Webhook URL' : 'QClaw Webhook URL'}</span>
-                  <span className="setting-desc">{lang === 'zh' ? '从 QClaw 安装 Skill 后获取' : 'Get from QClaw after installing Skill'}</span>
+                  <span>QClaw Webhook URL</span>
+                  <span className="setting-desc">{lang === 'zh' ? '从 QClaw 安装 Skill 后获取（留空则使用后端默认配置）' : 'Get from QClaw after installing Skill (leave empty to use backend default)'}</span>
                 </div>
                 <div className="setting-control" style={{ flex: 1 }}>
-                  <Input
+                  <input
+                    className="native-input full"
+                    type="text"
                     value={openClawConfig.qclawWebhookUrl}
                     onChange={(e) => {
                       updateOpenClaw({ qclawWebhookUrl: e.target.value });
-                      // 同步保存到后端
                       if (e.target.value) {
                         openClawService.saveQClawWebhookToBackend(e.target.value);
                       }
                     }}
-                    placeholder={lang === 'zh' ? 'QClaw 分配的 Webhook URL' : 'QClaw assigned Webhook URL'}
-                    size="large"
-                    style={{ width: '100%' }}
+                    placeholder={lang === 'zh' ? 'QClaw 分配的 Webhook URL（可留空）' : 'QClaw assigned Webhook URL (optional)'}
                   />
                 </div>
               </div>
@@ -254,12 +315,12 @@ const Settings: React.FC<SettingsProps> = ({
                   <span className="setting-desc">{lang === 'zh' ? '企业微信/QQ 机器人 Webhook（不经过 QClaw）' : 'WeCom/QQ bot Webhook (bypass QClaw)'}</span>
                 </div>
                 <div className="setting-control" style={{ flex: 1 }}>
-                  <Input
+                  <input
+                    className="native-input full"
+                    type="text"
                     value={openClawConfig.directWebhookUrl}
                     onChange={(e) => updateOpenClaw({ directWebhookUrl: e.target.value })}
                     placeholder={t(lang, 'openclawWebhookPlaceholder')}
-                    size="large"
-                    style={{ width: '100%' }}
                   />
                 </div>
               </div>
@@ -269,11 +330,14 @@ const Settings: React.FC<SettingsProps> = ({
                   <span>{t(lang, 'openclawChannel')}</span>
                 </div>
                 <div className="setting-control">
-                  <Radio.Group value={openClawConfig.channel} onChange={(e) => updateOpenClaw({ channel: e.target.value })} size="large">
-                    <Radio value="wecom">{t(lang, 'openclawWecom')}</Radio>
-                    <Radio value="qq">{t(lang, 'openclawQQ')}</Radio>
-                    <Radio value="both">{t(lang, 'openclawBoth')}</Radio>
-                  </Radio.Group>
+                  <div className="native-radio-group row">
+                    {(['wecom', 'qq', 'both'] as const).map((ch) => (
+                      <label key={ch} className={`native-radio ${openClawConfig.channel === ch ? 'checked' : ''}`}>
+                        <input type="radio" name="channel" checked={openClawConfig.channel === ch} onChange={() => updateOpenClaw({ channel: ch })} />
+                        <span className="radio-dot" /><span>{t(lang, ch === 'wecom' ? 'openclawWecom' : ch === 'qq' ? 'openclawQQ' : 'openclawBoth')}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -283,25 +347,18 @@ const Settings: React.FC<SettingsProps> = ({
                   <span className="setting-desc">{t(lang, 'openclawThresholdDesc')}</span>
                 </div>
                 <div className="setting-control">
-                  <Radio.Group
-                    value={openClawConfig.threshold}
-                    onChange={(e) => updateOpenClaw({ threshold: e.target.value })}
-                    size="large"
-                    optionType="button"
-                    buttonStyle="solid"
-                  >
-                    <Radio.Button value={30}>30</Radio.Button>
-                    <Radio.Button value={50}>50</Radio.Button>
-                    <Radio.Button value={70}>70</Radio.Button>
-                    <Radio.Button value={85}>85</Radio.Button>
-                  </Radio.Group>
+                  <div className="native-btn-group">
+                    {[30, 50, 70, 85].map((v) => (
+                      <button key={v} className={`native-btn-seg ${openClawConfig.threshold === v ? 'active' : ''}`} onClick={() => updateOpenClaw({ threshold: v })}>{v}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <div className="setting-item">
-                <Button type="primary" ghost onClick={handleTestOpenClaw} loading={testingSending} block>
-                  🔔 {t(lang, 'openclawTest')}
-                </Button>
+                <button className="native-btn primary block" onClick={handleTestOpenClaw} disabled={testingSending}>
+                  {testingSending ? '⏳' : '🔔'} {t(lang, 'openclawTest')}
+                </button>
               </div>
 
               <div className="openclaw-skill-info">
@@ -338,12 +395,12 @@ const Settings: React.FC<SettingsProps> = ({
               <li>{lang === 'zh' ? '检测结果和设置信息仅存储在您的设备上' : 'Results and settings are stored on your device only'}</li>
               <li>{lang === 'zh' ? '您可以随时清除所有数据' : 'You can clear all data anytime'}</li>
             </ul>
-            <Button type="link" size="small" onClick={() => {
+            <button className="native-btn link" onClick={() => {
               localStorage.removeItem('elderSafetySettings');
               localStorage.removeItem('detectionHistory');
               localStorage.removeItem('openclawConfig');
-              message.success(t(lang, 'dataCleared'));
-            }}>{t(lang, 'clearData')}</Button>
+              showToast(t(lang, 'dataCleared'), 'success');
+            }}>{t(lang, 'clearData')}</button>
           </div>
         </div>
       </div>

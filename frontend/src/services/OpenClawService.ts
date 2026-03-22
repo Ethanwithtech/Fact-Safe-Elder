@@ -29,7 +29,7 @@ export default class OpenClawService {
     const saved = localStorage.getItem('openclawConfig');
     const savedConfig = saved ? JSON.parse(saved) : {};
     this.config = {
-      enabled: false,
+      enabled: true,
       qclawWebhookUrl: '',
       directWebhookUrl: '',
       channel: 'wecom',
@@ -54,21 +54,23 @@ export default class OpenClawService {
    */
   shouldAlert(result: DetectionResult): boolean {
     if (!this.config.enabled) return false;
-    if (!this.config.qclawWebhookUrl && !this.config.directWebhookUrl) return false;
+    // useQClaw 模式下 webhook URL 存储在后端，前端不需要自己配置 URL
+    const hasChannel = this.config.useQClaw || this.config.qclawWebhookUrl || this.config.directWebhookUrl;
+    if (!hasChannel) return false;
     const score = Math.round((result.score ?? 0) * 100);
     return score >= this.config.threshold && result.level !== 'safe';
   }
 
   /**
    * 发送风险告警
-   * 优先: 通过后端 → QClaw Webhook
+   * 优先: 通过后端 → QClaw Webhook（后端已配置 URL 和 token）
    * 降级: 直接企业微信/QQ Webhook
    */
   async sendAlert(result: DetectionResult, videoTitle?: string): Promise<boolean> {
     if (!this.shouldAlert(result)) return false;
 
-    // 优先走 QClaw（通过后端中转）
-    if (this.config.useQClaw && this.config.qclawWebhookUrl) {
+    // 优先走 QClaw（通过后端中转，后端已有 webhook URL 配置）
+    if (this.config.useQClaw) {
       const success = await this._sendViaQClaw(result, videoTitle);
       if (success) return true;
       // QClaw 失败，尝试降级

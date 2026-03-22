@@ -105,11 +105,35 @@
 
 .remove-btn {
   flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+.remove-btn:hover {
+  opacity: 1;
 }
 
-/* 分析进度 */
+/* 原生进度条 */
 .analysis-progress {
   margin-bottom: 12px;
+}
+
+.native-progress {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.native-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #108ee9, #87d068);
+  border-radius: 4px;
+  transition: width 0.3s ease;
 }
 
 .progress-text {
@@ -125,6 +149,15 @@
   height: 40px;
   border-radius: 10px;
   font-weight: 600;
+  background: linear-gradient(135deg, #1890ff, #36cfc9);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  transition: opacity 0.2s;
+}
+.analyze-btn:hover {
+  opacity: 0.85;
 }
 
 /* 结果 */
@@ -198,4 +231,42 @@
   width: 100%;
   margin-top: 8px;
   border-radius: 8px;
+  height: 36px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: var(--text-primary);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
 }
+.reupload-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+
+/* Toast */
+.fu-toast {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  z-index: 9999;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background: #333;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+.fu-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.fu-toast-success { background: #52c41a; }
+.fu-toast-warning { background: #faad14; color: #333; }
+.fu-toast-error   { background: #ff4d4f; }

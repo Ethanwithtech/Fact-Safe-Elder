@@ -1,6 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { Button, Progress, message } from 'antd';
-import { UploadOutlined, FileOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import DetectionService from '../../services/DetectionService';
 import { DetectionResult } from '../../types/detection';
 import { Language, t } from '../../i18n';
@@ -9,6 +7,19 @@ import './FileUpload.css';
 interface FileUploadProps {
   onDetectionResult?: (result: DetectionResult) => void;
   lang: Language;
+}
+
+/* 轻量 toast */
+function showToast(text: string, type: 'success' | 'warning' | 'error' = 'success') {
+  const existing = document.getElementById('fu-toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.id = 'fu-toast';
+  el.className = `fu-toast fu-toast-${type}`;
+  el.textContent = text;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2500);
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
@@ -27,13 +38,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
 
   const handleFileSelect = (selectedFile: File) => {
     if (selectedFile.size > 100 * 1024 * 1024) {
-      message.error(lang === 'zh' ? '文件大小不能超过100MB' : 'File size must be under 100MB');
+      showToast(lang === 'zh' ? '文件大小不能超过100MB' : 'File size must be under 100MB', 'error');
       return;
     }
     setFile(selectedFile);
     setResult(null);
     setProgress(0);
-    message.success(t(lang, 'uploadSuccess'));
+    showToast(t(lang, 'uploadSuccess'), 'success');
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,14 +68,13 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
 
   const handleAnalyze = async () => {
     if (!file) {
-      message.warning(t(lang, 'uploadNoFile'));
+      showToast(t(lang, 'uploadNoFile'), 'warning');
       return;
     }
 
     setIsAnalyzing(true);
     setProgress(0);
 
-    // 模拟分析进度
     const progressTimer = setInterval(() => {
       setProgress(prev => {
         if (prev >= 90) { clearInterval(progressTimer); return 90; }
@@ -73,7 +83,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
     }, 300);
 
     try {
-      // 使用文件名作为检测内容的一部分
       const simulatedContent = `[视频文件] ${file.name} - 用户上传的视频文件内容分析`;
       const detResult = await detectionService.current.detectContent(simulatedContent);
 
@@ -83,7 +92,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
       onDetectionResult?.(detResult);
     } catch (error) {
       clearInterval(progressTimer);
-      message.error(t(lang, 'uploadError'));
+      showToast(t(lang, 'uploadError'), 'error');
     } finally {
       setIsAnalyzing(false);
     }
@@ -102,6 +111,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const pct = Math.round(progress);
+
   return (
     <div className="file-upload-container">
       <div className="upload-header">
@@ -117,7 +128,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
         >
-          <UploadOutlined className="upload-icon" />
+          <span className="upload-icon">📤</span>
           <p className="upload-text">{t(lang, 'uploadDragger')}</p>
           <p className="upload-hint">{t(lang, 'uploadHint')}</p>
           <input
@@ -132,11 +143,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
         <div className="file-preview">
           <div className="file-info-card">
             <div className="file-icon-wrap">
-              {file.type.startsWith('video/') ? (
-                <PlayCircleOutlined className="file-type-icon video" />
-              ) : (
-                <FileOutlined className="file-type-icon audio" />
-              )}
+              <span className={`file-type-icon ${file.type.startsWith('video/') ? 'video' : 'audio'}`}>
+                {file.type.startsWith('video/') ? '🎬' : '🎵'}
+              </span>
             </div>
             <div className="file-details">
               <div className="file-name">{file.name}</div>
@@ -144,36 +153,22 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
                 {formatFileSize(file.size)} • {file.type.split('/')[1]?.toUpperCase() || 'FILE'}
               </div>
             </div>
-            <Button
-              type="text"
-              icon={<DeleteOutlined />}
-              onClick={handleRemove}
-              className="remove-btn"
-              danger
-            />
+            <button className="remove-btn" onClick={handleRemove} title="Remove">🗑️</button>
           </div>
 
           {isAnalyzing && (
             <div className="analysis-progress">
-              <Progress
-                percent={Math.round(progress)}
-                strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
-                status="active"
-              />
-              <span className="progress-text">{t(lang, 'uploadAnalyzing')}</span>
+              <div className="native-progress">
+                <div className="native-progress-bar" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="progress-text">{pct}% — {t(lang, 'uploadAnalyzing')}</span>
             </div>
           )}
 
           {!isAnalyzing && !result && (
-            <Button
-              type="primary"
-              size="large"
-              onClick={handleAnalyze}
-              className="analyze-btn"
-              icon={<PlayCircleOutlined />}
-            >
-              {t(lang, 'uploadAnalyze')}
-            </Button>
+            <button className="analyze-btn" onClick={handleAnalyze}>
+              ▶️ {t(lang, 'uploadAnalyze')}
+            </button>
           )}
 
           {result && (
@@ -203,14 +198,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
                   {(result.suggestions || []).map((s, i) => <div key={i}>💡 {s}</div>)}
                 </div>
               )}
-              <Button
-                type="primary"
-                ghost
-                onClick={handleRemove}
-                className="reupload-btn"
-              >
+              <button className="reupload-btn" onClick={handleRemove}>
                 {lang === 'zh' ? '重新上传' : 'Upload Another'}
-              </Button>
+              </button>
             </div>
           )}
         </div>

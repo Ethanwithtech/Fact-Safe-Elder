@@ -1,4 +1,4 @@
-/* ===== Settings 纯 CSS 覆盖层（无 antd Modal）===== */
+/* ===== Settings 纯 CSS（零 antd 依赖）===== */
 
 .settings-overlay {
   position: fixed;
@@ -189,71 +189,272 @@
   gap: 12px;
 }
 
-/* 单选组样式 */
-.setting-control .ant-radio-group {
+/* ===== 原生 Radio 组 ===== */
+.native-radio-group {
   display: flex;
   flex-direction: column;
+  gap: 8px;
+}
+.native-radio-group.row {
+  flex-direction: row;
   gap: 12px;
-  align-items: flex-start;
+  flex-wrap: wrap;
 }
 
-.setting-control .ant-radio-wrapper {
-  font-size: 16px;
+.native-radio {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin: 0;
   padding: 8px 12px;
   border-radius: 8px;
-  transition: all 0.3s ease;
+  cursor: pointer;
   border: 1px solid transparent;
-  min-height: 44px;
+  transition: all 0.2s;
+  font-size: 16px;
+  min-height: 40px;
+  user-select: none;
 }
-
-.setting-control .ant-radio-wrapper:hover {
+.native-radio:hover {
   background: #f0f9ff;
   border-color: #bae7ff;
 }
-
-.setting-control .ant-radio-wrapper-checked {
+.native-radio.checked {
   background: #e6f7ff;
   border-color: #1890ff;
   font-weight: 500;
 }
-
-.setting-control .ant-radio {
-  margin-top: 2px;
+.native-radio input[type="radio"] {
+  display: none;
 }
 
-.setting-control .ant-radio-wrapper > span:last-child {
+.radio-dot {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #d9d9d9;
+  flex-shrink: 0;
+  margin-top: 2px;
+  position: relative;
+  transition: all 0.2s;
+}
+.native-radio.checked .radio-dot {
+  border-color: #1890ff;
+}
+.native-radio.checked .radio-dot::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1890ff;
+}
+
+.native-radio > span:last-child {
   flex: 1;
 }
-
-.setting-control .ant-radio-wrapper small {
+.native-radio small {
   display: block;
   font-size: 13px;
   color: #8c8c8c;
   margin-top: 2px;
   line-height: 1.3;
+  font-weight: 400;
 }
 
-/* 开关样式 */
-.setting-control .ant-switch {
-  min-width: 48px;
-  height: 24px;
+/* ===== 原生 Switch ===== */
+.native-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 52px;
+  height: 28px;
+  padding: 0 4px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  background: #bfbfbf;
+  transition: background 0.25s;
+  outline: none;
+}
+.native-switch.on {
+  background: #52c41a;
+}
+.switch-knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: left 0.25s;
+}
+.native-switch.on .switch-knob {
+  left: calc(100% - 25px);
+}
+.switch-label {
+  font-size: 12px;
+  color: #fff;
+  position: absolute;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.native-switch:not(.on) .switch-label {
+  right: 6px;
+}
+.native-switch.on .switch-label {
+  left: 6px;
+}
+.native-switch:focus-visible {
+  outline: 2px solid #1890ff;
+  outline-offset: 2px;
 }
 
-.setting-control .ant-switch-checked {
-  background-color: #52c41a;
-}
-
-/* 输入框样式 */
-.setting-control .ant-input {
-  min-width: 200px;
+/* ===== 原生 Input ===== */
+.native-input {
   height: 44px;
+  min-width: 200px;
   font-size: 16px;
   border-radius: 8px;
+  border: 1px solid #d9d9d9;
+  padding: 4px 12px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  background: #fff;
+  color: #333;
+  box-sizing: border-box;
 }
+.native-input:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.15);
+}
+.native-input.full {
+  width: 100%;
+  min-width: 0;
+}
+.native-input::placeholder {
+  color: #bfbfbf;
+}
+
+/* ===== 原生 Button ===== */
+.native-btn {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid #d9d9d9;
+  background: #fff;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.native-btn:hover {
+  border-color: #1890ff;
+  color: #1890ff;
+}
+.native-btn.small {
+  height: 30px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+.native-btn.primary {
+  background: #1890ff;
+  border-color: #1890ff;
+  color: #fff;
+}
+.native-btn.primary:hover {
+  background: #40a9ff;
+  border-color: #40a9ff;
+}
+.native-btn.primary:disabled {
+  background: #91d5ff;
+  border-color: #91d5ff;
+  cursor: not-allowed;
+}
+.native-btn.block {
+  width: 100%;
+  height: 44px;
+  font-size: 15px;
+}
+.native-btn.link {
+  border: none;
+  background: none;
+  color: #1890ff;
+  height: auto;
+  padding: 0;
+  font-size: 14px;
+}
+.native-btn.link:hover {
+  color: #40a9ff;
+  text-decoration: underline;
+}
+
+/* ===== 按钮段落组（阈值选择）===== */
+.native-btn-group {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #d9d9d9;
+}
+.native-btn-seg {
+  height: 36px;
+  min-width: 48px;
+  padding: 0 14px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-right: 1px solid #d9d9d9;
+  background: #fff;
+  color: #595959;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.native-btn-seg:last-child {
+  border-right: none;
+}
+.native-btn-seg:hover {
+  background: #f0f9ff;
+  color: #1890ff;
+}
+.native-btn-seg.active {
+  background: #1890ff;
+  color: #fff;
+}
+
+/* ===== Toast 通知 ===== */
+.settings-toast {
+  position: fixed;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  z-index: 9999;
+  padding: 10px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #fff;
+  background: #333;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+}
+.settings-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.settings-toast-success { background: #52c41a; }
+.settings-toast-info    { background: #1890ff; }
+.settings-toast-warning { background: #faad14; color: #333; }
+.settings-toast-error   { background: #ff4d4f; }
 
 /* 隐私保护部分 */
 .privacy-section {
@@ -304,16 +505,16 @@
     align-self: flex-start;
   }
 
-  .setting-control .ant-radio-group {
+  .native-radio-group {
     width: 100%;
   }
 
-  .setting-control .ant-radio-wrapper {
+  .native-radio {
     width: 100%;
     padding: 12px;
   }
 
-  .setting-control .ant-input {
+  .native-input {
     min-width: auto;
     width: 100%;
   }
@@ -346,12 +547,13 @@
 }
 
 /* 无障碍访问 */
-.setting-control .ant-radio-wrapper:focus-within,
-.setting-control .ant-switch:focus,
-.setting-control .ant-input:focus {
+.native-radio:focus-within,
+.native-switch:focus,
+.native-input:focus {
   outline: 2px solid #1890ff;
   outline-offset: 2px;
 }
+.native-radio:focus-within { outline-offset: 0; }
 
 /* 高对比度模式 */
 @media (prefers-contrast: high) {
@@ -363,16 +565,16 @@
     border-bottom-color: #000;
   }
 
-  .setting-control .ant-radio-wrapper {
+  .native-radio {
     border-color: #000;
   }
 
-  .setting-control .ant-radio-wrapper:hover {
+  .native-radio:hover {
     border-color: #000;
     background: #f0f0f0;
   }
 
-  .setting-control .ant-radio-wrapper-checked {
+  .native-radio.checked {
     border-color: #000;
     background: #e0e0e0;
   }
@@ -409,7 +611,7 @@
     animation: none;
   }
 
-  .setting-control .ant-radio-wrapper {
+  .native-radio {
     transition: none;
   }
 }
