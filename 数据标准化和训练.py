@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 """
-数据标准化和高准确率模型训练 (v2)
+数据标准化和高准确率模型训练 (v3)
 
 改进点:
-1. 合并所有数据源 (comprehensive + mcfend + weibo + real_cases)
-2. 严格文本去重，避免同一句话出现在训练集和测试集
-3. 大量新增正常/安全文本，减少对日常用语的误报
-4. 输出 simple_ai_model.joblib 到项目根目录（后端可直接加载）
+1. 合并所有原有数据源 (comprehensive + mcfend + weibo + real_cases)
+2. 新增开源数据集:
+   - THUNLP Chinese_Rumor_Dataset: 31,669 条微博谣言 (rumorText)
+   - THUNLP CED_Dataset: 1,538 谣言 + 1,849 非谣言 (original-microblog)
+   - CHECKED: 344 假新闻 + 1,760 真新闻 (COVID-19 中文)
+   - DoubleCheck LTCR: 2,307 条标注数据 (title + text)
+   - COVID19-Health-Rumor: 408 条健康谣言
+3. 严格文本去重，避免同一句话出现在训练集和测试集
+4. 大量新增正常/安全文本，减少对日常用语的误报
+5. 输出 simple_ai_model.joblib 到项目根目录（后端可直接加载）
 """
 import json
+import csv
+import os
+import re
 import joblib
 import numpy as np
+import jieba
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, VotingClassifier
 from sklearn.svm import SVC
@@ -19,6 +29,35 @@ from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import classification_report, accuracy_score, f1_score
 from datetime import datetime
 from pathlib import Path
+
+# jieba 静音模式
+jieba.setLogLevel(jieba.logging.WARNING)
+
+
+def chinese_tokenize(text: str) -> str:
+    """中文分词：用 jieba 分词后以空格连接，返回分词后的字符串"""
+    # 去除 URL、@提及、#话题# 等噪声
+    text = re.sub(r'http\S+', '', text)
+    text = re.sub(r'@\S+', '', text)
+    text = re.sub(r'#\S+#', '', text)
+    words = jieba.lcut(text)
+    # 过滤：只保留长度 >= 2 的有意义词汇
+    stopwords = {'的', '了', '在', '是', '我', '有', '和', '就', '不', '人', '都', '一', '一个',
+                 '上', '也', '很', '到', '说', '要', '去', '你', '会', '着', '没有', '看', '好',
+                 '自己', '这', '他', '她', '么', '那', '它', '把', '又', '被', '让', '给', '之',
+                 '而', '与', '为', '但', '所', '地', '得', '个', '能', '可', '以', '吗', '呢',
+                 '吧', '啊', '哦', '嗯', '啦', '哈', '呀', '哎', '嘛', '这个', '那个'}
+    result = []
+    for w in words:
+        w = w.strip()
+        if not w or len(w) < 2:
+            continue
+        if w in stopwords:
+            continue
+        if re.match(r'^[\W_]+$', w) and not re.match(r'\d+', w):
+            continue
+        result.append(w)
+    return ' '.join(result)
 
 
 # ===== 大量正常/安全文本（日常用语，防止误报） =====
@@ -407,6 +446,173 @@ class AdvancedTrainer:
                 samples.append((text, 0))
         return samples
 
+    # ---- 新增开源数据集加载 ----
+
+    def _load_thunlp_rumors(self) -> list:
+        """
+        THUNLP rumors_v170613.json (JSONL): 31,669 条微博谣言 → risk=1
+        """
+        fp = self.data_dir / "chinese_rumor_thunlp" / "rumors_v170613.json"
+        if not fp.exists():
+            print(f"    ⚠️ {fp} 不存在，跳过")
+            return []
+        samples = []
+        with open(fp, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    item = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                text = item.get("rumorText", "").strip()
+                if text and len(text) >= 10:
+                    samples.append((text[:500], 1))
+        return samples
+
+    def _load_thunlp_ced(self) -> list:
+        """
+        THUNLP CED_Dataset: original-microblog JSON 文件
+        rumor-repost 名单 → risk=1, non-rumor-repost 名单 → safe=0
+        """
+        ced_dir = self.data_dir / "chinese_rumor_thunlp" / "CED_Dataset"
+        if not ced_dir.exists():
+            print(f"    ⚠️ {ced_dir} 不存在，跳过")
+            return []
+        samples = []
+        rumor_dir = ced_dir / "original-microblog"
+        rumor_repost_dir = ced_dir / "rumor-repost"
+        nonrumor_dir = ced_dir / "non-rumor-repost"
+
+        rumor_ids = set()
+        if rumor_repost_dir.exists():
+            for fname in os.listdir(rumor_repost_dir):
+                rumor_ids.add(fname)
+        nonrumor_ids = set()
+        if nonrumor_dir.exists():
+            for fname in os.listdir(nonrumor_dir):
+                nonrumor_ids.add(fname)
+
+        if rumor_dir.exists():
+            for fname in os.listdir(rumor_dir):
+                fp = rumor_dir / fname
+                if not str(fp).endswith(".json"):
+                    continue
+                try:
+                    with open(fp, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    text = data.get("text", "").strip()
+                    if not text or len(text) < 10:
+                        continue
+                    if fname in rumor_ids:
+                        samples.append((text[:500], 1))
+                    elif fname in nonrumor_ids:
+                        samples.append((text[:500], 0))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+        return samples
+
+    def _load_checked(self) -> list:
+        """
+        CHECKED: fake_news/ (344) → risk=1, real_news/ (1760) → safe=0
+        """
+        checked_dir = self.data_dir / "checked" / "dataset"
+        if not checked_dir.exists():
+            print(f"    ⚠️ {checked_dir} 不存在，跳过")
+            return []
+        samples = []
+        for sub, label in [("fake_news", 1), ("real_news", 0)]:
+            sub_dir = checked_dir / sub
+            if not sub_dir.exists():
+                continue
+            for fname in os.listdir(sub_dir):
+                fp = sub_dir / fname
+                if not str(fp).endswith(".json"):
+                    continue
+                try:
+                    with open(fp, "r", encoding="utf-8") as fh:
+                        data = json.load(fh)
+                    text = data.get("text", "").strip()
+                    if text and len(text) >= 10:
+                        samples.append((text[:500], label))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    continue
+        return samples
+
+    def _load_doublecheck(self) -> list:
+        """
+        DoubleCheck LTCR.csv: label=0 → fake (risk=1), label=1 → real (safe=0)
+        + data/data/train.txt & test.txt (tab-separated: label text)
+        """
+        samples = []
+        # CSV
+        fp = self.data_dir / "doublecheck" / "data" / "LTCR.csv"
+        if fp.exists():
+            with open(fp, "r", encoding="utf-8") as f:
+                reader = csv.reader(f)
+                next(reader)  # skip header
+                for row in reader:
+                    if len(row) < 6:
+                        continue
+                    title = row[1].strip()
+                    text = row[3].strip()
+                    label_str = row[5].strip()
+                    content = f"{title} {text}".strip()
+                    if not content or len(content) < 10:
+                        continue
+                    if label_str == "0":
+                        samples.append((content[:500], 1))  # fake
+                    elif label_str == "1":
+                        samples.append((content[:500], 0))  # real
+        else:
+            print(f"    ⚠️ {fp} 不存在")
+        # TXT files (train.txt, test.txt)
+        for txt_name in ["train.txt", "test.txt", "val.txt"]:
+            txt_fp = self.data_dir / "doublecheck" / "data" / "data" / txt_name
+            if not txt_fp.exists():
+                continue
+            with open(txt_fp, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or "\t" not in line:
+                        continue
+                    parts = line.split("\t", 1)
+                    if len(parts) != 2:
+                        continue
+                    label_str = parts[0].strip()
+                    text = parts[1].strip()
+                    if not text or len(text) < 10:
+                        continue
+                    if label_str == "0":
+                        samples.append((text[:500], 1))  # fake
+                    elif label_str == "1":
+                        samples.append((text[:500], 0))  # real
+        return samples
+
+    def _load_covid_health_rumor(self) -> list:
+        """
+        COVID19-Health-Rumor: health_rumors.csv → risk=1 (408 条)
+        字段: article_title + article_content
+        """
+        fp = self.data_dir / "covid_health_rumor" / "data" / "health_rumors.csv"
+        if not fp.exists():
+            print(f"    ⚠️ {fp} 不存在，跳过")
+            return []
+        samples = []
+        with open(fp, "r", encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader)  # skip header
+            for row in reader:
+                if len(row) < 5:
+                    continue
+                title = row[3].strip()  # article_title
+                content = row[4].strip()  # article_content
+                text = f"{title} {content}".strip()
+                if text and len(text) >= 10:
+                    samples.append((text[:500], 1))  # all are rumors
+        return samples
+
     # ----------------------------------------------------------
     def load_and_deduplicate(self):
         """加载所有数据源 → 去重"""
@@ -420,6 +626,11 @@ class AdvancedTrainer:
             ("mcfend", self._load_mcfend),
             ("weibo", self._load_weibo),
             ("real_cases", self._load_real_cases),
+            ("thunlp_rumors", self._load_thunlp_rumors),
+            ("thunlp_ced", self._load_thunlp_ced),
+            ("checked", self._load_checked),
+            ("doublecheck", self._load_doublecheck),
+            ("covid_health_rumor", self._load_covid_health_rumor),
         ]:
             s = loader()
             src_counts[name] = len(s)
@@ -452,6 +663,28 @@ class AdvancedTrainer:
         print(f"  去重后: {len(texts)} 条（去掉了 {total_before - len(texts)} 条重复）")
         print(f"  安全(0): {labels.count(0)} 条")
         print(f"  风险(1): {labels.count(1)} 条")
+
+        # 数据平衡：对多数类下采样，保持风险:安全 ≈ 2:1（谣言检测场景风险略多是合理的）
+        safe_samples = [(t, l) for t, l in zip(texts, labels) if l == 0]
+        risk_samples = [(t, l) for t, l in zip(texts, labels) if l == 1]
+        max_risk = min(len(risk_samples), len(safe_samples) * 2)  # 风险不超过安全的 2 倍
+        if len(risk_samples) > max_risk:
+            np.random.seed(42)
+            idxs = np.random.choice(len(risk_samples), size=max_risk, replace=False)
+            risk_samples = [risk_samples[i] for i in sorted(idxs)]
+            print(f"  ⚖️ 下采样风险类: {len(risk_samples)} 条（安全的 2 倍）")
+
+        balanced = safe_samples + risk_samples
+        np.random.seed(42)
+        np.random.shuffle(balanced)
+        texts = [t for t, _ in balanced]
+        labels = [l for _, l in balanced]
+        print(f"  平衡后总计: {len(texts)} 条 (安全={labels.count(0)}, 风险={labels.count(1)})")
+
+        # jieba 预分词（将中文文本转为空格分隔的词语序列）
+        print("\n  🔪 jieba 预分词中...")
+        texts = [chinese_tokenize(t) for t in texts]
+        print(f"  ✓ 分词完成，平均每条 {np.mean([len(t.split()) for t in texts]):.1f} 个词")
 
         return texts, labels
 
@@ -508,17 +741,31 @@ class AdvancedTrainer:
         return models
 
     def create_ensemble(self, models, X_train, X_test, y_train, y_test):
-        """创建集成模型"""
+        """创建集成模型（只用表现好的模型）"""
         print("[4/6] 创建集成模型...")
 
-        estimators = [
-            ("svm", models["svm"][0]),
-            ("rf", models["rf"][0]),
-            ("gb", models["gb"][0]),
-            ("lr", models["lr"][0]),
-        ]
+        # 根据准确率选择表现好的模型（>0.75），并按准确率加权
+        good_models = []
+        weights = []
+        for name, (model, acc) in models.items():
+            if acc >= 0.75:
+                good_models.append((name, model))
+                weights.append(acc)
+                print(f"  ✓ 纳入 {name} (acc={acc:.4f})")
+            else:
+                print(f"  ✗ 排除 {name} (acc={acc:.4f} < 0.75)")
 
-        ensemble = VotingClassifier(estimators=estimators, voting="soft", n_jobs=-1)
+        if not good_models:
+            # 如果都不好，用最好的那个
+            best_name = max(models, key=lambda k: models[k][1])
+            good_models = [(best_name, models[best_name][0])]
+            weights = [1.0]
+            print(f"  兜底: 使用 {best_name}")
+
+        ensemble = VotingClassifier(
+            estimators=good_models, voting="soft",
+            weights=weights, n_jobs=-1,
+        )
         ensemble.fit(X_train, y_train)
 
         ensemble_acc = accuracy_score(y_test, ensemble.predict(X_test))
@@ -555,7 +802,8 @@ class AdvancedTrainer:
             "metrics": metrics,
             "training_data_size": data_size,
             "timestamp": timestamp,
-            "version": "2.0",
+            "version": "3.0",
+            "needs_jieba_tokenize": True,  # 后端推理时需要先用 jieba 分词
         }
 
         # 保存到 models/trained
@@ -575,7 +823,7 @@ class AdvancedTrainer:
             "accuracy": metrics["accuracy"],
             "f1_score": metrics["f1_score"],
             "model_type": "Ensemble (SVM + RF + GB + LR)",
-            "version": "2.0 - deduped + extra safe texts",
+            "version": "3.0 - open-source datasets (THUNLP + CHECKED + DoubleCheck + COVID-Health-Rumor)",
         }
         report_file = self.model_dir / f"training_report_{timestamp}.json"
         with open(report_file, "w", encoding="utf-8") as f:
@@ -588,7 +836,7 @@ class AdvancedTrainer:
     def train(self):
         """完整训练流程"""
         print("=" * 60)
-        print("🚀 TF-IDF 集成模型训练 v2 (去重 + 多数据源 + 防误报)")
+        print("🚀 TF-IDF 集成模型训练 v3 (开源数据集 + 去重 + 防误报)")
         print("=" * 60)
         print()
 
@@ -598,9 +846,9 @@ class AdvancedTrainer:
         # 2. 文本向量化
         print("\n[2/6] 文本向量化 ...")
         vectorizer = TfidfVectorizer(
-            max_features=8000,
-            ngram_range=(1, 3),
-            min_df=1,         # 放宽 min_df，去重后每条只出现 1 次
+            max_features=20000,
+            ngram_range=(1, 2),
+            min_df=2,
             max_df=0.85,
             sublinear_tf=True,
         )
@@ -635,24 +883,27 @@ class AdvancedTrainer:
         print(f"💾 模型文件: {model_file}")
         print("=" * 60)
 
-        # 8. 快速自测：用几个典型文本验证
+        # 8. 快速自测：用典型文本验证
         print("\n📋 快速自测:")
         test_texts = [
-            "今天天气不错",
-            "加我微信日赚千元",
-            "祖传秘方包治百病",
-            "我去超市买了蔬菜水果",
-            "稳赚不赔年化收益50%",
-            "均衡饮食有助于健康",
-            "震惊！看完赶快转发",
+            ("今天天气真不错适合出去散步，下午去公园遛了一圈空气很好", "应为安全"),
+            ("我去超市买了些水果和蔬菜，晚上做一顿丰盛的晚餐", "应为安全"),
+            ("全国秋粮收获进展顺利丰收在望，各地积极推进乡村振兴战略", "应为安全"),
+            ("均衡饮食是保持健康的基础，每天保持适量运动有益健康", "应为安全"),
+            ("加我微信教你日赚千元的方法，稳赚不赔零风险投资限时招募", "应为风险"),
+            ("祖传秘方包治百病一次根治永不复发，不用去医院吃这个就行", "应为风险"),
+            ("紧急扩散赶快转发不转发就会倒霉，再不看就被删了速度保存", "应为风险"),
+            ("喝碱性水可以治疗癌症，这种保健品能延年益寿活到120岁", "应为风险"),
+            ("投资区块链数字货币月赚百万，内部消息明天一定涨停赶紧买", "应为风险"),
         ]
-        for t in test_texts:
-            feat = vectorizer.transform([t])
+        for text, expect in test_texts:
+            feat = vectorizer.transform([chinese_tokenize(text)])
             pred = ensemble.predict(feat)[0]
             proba = ensemble.predict_proba(feat)[0]
             risk_score = proba[1] if len(proba) > 1 else pred
             label_str = "⚠️ 风险" if pred == 1 else "✅ 安全"
-            print(f"  {label_str} ({risk_score:.2%}) | {t}")
+            match = "✓" if (pred == 1 and "风险" in expect) or (pred == 0 and "安全" in expect) else "✗"
+            print(f"  {match} {label_str} ({risk_score:.2%}) | {text[:40]}... [{expect}]")
 
         return metrics["accuracy"]
 

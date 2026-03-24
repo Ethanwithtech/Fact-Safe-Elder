@@ -484,12 +484,40 @@
   border-color: #91d5ff !important;
 }
 
+/* 企业微信配置区域 */
+.wecom-section {
+  background: linear-gradient(135deg, #f0fff4 0%, #e6fffb 100%);
+  border: 1px solid #87e8de;
+  border-radius: 12px;
+  margin: 0 !important;
+}
+
+.wecom-section .section-desc {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin: -12px 0 16px 0;
+  line-height: 1.5;
+}
+
+/* 企业微信配置提示框 */
+.wecom-info {
+  background: linear-gradient(135deg, #f0fff4 0%, #e6fffb 100%) !important;
+  border-color: #87e8de !important;
+}
+
 /* 飞书配置区域 */
 .feishu-section {
   background: linear-gradient(135deg, #f0f5ff 0%, #e6fffb 100%);
   border: 1px solid #91d5ff;
   border-radius: 12px;
   margin: 0 !important;
+}
+
+.feishu-section .section-desc {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin: -12px 0 16px 0;
+  line-height: 1.5;
 }
 
 /* 隐私保护部分 */
@@ -641,6 +669,7 @@
 .settings-section:nth-child(3) { animation-delay: 0.3s; }
 .settings-section:nth-child(4) { animation-delay: 0.4s; }
 .settings-section:nth-child(5) { animation-delay: 0.5s; }
+.settings-section:nth-child(6) { animation-delay: 0.6s; }
 
 @media (prefers-reduced-motion: reduce) {
   .settings-section {

@@ -10,6 +10,10 @@ export interface OpenClawConfig {
   threshold: number; // 0-100
   /** 优先使用 QClaw（通过后端 /api/qclaw/push），否则降级直接 webhook */
   useQClaw: boolean;
+  /** 企业微信推送开关 */
+  useWecom: boolean;
+  /** 企业微信群机器人 Webhook URL */
+  wecomWebhookUrl: string;
   /** 飞书推送开关 */
   useFeishu: boolean;
   /** 飞书自定义机器人 Webhook URL */
@@ -39,6 +43,8 @@ export default class OpenClawService {
       channel: 'wecom',
       threshold: 70,
       useQClaw: true,
+      useWecom: true,
+      wecomWebhookUrl: '',
       useFeishu: false,
       feishuWebhookUrl: '',
       ...savedConfig,
@@ -61,7 +67,7 @@ export default class OpenClawService {
   shouldAlert(result: DetectionResult): boolean {
     if (!this.config.enabled) return false;
     // useQClaw / useFeishu 模式下 webhook URL 存储在后端，前端不需要自己配置 URL
-    const hasChannel = this.config.useQClaw || this.config.useFeishu || this.config.qclawWebhookUrl || this.config.directWebhookUrl;
+    const hasChannel = this.config.useWecom || this.config.useFeishu || this.config.useQClaw || this.config.qclawWebhookUrl || this.config.directWebhookUrl;
     if (!hasChannel) return false;
     const score = Math.round((result.score ?? 0) * 100);
     return score >= this.config.threshold && result.level !== 'safe';
@@ -75,18 +81,24 @@ export default class OpenClawService {
   async sendAlert(result: DetectionResult, videoTitle?: string): Promise<boolean> {
     if (!this.shouldAlert(result)) return false;
 
-    // 优先走飞书
+    // 优先走企业微信
+    if (this.config.useWecom) {
+      const success = await this._sendViaWecom(result, videoTitle);
+      if (success) return true;
+      console.log('[OpenClaw] 企业微信推送失败，降级到飞书');
+    }
+
+    // 走飞书
     if (this.config.useFeishu) {
       const success = await this._sendViaFeishu(result, videoTitle);
       if (success) return true;
       console.log('[OpenClaw] 飞书推送失败，降级到 QClaw');
     }
 
-    // 走 QClaw（通过后端中转，后端已有 webhook URL 配置）
+    // 走 QClaw
     if (this.config.useQClaw) {
       const success = await this._sendViaQClaw(result, videoTitle);
       if (success) return true;
-      // QClaw 失败，尝试降级
       console.log('[OpenClaw] QClaw 推送失败，降级到直接 webhook');
     }
 
@@ -96,6 +108,37 @@ export default class OpenClawService {
     }
 
     return false;
+  }
+
+  /**
+   * 通过后端 /api/wecom/push 推送到企业微信
+   */
+  private async _sendViaWecom(result: DetectionResult, videoTitle?: string): Promise<boolean> {
+    const payload = {
+      level: result.level,
+      score: result.score ?? 0,
+      video_title: videoTitle || '未知视频',
+      reasons: result.reasons || [],
+      suggestions: result.suggestions || [],
+      detection_method: (result as any).detection_method || 'ai_multimodal',
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const backendUrl = `${window.location.protocol}//${window.location.hostname}:8000/api/wecom/push`;
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log('[OpenClaw] WeCom push response:', data);
+      return data.success && data.pushed;
+    } catch (error) {
+      console.error('[OpenClaw] WeCom push error:', error);
+      return false;
+    }
   }
 
   /**
@@ -331,6 +374,38 @@ export default class OpenClawService {
   async sendFeishuTestAlert(): Promise<boolean> {
     try {
       const url = `${window.location.protocol}//${window.location.hostname}:8000/api/feishu/test`;
+      const response = await fetch(url, { method: 'POST' });
+      const data = await response.json();
+      return data.success;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 将企业微信 Webhook URL 保存到后端
+   */
+  async saveWecomWebhookToBackend(webhookUrl: string): Promise<boolean> {
+    try {
+      const url = `${window.location.protocol}//${window.location.hostname}:8000/api/wecom/config`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook_url: webhookUrl, enabled: true }),
+      });
+      const data = await response.json();
+      return data.success;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 发送企业微信测试通知
+   */
+  async sendWecomTestAlert(): Promise<boolean> {
+    try {
+      const url = `${window.location.protocol}//${window.location.hostname}:8000/api/wecom/test`;
       const response = await fetch(url, { method: 'POST' });
       const data = await response.json();
       return data.success;

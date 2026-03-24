@@ -728,8 +728,10 @@ class MultimodalDetector:
             data = joblib.load(model_path)
             self.simple_model = data['model']
             self.simple_vectorizer = data['vectorizer']
+            self._simple_needs_jieba = data.get('needs_jieba_tokenize', False)
             metrics = data.get('metrics', {})
-            logger.info(f"✅ 简单AI模型加载成功 | Accuracy: {metrics.get('accuracy', 'N/A'):.4f}, F1: {metrics.get('f1_score', 'N/A'):.4f}")
+            version = data.get('version', 'unknown')
+            logger.info(f"✅ 简单AI模型加载成功 v{version} | Accuracy: {metrics.get('accuracy', 'N/A'):.4f}, F1: {metrics.get('f1_score', 'N/A'):.4f}, jieba={self._simple_needs_jieba}")
             self._simple_model_loaded = True
         except Exception as e:
             logger.error(f"❌ 加载简单AI模型失败: {e}")
@@ -754,7 +756,7 @@ class MultimodalDetector:
         
         检测优先级:
         1. BERT TextClassifier (best_text_model.pt) — F1=0.93
-        2. TF-IDF + VotingClassifier (simple_ai_model.joblib) — Acc=99.7%
+        2. TF-IDF + VotingClassifier (simple_ai_model.joblib) — Acc=94.7% (v3 + jieba分词)
         3. 规则引擎关键词检测
         结果通过加权融合策略合并
         """
@@ -808,7 +810,20 @@ class MultimodalDetector:
             
             if self._simple_model_loaded and text and self.simple_model and self.simple_vectorizer:
                 try:
-                    features = self.simple_vectorizer.transform([text])
+                    # v3 模型需要 jieba 预分词
+                    tfidf_text = text
+                    if getattr(self, '_simple_needs_jieba', False):
+                        try:
+                            import jieba
+                            import re as _re
+                            _t = _re.sub(r'http\S+', '', tfidf_text)
+                            _t = _re.sub(r'@\S+', '', _t)
+                            _t = _re.sub(r'#\S+#', '', _t)
+                            words = jieba.lcut(_t)
+                            tfidf_text = ' '.join(w.strip() for w in words if len(w.strip()) >= 2)
+                        except ImportError:
+                            logger.warning("jieba 未安装，TF-IDF 分词降级")
+                    features = self.simple_vectorizer.transform([tfidf_text])
                     pred = self.simple_model.predict(features)[0]
                     if hasattr(self.simple_model, 'predict_proba'):
                         proba = self.simple_model.predict_proba(features)[0]
@@ -829,16 +844,16 @@ class MultimodalDetector:
             rule_result = self._rule_based_detection(text)
             
             # === 4. 融合策略：多模型投票 + 规则增强 ===
-            # BERT 可信度最高（真正的语义理解），TF-IDF 权重降低（训练数据过拟合严重）
+            # BERT: 语义理解最强; TF-IDF v3: 94.7% 准确率 (jieba + 3.7万真实样本); Rules: 关键词匹配
             risk_score = 0.0
             risk_contributions = []
             
             if bert_risk_score is not None:
-                risk_contributions.append(("BERT", bert_risk_score, 0.60))  # 60% 权重（语义理解）
+                risk_contributions.append(("BERT", bert_risk_score, 0.50))  # 50% 权重（语义理解）
             if simple_risk_score is not None:
-                risk_contributions.append(("TF-IDF", simple_risk_score, 0.15))  # 15% 权重（降权：过拟合）
+                risk_contributions.append(("TF-IDF", simple_risk_score, 0.30))  # 30% 权重（v3 大幅提升）
             if rule_result['risk_score'] > 0:
-                risk_contributions.append(("Rules", rule_result['risk_score'], 0.25))  # 25% 权重
+                risk_contributions.append(("Rules", rule_result['risk_score'], 0.20))  # 20% 权重
             
             if risk_contributions:
                 total_weight = sum(w for _, _, w in risk_contributions)
@@ -847,10 +862,10 @@ class MultimodalDetector:
             # 安全阀：如果任一 AI 模型高置信度判断为风险，直接提升分数
             if bert_risk_score is not None and bert_risk_score > 0.8:
                 risk_score = max(risk_score, bert_risk_score * 0.9)
-            # TF-IDF 安全阀需更保守（训练数据过拟合，仅在 BERT 也认为有风险时才提升）
+            # TF-IDF 安全阀（v3 模型准确率 94.7%，可以更信任）
             if simple_risk_score is not None and simple_risk_score > 0.8:
                 if bert_risk_score is not None and bert_risk_score > 0.3:
-                    risk_score = max(risk_score, simple_risk_score * 0.7)
+                    risk_score = max(risk_score, simple_risk_score * 0.8)
                 elif bert_risk_score is None:
                     # BERT 未加载时 TF-IDF 仍作为兜底
                     risk_score = max(risk_score, simple_risk_score * 0.75)

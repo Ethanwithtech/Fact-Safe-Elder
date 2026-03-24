@@ -72,7 +72,7 @@ const Settings: React.FC<SettingsProps> = ({
     setEnableSound(true);
     setFamilyContact('');
     setEnableNotification(true);
-    updateOpenClaw({ enabled: false, qclawWebhookUrl: '', directWebhookUrl: '', channel: 'wecom', threshold: 70, useQClaw: true, useFeishu: false, feishuWebhookUrl: '' });
+    updateOpenClaw({ enabled: false, qclawWebhookUrl: '', directWebhookUrl: '', channel: 'wecom', threshold: 70, useQClaw: true, useWecom: false, wecomWebhookUrl: '', useFeishu: false, feishuWebhookUrl: '' });
     showToast(t(lang, 'settingsReset'), 'info');
   };
 
@@ -130,6 +130,23 @@ const Settings: React.FC<SettingsProps> = ({
       showToast(lang === 'zh' ? '飞书发送失败' : 'Feishu send failed', 'error');
     } finally {
       setFeishuTesting(false);
+    }
+  };
+
+  const [wecomTesting, setWecomTesting] = useState(false);
+  const handleTestWecom = async () => {
+    setWecomTesting(true);
+    try {
+      const success = await openClawService.sendWecomTestAlert();
+      if (success) {
+        showToast(lang === 'zh' ? '企业微信测试消息发送成功！' : 'WeCom test message sent!', 'success');
+      } else {
+        showToast(lang === 'zh' ? '企业微信发送失败，请检查 Webhook URL' : 'WeCom failed. Check URL', 'error');
+      }
+    } catch {
+      showToast(lang === 'zh' ? '企业微信发送失败' : 'WeCom send failed', 'error');
+    } finally {
+      setWecomTesting(false);
     }
   };
 
@@ -289,43 +306,43 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* 飞书推送配置（主推送通道） */}
-        <div className="settings-section feishu-section">
-          <h3>📮 {lang === 'zh' ? '飞书推送' : 'Feishu Push Notification'}</h3>
-          <p className="section-desc">{lang === 'zh' ? '将风险告警推送到飞书群聊，及时通知家人' : 'Push risk alerts to Feishu group to notify family'}</p>
+        {/* 企业微信推送配置（主推送通道） */}
+        <div className="settings-section wecom-section">
+          <h3>💬 {lang === 'zh' ? '企业微信推送' : 'WeCom Push Notification'}</h3>
+          <p className="section-desc">{lang === 'zh' ? '将风险告警推送到企业微信群聊，及时通知家人' : 'Push risk alerts to WeCom group to notify family'}</p>
 
           <div className="setting-item">
             <div className="setting-label">
-              <span>{lang === 'zh' ? '启用飞书推送' : 'Enable Feishu Push'}</span>
-              <span className="setting-desc">{lang === 'zh' ? '检测到风险内容时自动推送到飞书' : 'Auto-push to Feishu when risk detected'}</span>
+              <span>{lang === 'zh' ? '启用企业微信推送' : 'Enable WeCom Push'}</span>
+              <span className="setting-desc">{lang === 'zh' ? '检测到风险内容时自动推送到企业微信群' : 'Auto-push to WeCom group when risk detected'}</span>
             </div>
             <div className="setting-control">
-              <button className={`native-switch ${openClawConfig.useFeishu ? 'on' : ''}`} onClick={() => updateOpenClaw({ useFeishu: !openClawConfig.useFeishu, enabled: true })} role="switch" aria-checked={openClawConfig.useFeishu}>
+              <button className={`native-switch ${openClawConfig.useWecom ? 'on' : ''}`} onClick={() => updateOpenClaw({ useWecom: !openClawConfig.useWecom, enabled: true })} role="switch" aria-checked={openClawConfig.useWecom}>
                 <span className="switch-knob" />
-                <span className="switch-label">{openClawConfig.useFeishu ? t(lang, 'on') : t(lang, 'off')}</span>
+                <span className="switch-label">{openClawConfig.useWecom ? t(lang, 'on') : t(lang, 'off')}</span>
               </button>
             </div>
           </div>
 
-          {openClawConfig.useFeishu && (
+          {openClawConfig.useWecom && (
             <>
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>{lang === 'zh' ? '飞书 Webhook URL' : 'Feishu Webhook URL'}</span>
-                  <span className="setting-desc">{lang === 'zh' ? '飞书群 → 设置 → 群机器人 → 自定义机器人 → 复制 Webhook' : 'Feishu group → Settings → Bots → Custom bot → Copy Webhook'}</span>
+                  <span>{lang === 'zh' ? '企业微信 Webhook URL' : 'WeCom Webhook URL'}</span>
+                  <span className="setting-desc">{lang === 'zh' ? '企业微信群 → 群机器人 → 添加 → 复制 Webhook 地址' : 'WeCom group → Bot → Add → Copy Webhook URL'}</span>
                 </div>
                 <div className="setting-control" style={{ flex: 1 }}>
                   <input
                     className="native-input full"
                     type="text"
-                    value={openClawConfig.feishuWebhookUrl}
+                    value={openClawConfig.wecomWebhookUrl}
                     onChange={(e) => {
-                      updateOpenClaw({ feishuWebhookUrl: e.target.value });
+                      updateOpenClaw({ wecomWebhookUrl: e.target.value });
                       if (e.target.value) {
-                        openClawService.saveFeishuWebhookToBackend(e.target.value);
+                        openClawService.saveWecomWebhookToBackend(e.target.value);
                       }
                     }}
-                    placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+                    placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
                   />
                 </div>
               </div>
@@ -345,32 +362,81 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
 
               <div className="setting-item">
-                <button className="native-btn primary block" onClick={handleTestFeishu} disabled={feishuTesting}>
-                  {feishuTesting ? '⏳' : '📮'} {lang === 'zh' ? '发送飞书测试消息' : 'Send Feishu Test'}
+                <button className="native-btn primary block" onClick={handleTestWecom} disabled={wecomTesting}>
+                  {wecomTesting ? '⏳' : '💬'} {lang === 'zh' ? '发送企业微信测试消息' : 'Send WeCom Test'}
                 </button>
               </div>
 
-              <div className="openclaw-skill-info feishu-info">
-                <div className="skill-info-title">📋 {lang === 'zh' ? '飞书机器人配置步骤' : 'Feishu Bot Setup'}</div>
+              <div className="openclaw-skill-info wecom-info">
+                <div className="skill-info-title">📋 {lang === 'zh' ? '企业微信机器人配置步骤' : 'WeCom Bot Setup'}</div>
                 <div className="skill-info-content">
                   {lang === 'zh' ? (
                     <>
-                      <p>1. 打开飞书，进入需要接收告警的 <strong>群聊</strong></p>
-                      <p>2. 点击群设置 → <strong>群机器人</strong> → 添加机器人 → <strong>自定义机器人</strong></p>
-                      <p>3. 设置机器人名称（如 "AI守护系统"），复制 <strong>Webhook 地址</strong></p>
-                      <p>4. 将 Webhook 地址粘贴到上方输入框中</p>
-                      <p>5. 点击「发送飞书测试消息」验证连接</p>
+                      <p>1. 打开 <strong>企业微信</strong>，进入需要接收告警的 <strong>群聊</strong></p>
+                      <p>2. 点击右上角 <strong>···</strong> → <strong>群机器人</strong> → <strong>添加群机器人</strong></p>
+                      <p>3. 设置机器人名称（如 "AI守护系统"），点击添加</p>
+                      <p>4. 复制 <strong>Webhook 地址</strong>，粘贴到上方输入框</p>
+                      <p>5. 点击「发送企业微信测试消息」验证连接</p>
                     </>
                   ) : (
                     <>
-                      <p>1. Open Feishu/Lark, enter the <strong>group chat</strong> for alerts</p>
-                      <p>2. Group Settings → <strong>Bots</strong> → Add Bot → <strong>Custom Bot</strong></p>
-                      <p>3. Name it (e.g. "AI Guardian"), copy the <strong>Webhook URL</strong></p>
-                      <p>4. Paste the URL in the input above</p>
-                      <p>5. Click "Send Feishu Test" to verify</p>
+                      <p>1. Open <strong>WeCom</strong>, enter the <strong>group chat</strong> for alerts</p>
+                      <p>2. Tap <strong>···</strong> → <strong>Group Bot</strong> → <strong>Add Bot</strong></p>
+                      <p>3. Name it (e.g. "AI Guardian"), tap Add</p>
+                      <p>4. Copy the <strong>Webhook URL</strong>, paste above</p>
+                      <p>5. Click "Send WeCom Test" to verify</p>
                     </>
                   )}
                 </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* 飞书推送配置（备选通道） */}
+        <div className="settings-section feishu-section">
+          <h3>📮 {lang === 'zh' ? '飞书推送（备选）' : 'Feishu Push (Backup)'}</h3>
+          <p className="section-desc">{lang === 'zh' ? '企业微信不可用时，降级推送到飞书' : 'Fallback to Feishu when WeCom is unavailable'}</p>
+
+          <div className="setting-item">
+            <div className="setting-label">
+              <span>{lang === 'zh' ? '启用飞书推送' : 'Enable Feishu Push'}</span>
+              <span className="setting-desc">{lang === 'zh' ? '作为备选推送通道' : 'Use as backup push channel'}</span>
+            </div>
+            <div className="setting-control">
+              <button className={`native-switch ${openClawConfig.useFeishu ? 'on' : ''}`} onClick={() => updateOpenClaw({ useFeishu: !openClawConfig.useFeishu, enabled: true })} role="switch" aria-checked={openClawConfig.useFeishu}>
+                <span className="switch-knob" />
+                <span className="switch-label">{openClawConfig.useFeishu ? t(lang, 'on') : t(lang, 'off')}</span>
+              </button>
+            </div>
+          </div>
+
+          {openClawConfig.useFeishu && (
+            <>
+              <div className="setting-item">
+                <div className="setting-label">
+                  <span>{lang === 'zh' ? '飞书 Webhook URL' : 'Feishu Webhook URL'}</span>
+                </div>
+                <div className="setting-control" style={{ flex: 1 }}>
+                  <input
+                    className="native-input full"
+                    type="text"
+                    value={openClawConfig.feishuWebhookUrl}
+                    onChange={(e) => {
+                      updateOpenClaw({ feishuWebhookUrl: e.target.value });
+                      if (e.target.value) {
+                        openClawService.saveFeishuWebhookToBackend(e.target.value);
+                      }
+                    }}
+                    placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+                  />
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <button className="native-btn primary block" onClick={handleTestFeishu} disabled={feishuTesting}>
+                  {feishuTesting ? '⏳' : '📮'} {lang === 'zh' ? '发送飞书测试消息' : 'Send Feishu Test'}
+                </button>
               </div>
             </>
           )}

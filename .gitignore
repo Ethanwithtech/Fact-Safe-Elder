@@ -35,6 +35,10 @@ models/
 # 数据文件
 data/datasets/
 data/processed/
+data/raw/chinese_rumor_thunlp/
+data/raw/checked/
+data/raw/doublecheck/
+data/raw/covid_health_rumor/
 *.csv
 *.json.large
 *.jsonl

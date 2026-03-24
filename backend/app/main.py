@@ -868,6 +868,146 @@ async def feishu_test():
         return {"success": False, "message": f"连接失败: {str(e)}"}
 
 
+# ============================================================
+#  企业微信 (WeCom) 群机器人推送接口
+# ============================================================
+
+_wecom_config: Dict[str, Any] = {
+    "webhook_url": os.environ.get(
+        "WECOM_WEBHOOK_URL",
+        "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=7376df88-8f78-4e90-a05a-6b8d01ca8017",
+    ),
+    "enabled": True,
+}
+
+
+class WecomWebhookConfig(BaseModel):
+    webhook_url: Optional[str] = Field(None)
+    enabled: bool = Field(True)
+
+
+@app.post("/api/wecom/push")
+async def wecom_push(request: QClawPushRequest):
+    """推送风险告警到企业微信群机器人"""
+    if not _wecom_config.get("enabled"):
+        return {"success": False, "message": "企业微信推送未启用", "pushed": False}
+
+    webhook_url = _wecom_config.get("webhook_url", "")
+    if not webhook_url:
+        return {"success": False, "message": "未配置企业微信 Webhook URL", "pushed": False}
+
+    level_emoji = "🔴" if request.level == "danger" else "🟡" if request.level == "warning" else "🟢"
+    level_text = "高风险" if request.level == "danger" else "注意" if request.level == "warning" else "安全"
+    score_pct = round(request.score * 100)
+    reasons_text = "\n  • ".join(request.reasons or []) or "无"
+    suggestions_text = "\n  • ".join(request.suggestions or []) or "无"
+
+    # 企业微信 markdown 消息格式
+    wecom_payload = {
+        "msgtype": "markdown",
+        "markdown": {
+            "content": (
+                f"## {level_emoji} 短视频风险告警\n"
+                f"> **AI守护系统** 检测到可疑内容\n\n"
+                f"**视频**: {request.video_title or '未知视频'}\n"
+                f'**风险等级**: <font color="{'warning' if request.level == 'danger' else 'comment'}">{level_emoji} {level_text}</font>\n'
+                f"**风险评分**: {score_pct}/100\n"
+                f"**检测方式**: {request.detection_method or 'AI多模态'}\n"
+                f"**时间**: {request.timestamp or 'N/A'}\n\n"
+                f"**⚡ 风险因素**:\n  • {reasons_text}\n\n"
+                f"**💡 建议**:\n  • {suggestions_text}\n\n"
+                f"> 🛡️ FactSafe AI守护系统 | 如遇可疑情况请拨打 96110 反诈热线"
+            ),
+        },
+    }
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(webhook_url, json=wecom_payload, headers={"Content-Type": "application/json"})
+
+            if resp.status_code >= 400:
+                logger.warning(f"WeCom webhook failed: {resp.status_code} {resp.text}")
+                return {"success": False, "message": f"企业微信返回 {resp.status_code}", "pushed": False}
+
+            result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text}
+            errcode = result.get("errcode", -1)
+            if errcode != 0:
+                logger.warning(f"WeCom push error: {result}")
+                return {"success": False, "message": f"企业微信返回错误: {result.get('errmsg', 'unknown')}", "pushed": False}
+
+            logger.info(f"WeCom push success: level={request.level}, score={score_pct}")
+            return {"success": True, "message": "告警已推送到企业微信", "pushed": True, "data": result}
+
+    except ImportError:
+        return {"success": False, "message": "httpx 未安装", "pushed": False}
+    except Exception as e:
+        logger.warning(f"WeCom push error: {e}")
+        return {"success": False, "message": f"企业微信不可达: {str(e)}", "pushed": False}
+
+
+@app.post("/api/wecom/config")
+async def update_wecom_config(config: WecomWebhookConfig):
+    """配置企业微信 Webhook URL"""
+    global _wecom_config
+    if config.webhook_url is not None:
+        _wecom_config["webhook_url"] = config.webhook_url
+    _wecom_config["enabled"] = config.enabled
+    return {
+        "success": True,
+        "message": "企业微信配置已更新",
+        "data": {"webhook_url_set": bool(_wecom_config.get("webhook_url")), "enabled": _wecom_config["enabled"]},
+    }
+
+
+@app.get("/api/wecom/status")
+async def wecom_status():
+    """查看企业微信集成状态"""
+    return {
+        "success": True,
+        "data": {
+            "enabled": _wecom_config.get("enabled", False),
+            "webhook_configured": bool(_wecom_config.get("webhook_url")),
+        },
+    }
+
+
+@app.post("/api/wecom/test")
+async def wecom_test():
+    """发送企业微信测试消息"""
+    webhook_url = _wecom_config.get("webhook_url", "")
+    if not webhook_url:
+        return {"success": False, "message": "未配置企业微信 Webhook URL"}
+
+    test_payload = {
+        "msgtype": "markdown",
+        "markdown": {
+            "content": (
+                "## 🧪 FactSafe 测试消息\n\n"
+                "✅ **FactSafe AI守护系统** 与企业微信连接成功！\n\n"
+                "当检测到短视频风险内容时，告警将自动推送到此群。\n\n"
+                "> 🛡️ FactSafe — 守护老人上网安全"
+            ),
+        },
+    }
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(webhook_url, json=test_payload, headers={"Content-Type": "application/json"})
+            result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            errcode = result.get("errcode", -1)
+            return {
+                "success": resp.status_code < 400 and errcode == 0,
+                "message": f"测试消息已发送 (HTTP {resp.status_code})" if errcode == 0 else f"企业微信返回错误: {result.get('errmsg', resp.text[:200])}",
+                "status_code": resp.status_code,
+            }
+    except ImportError:
+        return {"success": False, "message": "httpx 未安装"}
+    except Exception as e:
+        return {"success": False, "message": f"连接失败: {str(e)}"}
+
+
 @app.post("/api/qclaw/push")
 async def qclaw_push(request: QClawPushRequest):
     """
