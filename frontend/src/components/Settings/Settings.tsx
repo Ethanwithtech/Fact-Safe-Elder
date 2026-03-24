@@ -289,83 +289,51 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* OpenClaw 配置 */}
-        <div className="settings-section openclaw-section">
-          <h3>{t(lang, 'openclawSettings')}</h3>
-          <p className="section-desc">{t(lang, 'openclawDesc')}</p>
+        {/* 飞书推送配置（主推送通道） */}
+        <div className="settings-section feishu-section">
+          <h3>📮 {lang === 'zh' ? '飞书推送' : 'Feishu Push Notification'}</h3>
+          <p className="section-desc">{lang === 'zh' ? '将风险告警推送到飞书群聊，及时通知家人' : 'Push risk alerts to Feishu group to notify family'}</p>
 
           <div className="setting-item">
             <div className="setting-label">
-              <span>{t(lang, 'openclawEnable')}</span>
-              <span className="setting-desc">{t(lang, 'openclawEnableDesc')}</span>
+              <span>{lang === 'zh' ? '启用飞书推送' : 'Enable Feishu Push'}</span>
+              <span className="setting-desc">{lang === 'zh' ? '检测到风险内容时自动推送到飞书' : 'Auto-push to Feishu when risk detected'}</span>
             </div>
             <div className="setting-control">
-              <button className={`native-switch ${openClawConfig.enabled ? 'on' : ''}`} onClick={() => updateOpenClaw({ enabled: !openClawConfig.enabled })} role="switch" aria-checked={openClawConfig.enabled}>
+              <button className={`native-switch ${openClawConfig.useFeishu ? 'on' : ''}`} onClick={() => updateOpenClaw({ useFeishu: !openClawConfig.useFeishu, enabled: true })} role="switch" aria-checked={openClawConfig.useFeishu}>
                 <span className="switch-knob" />
-                <span className="switch-label">{openClawConfig.enabled ? t(lang, 'on') : t(lang, 'off')}</span>
+                <span className="switch-label">{openClawConfig.useFeishu ? t(lang, 'on') : t(lang, 'off')}</span>
               </button>
             </div>
           </div>
 
-          {openClawConfig.enabled && (
+          {openClawConfig.useFeishu && (
             <>
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>QClaw Webhook URL</span>
-                  <span className="setting-desc">{lang === 'zh' ? '从 QClaw 安装 Skill 后获取（留空则使用后端默认配置）' : 'Get from QClaw after installing Skill (leave empty to use backend default)'}</span>
+                  <span>{lang === 'zh' ? '飞书 Webhook URL' : 'Feishu Webhook URL'}</span>
+                  <span className="setting-desc">{lang === 'zh' ? '飞书群 → 设置 → 群机器人 → 自定义机器人 → 复制 Webhook' : 'Feishu group → Settings → Bots → Custom bot → Copy Webhook'}</span>
                 </div>
                 <div className="setting-control" style={{ flex: 1 }}>
                   <input
                     className="native-input full"
                     type="text"
-                    value={openClawConfig.qclawWebhookUrl}
+                    value={openClawConfig.feishuWebhookUrl}
                     onChange={(e) => {
-                      updateOpenClaw({ qclawWebhookUrl: e.target.value });
+                      updateOpenClaw({ feishuWebhookUrl: e.target.value });
                       if (e.target.value) {
-                        openClawService.saveQClawWebhookToBackend(e.target.value);
+                        openClawService.saveFeishuWebhookToBackend(e.target.value);
                       }
                     }}
-                    placeholder={lang === 'zh' ? 'QClaw 分配的 Webhook URL（可留空）' : 'QClaw assigned Webhook URL (optional)'}
+                    placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
                   />
                 </div>
               </div>
 
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>{lang === 'zh' ? '备用直接 Webhook' : 'Direct Webhook (Fallback)'}</span>
-                  <span className="setting-desc">{lang === 'zh' ? '企业微信/QQ 机器人 Webhook（不经过 QClaw）' : 'WeCom/QQ bot Webhook (bypass QClaw)'}</span>
-                </div>
-                <div className="setting-control" style={{ flex: 1 }}>
-                  <input
-                    className="native-input full"
-                    type="text"
-                    value={openClawConfig.directWebhookUrl}
-                    onChange={(e) => updateOpenClaw({ directWebhookUrl: e.target.value })}
-                    placeholder={t(lang, 'openclawWebhookPlaceholder')}
-                  />
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-label">
-                  <span>{t(lang, 'openclawChannel')}</span>
-                </div>
-                <div className="setting-control">
-                  <div className="native-radio-group row">
-                    {(['wecom', 'qq', 'both'] as const).map((ch) => (
-                      <label key={ch} className={`native-radio ${openClawConfig.channel === ch ? 'checked' : ''}`}>
-                        <input type="radio" name="channel" checked={openClawConfig.channel === ch} onChange={() => updateOpenClaw({ channel: ch })} />
-                        <span className="radio-dot" /><span>{t(lang, ch === 'wecom' ? 'openclawWecom' : ch === 'qq' ? 'openclawQQ' : 'openclawBoth')}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-label">
-                  <span>{t(lang, 'openclawThreshold')}</span>
-                  <span className="setting-desc">{t(lang, 'openclawThresholdDesc')}</span>
+                  <span>{lang === 'zh' ? '推送阈值' : 'Alert Threshold'}</span>
+                  <span className="setting-desc">{lang === 'zh' ? '风险分数超过此值时推送通知' : 'Push when risk score exceeds this value'}</span>
                 </div>
                 <div className="setting-control">
                   <div className="native-btn-group">
@@ -377,103 +345,33 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
 
               <div className="setting-item">
-                <button className="native-btn primary block" onClick={handleTestOpenClaw} disabled={testingSending}>
-                  {testingSending ? '⏳' : '🔔'} {t(lang, 'openclawTest')}
+                <button className="native-btn primary block" onClick={handleTestFeishu} disabled={feishuTesting}>
+                  {feishuTesting ? '⏳' : '📮'} {lang === 'zh' ? '发送飞书测试消息' : 'Send Feishu Test'}
                 </button>
               </div>
 
-              <div className="openclaw-skill-info">
-                <div className="skill-info-title">📋 QClaw Skill {lang === 'zh' ? '安装说明' : 'Install Guide'}</div>
+              <div className="openclaw-skill-info feishu-info">
+                <div className="skill-info-title">📋 {lang === 'zh' ? '飞书机器人配置步骤' : 'Feishu Bot Setup'}</div>
                 <div className="skill-info-content">
                   {lang === 'zh' ? (
                     <>
-                      <p>1. 在 QClaw 中安装 Skill: <code>qclaw skill install github.com/yuchendeng/Fact-Safe-Elder/qclaw-skill</code></p>
-                      <p>2. 安装完成后，QClaw 会分配一个 <strong>Webhook URL</strong></p>
-                      <p>3. 将该 Webhook URL 粘贴到上方「QClaw Webhook URL」输入框中</p>
-                      <p>4. 当 AI 检测到风险时，系统自动推送告警到 QClaw → 通知家属</p>
+                      <p>1. 打开飞书，进入需要接收告警的 <strong>群聊</strong></p>
+                      <p>2. 点击群设置 → <strong>群机器人</strong> → 添加机器人 → <strong>自定义机器人</strong></p>
+                      <p>3. 设置机器人名称（如 "AI守护系统"），复制 <strong>Webhook 地址</strong></p>
+                      <p>4. 将 Webhook 地址粘贴到上方输入框中</p>
+                      <p>5. 点击「发送飞书测试消息」验证连接</p>
                     </>
                   ) : (
                     <>
-                      <p>1. Install Skill in QClaw: <code>qclaw skill install github.com/yuchendeng/Fact-Safe-Elder/qclaw-skill</code></p>
-                      <p>2. After install, QClaw assigns a <strong>Webhook URL</strong></p>
-                      <p>3. Paste the URL into the "QClaw Webhook URL" field above</p>
-                      <p>4. Alerts auto-push to QClaw → notify family when risk detected</p>
+                      <p>1. Open Feishu/Lark, enter the <strong>group chat</strong> for alerts</p>
+                      <p>2. Group Settings → <strong>Bots</strong> → Add Bot → <strong>Custom Bot</strong></p>
+                      <p>3. Name it (e.g. "AI Guardian"), copy the <strong>Webhook URL</strong></p>
+                      <p>4. Paste the URL in the input above</p>
+                      <p>5. Click "Send Feishu Test" to verify</p>
                     </>
                   )}
                 </div>
               </div>
-
-              {/* ===== 飞书推送 ===== */}
-              <div className="feishu-divider">
-                <span>{lang === 'zh' ? '📮 飞书推送' : '📮 Feishu (Lark) Push'}</span>
-              </div>
-
-              <div className="setting-item">
-                <div className="setting-label">
-                  <span>{lang === 'zh' ? '启用飞书推送' : 'Enable Feishu'}</span>
-                  <span className="setting-desc">{lang === 'zh' ? '将风险告警推送到飞书群' : 'Push risk alerts to Feishu group'}</span>
-                </div>
-                <div className="setting-control">
-                  <button className={`native-switch ${openClawConfig.useFeishu ? 'on' : ''}`} onClick={() => updateOpenClaw({ useFeishu: !openClawConfig.useFeishu })} role="switch" aria-checked={openClawConfig.useFeishu}>
-                    <span className="switch-knob" />
-                    <span className="switch-label">{openClawConfig.useFeishu ? t(lang, 'on') : t(lang, 'off')}</span>
-                  </button>
-                </div>
-              </div>
-
-              {openClawConfig.useFeishu && (
-                <>
-                  <div className="setting-item">
-                    <div className="setting-label">
-                      <span>{lang === 'zh' ? '飞书 Webhook URL' : 'Feishu Webhook URL'}</span>
-                      <span className="setting-desc">{lang === 'zh' ? '飞书群 → 设置 → 群机器人 → 自定义机器人 → 复制 Webhook' : 'Feishu group → Settings → Bots → Custom bot → Copy Webhook'}</span>
-                    </div>
-                    <div className="setting-control" style={{ flex: 1 }}>
-                      <input
-                        className="native-input full"
-                        type="text"
-                        value={openClawConfig.feishuWebhookUrl}
-                        onChange={(e) => {
-                          updateOpenClaw({ feishuWebhookUrl: e.target.value });
-                          if (e.target.value) {
-                            openClawService.saveFeishuWebhookToBackend(e.target.value);
-                          }
-                        }}
-                        placeholder={lang === 'zh' ? 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx' : 'https://open.feishu.cn/open-apis/bot/v2/hook/xxx'}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="setting-item">
-                    <button className="native-btn primary block" onClick={handleTestFeishu} disabled={feishuTesting}>
-                      {feishuTesting ? '⏳' : '📮'} {lang === 'zh' ? '发送飞书测试消息' : 'Send Feishu Test'}
-                    </button>
-                  </div>
-
-                  <div className="openclaw-skill-info feishu-info">
-                    <div className="skill-info-title">📋 {lang === 'zh' ? '飞书机器人配置步骤' : 'Feishu Bot Setup'}</div>
-                    <div className="skill-info-content">
-                      {lang === 'zh' ? (
-                        <>
-                          <p>1. 打开飞书，进入需要接收告警的 <strong>群聊</strong></p>
-                          <p>2. 点击群设置 → <strong>群机器人</strong> → 添加机器人 → <strong>自定义机器人</strong></p>
-                          <p>3. 设置机器人名称（如 "AI守护系统"），复制 <strong>Webhook 地址</strong></p>
-                          <p>4. 将 Webhook 地址粘贴到上方输入框中</p>
-                          <p>5. 点击「发送飞书测试消息」验证连接</p>
-                        </>
-                      ) : (
-                        <>
-                          <p>1. Open Feishu/Lark, enter the <strong>group chat</strong> for alerts</p>
-                          <p>2. Group Settings → <strong>Bots</strong> → Add Bot → <strong>Custom Bot</strong></p>
-                          <p>3. Name it (e.g. "AI Guardian"), copy the <strong>Webhook URL</strong></p>
-                          <p>4. Paste the URL in the input above</p>
-                          <p>5. Click "Send Feishu Test" to verify</p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
             </>
           )}
         </div>
