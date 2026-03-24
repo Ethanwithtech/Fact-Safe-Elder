@@ -650,6 +650,223 @@ _qclaw_webhook: Dict[str, Any] = {
     "enabled": True,
 }
 
+# 全局配置：飞书 Webhook
+_feishu_config: Dict[str, Any] = {
+    "webhook_url": os.environ.get("FEISHU_WEBHOOK_URL", ""),
+    "enabled": False,
+}
+
+
+# ============================================================
+#  飞书 (Feishu / Lark) 推送接口
+# ============================================================
+
+class FeishuWebhookConfig(BaseModel):
+    """飞书 Webhook 配置"""
+    webhook_url: Optional[str] = Field(None, description="飞书自定义机器人 Webhook URL")
+    enabled: bool = Field(True, description="是否启用飞书推送")
+
+
+@app.post("/api/feishu/push")
+async def feishu_push(request: QClawPushRequest):
+    """
+    推送风险告警到飞书自定义机器人
+    
+    飞书 Webhook URL 格式: https://open.feishu.cn/open-apis/bot/v2/hook/{webhook_id}
+    """
+    if not _feishu_config.get("enabled"):
+        return {"success": False, "message": "飞书推送未启用", "pushed": False}
+
+    webhook_url = _feishu_config.get("webhook_url", "")
+    if not webhook_url:
+        return {
+            "success": False,
+            "message": "未配置飞书 Webhook URL。请在飞书群中添加自定义机器人，获取 Webhook URL 后填入设置。",
+            "pushed": False,
+        }
+
+    # 构建飞书卡片消息
+    level_emoji = "🔴" if request.level == "danger" else "🟡" if request.level == "warning" else "🟢"
+    level_text = "高风险" if request.level == "danger" else "注意" if request.level == "warning" else "安全"
+    score_pct = round(request.score * 100)
+    reasons_text = "\n".join(f"  • {r}" for r in (request.reasons or [])) or "无"
+    suggestions_text = "\n".join(f"  • {s}" for s in (request.suggestions or [])) or "无"
+
+    feishu_payload = {
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": f"{level_emoji} 短视频风险告警 — {level_text}",
+                },
+                "template": "red" if request.level == "danger" else "orange" if request.level == "warning" else "green",
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": (
+                            f"**📹 视频**: {request.video_title or '未知视频'}\n"
+                            f"**⚠️ 风险等级**: {level_emoji} {level_text}\n"
+                            f"**📊 风险评分**: {score_pct}/100\n"
+                            f"**🔍 检测方式**: {request.detection_method or 'AI多模态'}\n"
+                            f"**⏰ 时间**: {request.timestamp or 'N/A'}"
+                        ),
+                    },
+                },
+                {"tag": "hr"},
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**⚡ 风险因素**:\n{reasons_text}",
+                    },
+                },
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": f"**💡 建议**:\n{suggestions_text}",
+                    },
+                },
+                {"tag": "hr"},
+                {
+                    "tag": "note",
+                    "elements": [
+                        {
+                            "tag": "plain_text",
+                            "content": "🛡️ FactSafe AI 守护系统 | 如遇可疑情况请拨打 96110 反诈热线",
+                        }
+                    ],
+                },
+            ],
+        },
+    }
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                webhook_url,
+                json=feishu_payload,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if resp.status_code >= 400:
+                logger.warning(f"Feishu webhook failed: {resp.status_code} {resp.text}")
+                return {"success": False, "message": f"飞书返回 {resp.status_code}", "pushed": False}
+
+            result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {"raw": resp.text}
+            # 飞书正常返回 {"code":0,"msg":"success","data":{}}
+            feishu_code = result.get("code", -1)
+            if feishu_code != 0:
+                logger.warning(f"Feishu push error: {result}")
+                return {"success": False, "message": f"飞书返回错误: {result.get('msg', 'unknown')}", "pushed": False}
+
+            logger.info(f"Feishu push success: level={request.level}, score={score_pct}")
+            return {"success": True, "message": "告警已推送到飞书", "pushed": True, "data": result}
+
+    except ImportError:
+        return {"success": False, "message": "httpx 未安装", "pushed": False}
+    except Exception as e:
+        logger.warning(f"Feishu push error: {e}")
+        return {"success": False, "message": f"飞书不可达: {str(e)}", "pushed": False}
+
+
+@app.post("/api/feishu/config")
+async def update_feishu_config(config: FeishuWebhookConfig):
+    """配置飞书 Webhook URL"""
+    global _feishu_config
+    if config.webhook_url is not None:
+        _feishu_config["webhook_url"] = config.webhook_url
+    _feishu_config["enabled"] = config.enabled
+    logger.info(f"Feishu config updated: url={'***' + _feishu_config['webhook_url'][-20:] if _feishu_config['webhook_url'] else '(empty)'}, enabled={config.enabled}")
+    return {
+        "success": True,
+        "message": "飞书配置已更新",
+        "data": {
+            "webhook_url_set": bool(_feishu_config.get("webhook_url")),
+            "enabled": _feishu_config["enabled"],
+        },
+    }
+
+
+@app.get("/api/feishu/status")
+async def feishu_status():
+    """查看飞书集成状态"""
+    webhook_url = _feishu_config.get("webhook_url", "")
+    result = {
+        "enabled": _feishu_config.get("enabled", False),
+        "webhook_configured": bool(webhook_url),
+    }
+    if webhook_url:
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                # 发一个空消息测试连通性
+                resp = await client.post(webhook_url, json={"msg_type": "text", "content": {"text": ""}}, headers={"Content-Type": "application/json"})
+                result["reachable"] = resp.status_code < 500
+        except Exception as e:
+            result["reachable"] = False
+            result["error"] = str(e)
+    else:
+        result["reachable"] = False
+    return {"success": True, "data": result}
+
+
+@app.post("/api/feishu/test")
+async def feishu_test():
+    """测试飞书连接 — 发送一条测试消息"""
+    webhook_url = _feishu_config.get("webhook_url", "")
+    if not webhook_url:
+        return {
+            "success": False,
+            "message": "未配置飞书 Webhook URL",
+            "hint": "请在飞书群中添加自定义机器人，获取 Webhook URL 后填入设置",
+        }
+
+    test_payload = {
+        "msg_type": "interactive",
+        "card": {
+            "header": {
+                "title": {"tag": "plain_text", "content": "🧪 FactSafe 测试消息"},
+                "template": "blue",
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "lark_md",
+                        "content": "✅ **FactSafe AI 守护系统** 与飞书连接成功！\n\n当检测到短视频风险内容时，告警将自动推送到此群。",
+                    },
+                },
+                {
+                    "tag": "note",
+                    "elements": [{"tag": "plain_text", "content": "🛡️ FactSafe — 守护老人上网安全"}],
+                },
+            ],
+        },
+    }
+
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(webhook_url, json=test_payload, headers={"Content-Type": "application/json"})
+            result = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            feishu_code = result.get("code", -1)
+            return {
+                "success": resp.status_code < 400 and feishu_code == 0,
+                "message": f"测试消息已发送 (HTTP {resp.status_code})" if feishu_code == 0 else f"飞书返回错误: {result.get('msg', resp.text[:200])}",
+                "status_code": resp.status_code,
+            }
+    except ImportError:
+        return {"success": False, "message": "httpx 未安装"}
+    except Exception as e:
+        return {"success": False, "message": f"连接失败: {str(e)}"}
+
 
 @app.post("/api/qclaw/push")
 async def qclaw_push(request: QClawPushRequest):

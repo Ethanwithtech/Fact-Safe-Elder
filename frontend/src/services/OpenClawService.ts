@@ -10,6 +10,10 @@ export interface OpenClawConfig {
   threshold: number; // 0-100
   /** 优先使用 QClaw（通过后端 /api/qclaw/push），否则降级直接 webhook */
   useQClaw: boolean;
+  /** 飞书推送开关 */
+  useFeishu: boolean;
+  /** 飞书自定义机器人 Webhook URL */
+  feishuWebhookUrl: string;
 }
 
 /**
@@ -35,6 +39,8 @@ export default class OpenClawService {
       channel: 'wecom',
       threshold: 70,
       useQClaw: true,
+      useFeishu: false,
+      feishuWebhookUrl: '',
       ...savedConfig,
       ...config,
     };
@@ -54,8 +60,8 @@ export default class OpenClawService {
    */
   shouldAlert(result: DetectionResult): boolean {
     if (!this.config.enabled) return false;
-    // useQClaw 模式下 webhook URL 存储在后端，前端不需要自己配置 URL
-    const hasChannel = this.config.useQClaw || this.config.qclawWebhookUrl || this.config.directWebhookUrl;
+    // useQClaw / useFeishu 模式下 webhook URL 存储在后端，前端不需要自己配置 URL
+    const hasChannel = this.config.useQClaw || this.config.useFeishu || this.config.qclawWebhookUrl || this.config.directWebhookUrl;
     if (!hasChannel) return false;
     const score = Math.round((result.score ?? 0) * 100);
     return score >= this.config.threshold && result.level !== 'safe';
@@ -69,7 +75,14 @@ export default class OpenClawService {
   async sendAlert(result: DetectionResult, videoTitle?: string): Promise<boolean> {
     if (!this.shouldAlert(result)) return false;
 
-    // 优先走 QClaw（通过后端中转，后端已有 webhook URL 配置）
+    // 优先走飞书
+    if (this.config.useFeishu) {
+      const success = await this._sendViaFeishu(result, videoTitle);
+      if (success) return true;
+      console.log('[OpenClaw] 飞书推送失败，降级到 QClaw');
+    }
+
+    // 走 QClaw（通过后端中转，后端已有 webhook URL 配置）
     if (this.config.useQClaw) {
       const success = await this._sendViaQClaw(result, videoTitle);
       if (success) return true;
@@ -83,6 +96,37 @@ export default class OpenClawService {
     }
 
     return false;
+  }
+
+  /**
+   * 通过后端 /api/feishu/push 推送到飞书
+   */
+  private async _sendViaFeishu(result: DetectionResult, videoTitle?: string): Promise<boolean> {
+    const payload = {
+      level: result.level,
+      score: result.score ?? 0,
+      video_title: videoTitle || '未知视频',
+      reasons: result.reasons || [],
+      suggestions: result.suggestions || [],
+      detection_method: (result as any).detection_method || 'ai_multimodal',
+      timestamp: new Date().toISOString(),
+    };
+
+    try {
+      const backendUrl = `${window.location.protocol}//${window.location.hostname}:8000/api/feishu/push`;
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      console.log('[OpenClaw] Feishu push response:', data);
+      return data.success && data.pushed;
+    } catch (error) {
+      console.error('[OpenClaw] Feishu push error:', error);
+      return false;
+    }
   }
 
   /**
@@ -238,6 +282,56 @@ export default class OpenClawService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ webhook_url: webhookUrl, enabled: true }),
       });
+      const data = await response.json();
+      return data.success;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 将飞书 Webhook URL 保存到后端
+   */
+  async saveFeishuWebhookToBackend(webhookUrl: string): Promise<boolean> {
+    try {
+      const url = `${window.location.protocol}//${window.location.hostname}:8000/api/feishu/config`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ webhook_url: webhookUrl, enabled: true }),
+      });
+      const data = await response.json();
+      return data.success;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 检查飞书连接状态
+   */
+  async checkFeishuStatus(): Promise<{ configured: boolean; reachable: boolean; message: string }> {
+    try {
+      const url = `${window.location.protocol}//${window.location.hostname}:8000/api/feishu/status`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return {
+        configured: data.data?.webhook_configured ?? false,
+        reachable: data.data?.reachable ?? false,
+        message: data.data?.reachable ? '飞书连接正常' : '未连接到飞书',
+      };
+    } catch (error) {
+      return { configured: false, reachable: false, message: String(error) };
+    }
+  }
+
+  /**
+   * 发送飞书测试通知
+   */
+  async sendFeishuTestAlert(): Promise<boolean> {
+    try {
+      const url = `${window.location.protocol}//${window.location.hostname}:8000/api/feishu/test`;
+      const response = await fetch(url, { method: 'POST' });
       const data = await response.json();
       return data.success;
     } catch {

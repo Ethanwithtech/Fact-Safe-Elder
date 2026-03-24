@@ -699,10 +699,10 @@ class MultimodalDetector:
         """加载BERT文本分类器权重"""
         try:
             logger.info(f"正在加载BERT文本分类模型: {model_path}")
-            # 构建与训练一致的 TextClassifier
+            # 构建与训练一致的 TextClassifier（训练时 num_labels=3: safe/warning/danger）
             self.text_classifier = TextClassifier(
                 model_name="hfl/chinese-macbert-base",
-                num_labels=2,
+                num_labels=3,
                 dropout=0.3
             )
             checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
@@ -788,12 +788,17 @@ class MultimodalDetector:
                     with torch.no_grad():
                         logits = self.text_classifier(**inputs)
                         probs = F.softmax(logits, dim=-1)
-                        # class 0=safe, class 1=risk
-                        bert_risk_score = probs[0][1].item()  # risk 概率
-                        bert_is_risky = bert_risk_score > 0.5
+                        # 训练标签: safe=0, warning=1, danger=2
+                        safe_prob = probs[0][0].item()
+                        warning_prob = probs[0][1].item()
+                        danger_prob = probs[0][2].item()
+                        # 风险分数 = warning 概率 * 0.5 + danger 概率 * 1.0
+                        bert_risk_score = warning_prob * 0.5 + danger_prob
+                        bert_risk_score = min(bert_risk_score, 1.0)
+                        bert_is_risky = bert_risk_score > 0.4
                     
                     detection_method = "ai_bert"
-                    logger.info(f"BERT推理: risk_score={bert_risk_score:.4f}, risky={bert_is_risky}")
+                    logger.info(f"BERT推理: safe={safe_prob:.4f}, warn={warning_prob:.4f}, danger={danger_prob:.4f}, risk_score={bert_risk_score:.4f}, risky={bert_is_risky}")
                 except Exception as e:
                     logger.warning(f"BERT推理异常: {e}")
             
@@ -824,15 +829,16 @@ class MultimodalDetector:
             rule_result = self._rule_based_detection(text)
             
             # === 4. 融合策略：多模型投票 + 规则增强 ===
+            # BERT 可信度最高（真正的语义理解），TF-IDF 权重降低（训练数据过拟合严重）
             risk_score = 0.0
             risk_contributions = []
             
             if bert_risk_score is not None:
-                risk_contributions.append(("BERT", bert_risk_score, 0.50))  # 50% 权重
+                risk_contributions.append(("BERT", bert_risk_score, 0.60))  # 60% 权重（语义理解）
             if simple_risk_score is not None:
-                risk_contributions.append(("TF-IDF", simple_risk_score, 0.30))  # 30% 权重
+                risk_contributions.append(("TF-IDF", simple_risk_score, 0.15))  # 15% 权重（降权：过拟合）
             if rule_result['risk_score'] > 0:
-                risk_contributions.append(("Rules", rule_result['risk_score'], 0.20))  # 20% 权重
+                risk_contributions.append(("Rules", rule_result['risk_score'], 0.25))  # 25% 权重
             
             if risk_contributions:
                 total_weight = sum(w for _, _, w in risk_contributions)
@@ -841,8 +847,13 @@ class MultimodalDetector:
             # 安全阀：如果任一 AI 模型高置信度判断为风险，直接提升分数
             if bert_risk_score is not None and bert_risk_score > 0.8:
                 risk_score = max(risk_score, bert_risk_score * 0.9)
+            # TF-IDF 安全阀需更保守（训练数据过拟合，仅在 BERT 也认为有风险时才提升）
             if simple_risk_score is not None and simple_risk_score > 0.8:
-                risk_score = max(risk_score, simple_risk_score * 0.85)
+                if bert_risk_score is not None and bert_risk_score > 0.3:
+                    risk_score = max(risk_score, simple_risk_score * 0.7)
+                elif bert_risk_score is None:
+                    # BERT 未加载时 TF-IDF 仍作为兜底
+                    risk_score = max(risk_score, simple_risk_score * 0.75)
             # 规则引擎兜底：关键词明确命中时强制提升
             if rule_result['risk_score'] > 0.3:
                 risk_score = max(risk_score, rule_result['risk_score'])
