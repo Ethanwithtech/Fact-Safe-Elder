@@ -113,6 +113,8 @@ class DetectionOutput:
     explanation: Optional[str] = None
     inference_time: float = 0.0
     detection_method: str = "rule_engine"
+    bert_score: Optional[float] = None
+    tfidf_score: Optional[float] = None
 
 
 class CrossModalAttention(nn.Module):
@@ -699,22 +701,33 @@ class MultimodalDetector:
         """加载BERT文本分类器权重"""
         try:
             logger.info(f"正在加载BERT文本分类模型: {model_path}")
-            # 构建与训练一致的 TextClassifier（训练时 num_labels=3: safe/warning/danger）
+            checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
+
+            # 自动检测 checkpoint 中实际的 num_labels
+            state_dict = checkpoint.get('model_state_dict', checkpoint)
+            # head.3 是最后一个 Linear 层，其 weight shape = [num_labels, hidden//2]
+            head_key = None
+            for k in state_dict:
+                if 'head' in k and 'weight' in k:
+                    head_key = k  # 取最后一个 head 权重
+            actual_num_labels = state_dict[head_key].shape[0] if head_key else 3
+            logger.info(f"BERT checkpoint num_labels={actual_num_labels}")
+
             self.text_classifier = TextClassifier(
                 model_name="hfl/chinese-macbert-base",
-                num_labels=3,
+                num_labels=actual_num_labels,
                 dropout=0.3
             )
-            checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
-            self.text_classifier.load_state_dict(checkpoint['model_state_dict'])
+            self.text_classifier.load_state_dict(state_dict)
             self.text_classifier.to(self.device)
             self.text_classifier.eval()
+            self._bert_num_labels = actual_num_labels
             
             # 加载对应的 tokenizer
             self.text_tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-macbert-base")
             
             best_f1 = checkpoint.get('best_f1', 'N/A')
-            logger.info(f"✅ BERT文本分类模型加载成功 | Best F1: {best_f1:.4f}" if isinstance(best_f1, float) else f"✅ BERT模型加载成功")
+            logger.info(f"✅ BERT文本分类模型加载成功 | num_labels={actual_num_labels} | Best F1: {best_f1:.4f}" if isinstance(best_f1, float) else f"✅ BERT模型加载成功 | num_labels={actual_num_labels}")
             self._text_model_loaded = True
         except Exception as e:
             logger.error(f"❌ 加载BERT文本分类模型失败: {e}")
@@ -790,12 +803,22 @@ class MultimodalDetector:
                     with torch.no_grad():
                         logits = self.text_classifier(**inputs)
                         probs = F.softmax(logits, dim=-1)
-                        # 训练标签: safe=0, warning=1, danger=2
-                        safe_prob = probs[0][0].item()
-                        warning_prob = probs[0][1].item()
-                        danger_prob = probs[0][2].item()
-                        # 风险分数 = warning 概率 * 0.5 + danger 概率 * 1.0
-                        bert_risk_score = warning_prob * 0.5 + danger_prob
+                        
+                        num_labels = getattr(self, '_bert_num_labels', probs.shape[-1])
+                        if num_labels == 2:
+                            # 二分类: 0=safe, 1=risky
+                            safe_prob = probs[0][0].item()
+                            risky_prob = probs[0][1].item()
+                            bert_risk_score = risky_prob
+                            logger.info(f"BERT推理(2类): safe={safe_prob:.4f}, risky={risky_prob:.4f}")
+                        else:
+                            # 三分类: safe=0, warning=1, danger=2
+                            safe_prob = probs[0][0].item()
+                            warning_prob = probs[0][1].item()
+                            danger_prob = probs[0][2].item()
+                            bert_risk_score = warning_prob * 0.5 + danger_prob
+                            logger.info(f"BERT推理(3类): safe={safe_prob:.4f}, warn={warning_prob:.4f}, danger={danger_prob:.4f}")
+                        
                         bert_risk_score = min(bert_risk_score, 1.0)
                         bert_is_risky = bert_risk_score > 0.4
                     
@@ -927,7 +950,9 @@ class MultimodalDetector:
                 attention_weights=None,
                 explanation=explanation,
                 inference_time=inference_time,
-                detection_method=detection_method
+                detection_method=detection_method,
+                bert_score=bert_risk_score,
+                tfidf_score=simple_risk_score,
             )
             
         except Exception as e:

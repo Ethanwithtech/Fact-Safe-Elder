@@ -240,6 +240,7 @@ def _try_ocr_frames(frames: List[Any], max_chars: int = 800) -> str:
                     texts.append(t.strip())
 
         merged = "\n".join([t for t in dict.fromkeys(texts) if t])
+        logger.info(f"EasyOCR 识别结果: {merged[:200] if merged else '(空)'}")
         return merged[:max_chars]
     except Exception:
         pass
@@ -260,14 +261,47 @@ def _try_ocr_frames(frames: List[Any], max_chars: int = 800) -> str:
 
 def _try_transcribe_whisper(video_path: str) -> str:
     """
-    语音转写：如果环境有 whisper，则直接对视频文件转写；否则返回空字符串。
+    语音转写：如果环境有 whisper + ffmpeg，则直接对视频文件转写；否则返回空字符串。
     """
     try:
+        # 确保 ffmpeg 在 PATH 中（imageio-ffmpeg 提供的二进制）
+        try:
+            import imageio_ffmpeg  # type: ignore
+            ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+            if ffmpeg_dir not in os.environ.get("PATH", ""):
+                os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+                logger.info(f"ffmpeg 路径已添加: {ffmpeg_dir}")
+        except ImportError:
+            pass
+        # ~/bin/ffmpeg 也加上
+        home_bin = os.path.expanduser("~/bin")
+        if home_bin not in os.environ.get("PATH", ""):
+            os.environ["PATH"] = home_bin + os.pathsep + os.environ.get("PATH", "")
+
         import whisper  # type: ignore
         model = whisper.load_model("base")
+        logger.info(f"Whisper 开始转写: {video_path}")
+
+        # 先检查是否有音频流
+        try:
+            import subprocess as _sp
+            probe = _sp.run(
+                ["ffmpeg", "-i", video_path, "-hide_banner"],
+                capture_output=True, text=True, timeout=5,
+            )
+            stderr_out = probe.stderr or ""
+            if "Audio:" not in stderr_out:
+                logger.info("视频无音频流，跳过 ASR")
+                return ""
+        except Exception:
+            pass  # ffmpeg 检查失败时让 whisper 自行处理
+
         result = model.transcribe(video_path, language="zh")
-        return (result.get("text") or "").strip()
-    except Exception:
+        text = (result.get("text") or "").strip()
+        logger.info(f"Whisper 转写结果: {text[:200] if text else '(空)'}")
+        return text
+    except Exception as e:
+        logger.warning(f"Whisper 转写失败: {e}")
         return ""
 
 
@@ -318,6 +352,14 @@ async def lifespan(app: FastAPI):
             logger.warning(f"AI检测器初始化失败: {e}")
             ai_detector = None
     
+    # 初始化 GPT 事实核查器
+    try:
+        from app.services.gpt_fact_checker import get_fact_checker
+        _gpt_checker = get_fact_checker()
+        logger.info(f"GPT 事实核查器: {'可用' if _gpt_checker.available else '不可用'}")
+    except Exception as e:
+        logger.warning(f"GPT 事实核查器初始化失败: {e}")
+
     logger.info(f"AI检测: {'可用' if ai_detector else '不可用（使用规则引擎）'}")
     logger.info("系统启动完成")
     
@@ -467,6 +509,48 @@ async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
         logger.error(f"检测失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"检测服务异常: {str(e)}")
 
+
+def _build_content_summary(
+    level: str,
+    merged_text: str,
+    transcript: str,
+    ocr_text: str,
+    fallback_explanation: str,
+    reasons: List[str],
+) -> str:
+    """
+    基于视频实际识别内容生成 AI 结论摘要，而不是模板化的说明。
+    """
+    parts: List[str] = []
+    snippet = (merged_text or "").strip()[:120]
+
+    if level == "danger":
+        parts.append("🚨 高风险警告：视频内容存在严重安全隐患")
+    elif level == "warning":
+        parts.append("⚠️ 注意：视频内容存在可疑信息")
+    else:
+        parts.append("✅ 视频内容相对安全")
+
+    # 标记内容来源
+    sources: List[str] = []
+    if transcript:
+        sources.append("语音转写(ASR)")
+    if ocr_text:
+        sources.append("画面文字(OCR)")
+    if sources:
+        parts.append(f"识别来源：{' + '.join(sources)}")
+
+    # 摘要视频内容
+    if snippet:
+        parts.append(f"内容摘要：「{snippet}{'…' if len(merged_text or '') > 120 else ''}」")
+
+    # 关键风险
+    if reasons:
+        parts.append(f"主要风险：{reasons[0]}")
+
+    return "\n".join(parts)
+
+
 @app.post("/detect/video", response_model=DetectionResponse)
 async def detect_video(
     background_tasks: BackgroundTasks,
@@ -503,7 +587,7 @@ async def detect_video(
             merged_text = f"{merged_text}\n{transcript}".strip()
 
         if ai_detector is not None:
-            # 选取“信息量最大”的帧：优先OCR文本最多的帧，否则用第一帧
+            # 选取"信息量最大"的帧：优先OCR文本最多的帧，否则用第一帧
             image = frames[0] if frames else None
             if frames:
                 best_img = frames[0]
@@ -516,13 +600,20 @@ async def detect_video(
                 image = best_img
 
             result = await ai_detector.detect({"text": merged_text or " ", "image": image})
+
+            # 生成基于实际内容的 AI 结论（替代模板化 explanation）
+            ai_message = _build_content_summary(
+                result.risk_level.value, merged_text, transcript, ocr_text,
+                result.explanation or "", list(result.reasons),
+            )
+
             detection_result = {
                 "level": result.risk_level.value,
                 "score": float(result.risk_score),
                 "confidence": float(result.confidence),
-                "message": result.explanation or "",
-                "reasons": result.reasons,
-                "suggestions": result.suggestions,
+                "message": ai_message,
+                "reasons": list(result.reasons),
+                "suggestions": list(result.suggestions),
                 "text_risk": float(result.text_risk),
                 "visual_risk": float(result.visual_risk),
                 "audio_risk": float(result.audio_risk),
@@ -531,6 +622,8 @@ async def detect_video(
                 "transcript": transcript[:500] if transcript else "",
                 "ocr_text": ocr_text[:800] if ocr_text else "",
                 "frames_used": len(frames),
+                "bert_score": round(result.bert_score, 4) if result.bert_score is not None else None,
+                "tfidf_score": round(result.tfidf_score, 4) if result.tfidf_score is not None else None,
             }
         else:
             detection_result = rule_detector.detect(merged_text or "")
@@ -540,6 +633,10 @@ async def detect_video(
                 "ocr_text": ocr_text[:800] if ocr_text else "",
                 "frames_used": len(frames),
             })
+
+        # GPT 事实核查已拆到独立端点 POST /api/fact-check，前端异步调用
+        # 这里只返回 merged_text 供前端二次请求
+        detection_result["merged_text"] = merged_text[:2000] if merged_text else ""
 
         detection_result["detection_id"] = f"vid_{hash(video.filename) % 100000}_{int(datetime.now().timestamp())}"
 
@@ -593,6 +690,38 @@ async def notify_family(request: FamilyNotifyRequest):
 async def detect_api(request: DetectionRequest, background_tasks: BackgroundTasks):
     """检测虚假信息 (API前缀版本，兼容前端)"""
     return await detect(request, background_tasks)
+
+
+class FactCheckRequest(BaseModel):
+    """事实核查请求"""
+    text: str = Field(..., description="待核查文本", min_length=1)
+    context: Optional[str] = Field(None, description="上下文（视频名等）")
+    detection_result: Optional[Dict[str, Any]] = Field(None, description="AI 预检测结果")
+
+
+@app.post("/api/fact-check")
+async def api_fact_check(request: FactCheckRequest):
+    """
+    独立的 GPT 事实核查端点（前端异步调用）
+    先由 BERT/TF-IDF 快速出结果，再调此接口做 GPT 深度分析
+    """
+    try:
+        from app.services.gpt_fact_checker import get_fact_checker
+        checker = get_fact_checker()
+        if not checker.available:
+            raise HTTPException(status_code=503, detail="GPT 事实核查服务不可用")
+        
+        result = await checker.fact_check(
+            content=request.text,
+            context=request.context,
+            detection_result=request.detection_result,
+        )
+        return {"success": True, "message": "事实核查完成", "data": result}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"事实核查失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"事实核查异常: {str(e)}")
 
 
 @app.get("/stats")
@@ -901,6 +1030,7 @@ async def wecom_push(request: QClawPushRequest):
     score_pct = round(request.score * 100)
     reasons_text = "\n  • ".join(request.reasons or []) or "无"
     suggestions_text = "\n  • ".join(request.suggestions or []) or "无"
+    font_color = "warning" if request.level == "danger" else "comment"
 
     # 企业微信 markdown 消息格式
     wecom_payload = {
@@ -910,7 +1040,7 @@ async def wecom_push(request: QClawPushRequest):
                 f"## {level_emoji} 短视频风险告警\n"
                 f"> **AI守护系统** 检测到可疑内容\n\n"
                 f"**视频**: {request.video_title or '未知视频'}\n"
-                f'**风险等级**: <font color="{'warning' if request.level == 'danger' else 'comment'}">{level_emoji} {level_text}</font>\n'
+                f'**风险等级**: <font color="{font_color}">{level_emoji} {level_text}</font>\n'
                 f"**风险评分**: {score_pct}/100\n"
                 f"**检测方式**: {request.detection_method or 'AI多模态'}\n"
                 f"**时间**: {request.timestamp or 'N/A'}\n\n"

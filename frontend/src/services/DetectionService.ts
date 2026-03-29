@@ -108,6 +108,96 @@ export default class DetectionService {
   }
 
   /**
+   * 上传视频/音频文件进行 AI 快速检测（ASR 转写 + OCR + BERT + TF-IDF）
+   * GPT 事实核查由前端异步调用 factCheck() 追加
+   */
+  async detectVideo(file: File, text?: string): Promise<DetectionResult> {
+    try {
+      const formData = new FormData();
+      formData.append('video', file);
+      if (text) formData.append('text', text);
+
+      console.log('[DetectionService] 上传视频文件:', file.name, '大小:', (file.size / 1024 / 1024).toFixed(1), 'MB');
+
+      const response = await axios.post(`${this.baseURL}/detect/video`, formData, {
+        timeout: 120000, // 120秒超时（视频转写可能需要较长时间）
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      console.log('[DetectionService] 视频检测响应:', response.status, response.data?.success);
+
+      const apiData = response.data?.data || response.data;
+
+      const result: DetectionResult = {
+        level: apiData.level || 'safe',
+        score: apiData.score ?? 0,
+        confidence: apiData.confidence ?? 0.8,
+        message: apiData.message || '',
+        reasons: apiData.reasons || [],
+        suggestions: apiData.suggestions || [],
+        detection_method: apiData.detection_method || 'ai_video_upload',
+        timestamp: new Date(),
+        detection_id: apiData.detection_id,
+        transcript: apiData.transcript || '',
+        ocr_text: apiData.ocr_text || '',
+        frames_used: apiData.frames_used || 0,
+        merged_text: apiData.merged_text || '',
+        bert_score: apiData.bert_score ?? null,
+        tfidf_score: apiData.tfidf_score ?? null,
+      };
+
+      console.log('[DetectionService] 视频检测结果:', result.level, '分数:', result.score,
+        '转写:', result.transcript ? `${result.transcript.length}字` : '无',
+        'OCR:', result.ocr_text ? `${result.ocr_text.length}字` : '无');
+
+      return result;
+    } catch (error: any) {
+      console.error('[DetectionService] 视频检测失败:', error?.message || error);
+
+      // 降级：把文件名作为文本发送到文本检测
+      console.warn('[DetectionService] 降级为文本检测');
+      const fallbackContent = `[视频文件] ${file.name} - 用户上传的视频文件`;
+      const fallbackResult = await this.detectContent(fallbackContent);
+      fallbackResult.detection_method = 'video_fallback_text';
+      return fallbackResult;
+    }
+  }
+
+  /**
+   * 异步 GPT 事实核查（在 AI 检测结果展示后调用）
+   * 返回 GPTFactCheckResult 或 null（失败时）
+   */
+  async factCheck(
+    text: string,
+    context?: string,
+    detectionResult?: Partial<DetectionResult>,
+  ): Promise<import('../types/detection').GPTFactCheckResult | null> {
+    try {
+      console.log('[DetectionService] 发起 GPT 事实核查, 文本长度:', text.length);
+
+      const response = await axios.post(`${this.baseURL}/api/fact-check`, {
+        text,
+        context: context || undefined,
+        detection_result: detectionResult ? {
+          level: detectionResult.level,
+          score: detectionResult.score,
+          reasons: detectionResult.reasons,
+        } : undefined,
+      }, {
+        timeout: 45000, // 45秒超时
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const apiData = response.data?.data || response.data;
+      console.log('[DetectionService] GPT 核查完成:', apiData?.verdict, apiData?.risk_level);
+      return apiData;
+    } catch (error: any) {
+      console.warn('[DetectionService] GPT 事实核查失败:', error?.message || error);
+      return null;
+    }
+  }
+
+  /**
    * 本地快速检测 (基于关键词规则)
    */
   private quickLocalDetection(content: string): DetectionResult {

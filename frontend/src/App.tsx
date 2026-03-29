@@ -23,7 +23,7 @@ function App() {
   const [highContrast, setHighContrast] = useState(savedSettings?.highContrast || false);
   const [totalDetections, setTotalDetections] = useState(0);
   const [riskyDetections, setRiskyDetections] = useState(0);
-  const [lang, setLang] = useState<Language>(savedSettings?.lang || 'zh');
+  const [lang, setLang] = useState<Language>(savedSettings?.lang || 'en');
   const [themeMode, setThemeMode] = useState<ThemeMode>(savedSettings?.themeMode || 'dark');
   const initialized = useRef(false);
 

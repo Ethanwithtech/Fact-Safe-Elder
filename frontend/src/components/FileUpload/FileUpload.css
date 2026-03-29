@@ -118,30 +118,173 @@
   opacity: 1;
 }
 
-/* 原生进度条 */
-.analysis-progress {
+/* ===== 实时 AI 分析面板 ===== */
+.fu-live-panel {
   margin-bottom: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  border: 1px solid rgba(96,165,250,0.15);
 }
 
-.native-progress {
+.fu-live-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.fu-live-dot {
+  width: 8px;
   height: 8px;
-  background: rgba(255,255,255,0.1);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.fu-live-dot.scanning {
+  background: #52c41a;
+  box-shadow: 0 0 6px #52c41a;
+  animation: fu-dot-pulse 1.2s infinite;
+}
+.fu-live-dot.done {
+  background: #60a5fa;
+}
+
+@keyframes fu-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.fu-live-badge {
+  font-size: 10px;
+  padding: 2px 8px;
   border-radius: 4px;
+  background: rgba(82,196,26,0.15);
+  color: #52c41a;
+  font-weight: 600;
+  animation: fu-dot-pulse 1.2s infinite;
+}
+
+/* 扫描进度条 */
+.fu-scan-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.fu-scan-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
   overflow: hidden;
 }
-.native-progress-bar {
+.fu-scan-fill {
   height: 100%;
-  background: linear-gradient(90deg, #108ee9, #87d068);
-  border-radius: 4px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #108ee9, #52c41a);
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+.fu-scan-pct {
+  font-size: 11px;
+  color: var(--text-muted);
+  min-width: 30px;
+  text-align: right;
 }
 
-.progress-text {
-  display: block;
+/* 分析日志 */
+.fu-live-log {
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: rgba(0,0,0,0.2);
+  border-radius: 8px;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+}
+
+.fu-log-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.6;
+  padding: 2px 0;
+}
+
+.fu-log-line.active {
+  color: #52c41a;
+  font-weight: 500;
+}
+.fu-log-line.done {
+  color: var(--text-muted);
+}
+.fu-log-line.done .fu-log-check {
+  color: #52c41a;
+}
+.fu-log-line.active .fu-log-check {
+  color: #faad14;
+}
+
+.fu-log-check {
+  flex-shrink: 0;
+  width: 14px;
   text-align: center;
+}
+
+.fu-log-cursor {
+  color: #52c41a;
+  animation: fu-cursor-blink 0.8s step-end infinite;
+  font-size: 11px;
+  padding-left: 20px;
+}
+@keyframes fu-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ===== 识别出的内容 ===== */
+.fu-recognized-content {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(96,165,250,0.06);
+  border-radius: 8px;
+  border-left: 3px solid rgba(96,165,250,0.4);
+}
+
+.fu-recognized-title {
   font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.fu-recognized-block {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.fu-recognized-label {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(167,139,250,0.15);
+  color: #a78bfa;
+  white-space: nowrap;
+}
+
+.fu-recognized-text {
+  font-size: 12px;
+  line-height: 1.6;
   color: var(--text-secondary);
-  margin-top: 6px;
+  white-space: pre-line;
+  max-height: 80px;
+  overflow-y: auto;
 }
 
 .analyze-btn {
@@ -227,6 +370,112 @@
   color: var(--suggestion-color);
 }
 
+/* ===== BERT + TF-IDF 模型分数卡片 ===== */
+.fu-model-scores {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.fu-model-card {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  text-align: center;
+}
+
+.fu-model-card.risky {
+  border-color: rgba(255,77,79,0.25);
+  background: rgba(255,77,79,0.05);
+}
+.fu-model-card.safe {
+  border-color: rgba(82,196,26,0.25);
+  background: rgba(82,196,26,0.05);
+}
+
+.fu-model-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.fu-model-verdict {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.fu-model-card.risky .fu-model-verdict { color: #ff7875; }
+.fu-model-card.safe .fu-model-verdict { color: #73d13d; }
+
+.fu-model-bar {
+  height: 5px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.fu-model-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.fu-model-fill.risky { background: linear-gradient(90deg, #faad14, #ff4d4f); }
+.fu-model-fill.safe { background: linear-gradient(90deg, #52c41a, #73d13d); }
+
+.fu-model-pct {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ===== 结果内识别内容 ===== */
+.fu-result-recognized {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  border-left: 3px solid rgba(167,139,250,0.4);
+}
+
+.fu-recog-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.fu-recog-tag {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fu-recog-tag.ocr { background: rgba(96,165,250,0.15); color: #60a5fa; }
+.fu-recog-tag.asr { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+.fu-recog-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  max-height: 80px;
+  overflow-y: auto;
+  word-break: break-word;
+}
+
+.fu-recog-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .reupload-btn {
   width: 100%;
   margin-top: 8px;
@@ -270,3 +519,416 @@
 .fu-toast-success { background: #52c41a; }
 .fu-toast-warning { background: #faad14; color: #333; }
 .fu-toast-error   { background: #ff4d4f; }
+
+/* ===== 媒体播放器 ===== */
+.media-player-wrap {
+  margin-bottom: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+.media-player {
+  width: 100%;
+  max-height: 240px;
+  display: block;
+  border-radius: 12px;
+  object-fit: contain;
+  background: #000;
+}
+
+.audio-player-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 16px 12px;
+  gap: 12px;
+}
+
+.audio-visual {
+  font-size: 48px;
+  opacity: 0.5;
+}
+
+.media-player-audio {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+}
+
+/* ===== 分数条 ===== */
+.result-score-bar-wrap {
+  margin: 10px 0 12px;
+}
+
+.result-score-bar {
+  height: 8px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.result-score-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+.result-score-fill.safe   { background: linear-gradient(90deg, #52c41a, #73d13d); }
+.result-score-fill.warning { background: linear-gradient(90deg, #faad14, #ffc53d); }
+.result-score-fill.danger  { background: linear-gradient(90deg, #ff4d4f, #ff7875); }
+
+.result-score-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ===== 元信息标签 ===== */
+.result-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.result-meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.result-meta-tag.method {
+  background: rgba(96,165,250,0.15);
+  color: #60a5fa;
+}
+
+.result-meta-tag.confidence {
+  background: rgba(167,139,250,0.15);
+  color: #a78bfa;
+}
+
+.result-meta-tag.time {
+  background: rgba(255,255,255,0.08);
+  color: var(--text-secondary);
+}
+
+/* ===== AI 结论 ===== */
+.result-conclusion {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  border-left: 3px solid rgba(96,165,250,0.5);
+}
+
+.result-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.result-conclusion-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-line;
+}
+
+/* ===== 风险因素 ===== */
+.result-reasons-section {
+  margin-bottom: 12px;
+}
+
+.reason-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.reason-bullet {
+  color: #ff7875;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.upload-result.danger .reason-item-row { color: var(--danger-badge-color, #ff7875); }
+.upload-result.warning .reason-item-row { color: var(--warning-badge-color, #ffc53d); }
+.upload-result.safe .reason-item-row { color: var(--safe-badge-color, #73d13d); }
+
+/* ===== 建议 ===== */
+.result-suggestions-section {
+  margin-bottom: 12px;
+}
+
+.suggestion-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.suggestion-icon {
+  flex-shrink: 0;
+}
+
+/* ===== 语音转写 / OCR 文本区域 ===== */
+.result-transcript-section {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  border-left: 3px solid rgba(167,139,250,0.5);
+}
+
+.result-transcript-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre-line;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+/* ===== GPT 事实核查区域 ===== */
+.result-gpt-section {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  border: 1px solid rgba(96,165,250,0.2);
+}
+
+.result-gpt-section.gpt-loaded {
+  animation: gpt-fadein 0.4s ease-out;
+}
+
+@keyframes gpt-fadein {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* GPT 加载中 */
+.gpt-loading-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.gpt-loading-fill {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #60a5fa, #a78bfa, #60a5fa);
+  background-size: 200% 100%;
+  border-radius: 2px;
+  animation: gpt-shimmer 1.5s infinite;
+}
+
+@keyframes gpt-shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.gpt-loading-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* GPT verdict */
+.gpt-verdict-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.gpt-verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.gpt-verdict-badge.true {
+  background: rgba(82,196,26,0.15);
+  color: #73d13d;
+}
+.gpt-verdict-badge.false {
+  background: rgba(255,77,79,0.15);
+  color: #ff7875;
+}
+.gpt-verdict-badge.misleading {
+  background: rgba(250,173,20,0.15);
+  color: #ffc53d;
+}
+.gpt-verdict-badge.unverifiable {
+  background: rgba(255,255,255,0.1);
+  color: var(--text-secondary);
+}
+
+.gpt-scam-type {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(255,77,79,0.1);
+  color: #ff7875;
+}
+
+.gpt-latency {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.gpt-analysis-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  white-space: pre-line;
+}
+
+.gpt-summary-text {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+/* ===== 虚假信息 vs 正确信息 对比卡片 ===== */
+.gpt-false-claims-section {
+  margin: 10px 0;
+}
+
+.false-claim-card {
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,77,79,0.2);
+}
+
+.false-claim-card.severity-high {
+  border-color: rgba(255,77,79,0.4);
+  background: rgba(255,77,79,0.06);
+}
+
+.false-claim-card.severity-medium {
+  border-color: rgba(250,173,20,0.3);
+  background: rgba(250,173,20,0.05);
+}
+
+.false-claim-card.severity-low {
+  border-color: rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.04);
+}
+
+.false-claim-original,
+.false-claim-correction {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.claim-label {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.claim-label.claim-false {
+  background: rgba(255,77,79,0.15);
+  color: #ff7875;
+}
+
+.claim-label.claim-correct {
+  background: rgba(82,196,26,0.15);
+  color: #73d13d;
+}
+
+.claim-text {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.false-claim-original .claim-text {
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.false-claim-correction .claim-text {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.false-claim-arrow {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 2px 0;
+  padding-left: 20px;
+}
+
+.gpt-fact-points {
+  margin-top: 6px;
+}
+
+.gpt-fact-point-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.fact-check-icon {
+  flex-shrink: 0;
+}
+
+.gpt-advice-section {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.gpt-advice-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.gpt-advice-icon {
+  flex-shrink: 0;
+}

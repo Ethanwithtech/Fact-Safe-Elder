@@ -72,7 +72,7 @@ const Settings: React.FC<SettingsProps> = ({
     setEnableSound(true);
     setFamilyContact('');
     setEnableNotification(true);
-    updateOpenClaw({ enabled: false, qclawWebhookUrl: '', directWebhookUrl: '', channel: 'wecom', threshold: 70, useQClaw: true, useWecom: false, wecomWebhookUrl: '', useFeishu: false, feishuWebhookUrl: '' });
+    updateOpenClaw({ enabled: true, qclawWebhookUrl: '', directWebhookUrl: '', channel: 'wecom', threshold: 70, useQClaw: true, useWecom: true, wecomWebhookUrl: '', useFeishu: false, feishuWebhookUrl: '' });
     showToast(t(lang, 'settingsReset'), 'info');
   };
 

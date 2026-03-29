@@ -34,9 +34,7 @@ export default class OpenClawService {
   private config: OpenClawConfig;
 
   constructor(config?: Partial<OpenClawConfig>) {
-    const saved = localStorage.getItem('openclawConfig');
-    const savedConfig = saved ? JSON.parse(saved) : {};
-    this.config = {
+    const defaults: OpenClawConfig = {
       enabled: true,
       qclawWebhookUrl: '',
       directWebhookUrl: '',
@@ -47,13 +45,58 @@ export default class OpenClawService {
       wecomWebhookUrl: '',
       useFeishu: false,
       feishuWebhookUrl: '',
+    };
+
+    const saved = localStorage.getItem('openclawConfig');
+    let savedConfig: Partial<OpenClawConfig> = {};
+    if (saved) {
+      try {
+        savedConfig = JSON.parse(saved);
+      } catch {
+        // 解析失败则忽略
+      }
+      // 迁移：如果旧配置中不存在 useWecom 字段，强制使用默认值 true
+      if (!('useWecom' in savedConfig)) {
+        savedConfig.useWecom = defaults.useWecom;
+      }
+    }
+
+    this.config = {
+      ...defaults,
       ...savedConfig,
       ...config,
     };
+
+    // 确保配置持久化（含新字段）
+    localStorage.setItem('openclawConfig', JSON.stringify(this.config));
+
+    console.log('[OpenClaw] 初始化配置:', {
+      enabled: this.config.enabled,
+      useWecom: this.config.useWecom,
+      useFeishu: this.config.useFeishu,
+      useQClaw: this.config.useQClaw,
+      threshold: this.config.threshold,
+    });
   }
 
   getConfig(): OpenClawConfig {
     return { ...this.config };
+  }
+
+  /** 从 localStorage 重新加载最新配置（用于跨组件同步） */
+  reloadConfig(): void {
+    const saved = localStorage.getItem('openclawConfig');
+    if (saved) {
+      try {
+        const savedConfig = JSON.parse(saved) as Partial<OpenClawConfig>;
+        this.config = { ...this.config, ...savedConfig };
+        console.log('[OpenClaw] 重新加载配置:', {
+          enabled: this.config.enabled,
+          useWecom: this.config.useWecom,
+          threshold: this.config.threshold,
+        });
+      } catch { /* ignore */ }
+    }
   }
 
   updateConfig(config: Partial<OpenClawConfig>) {
@@ -65,12 +108,26 @@ export default class OpenClawService {
    * 根据检测结果判断是否需要发送告警
    */
   shouldAlert(result: DetectionResult): boolean {
-    if (!this.config.enabled) return false;
-    // useQClaw / useFeishu 模式下 webhook URL 存储在后端，前端不需要自己配置 URL
-    const hasChannel = this.config.useWecom || this.config.useFeishu || this.config.useQClaw || this.config.qclawWebhookUrl || this.config.directWebhookUrl;
-    if (!hasChannel) return false;
+    const enabled = this.config.enabled;
+    const hasChannel = this.config.useWecom || this.config.useFeishu || this.config.useQClaw || !!this.config.qclawWebhookUrl || !!this.config.directWebhookUrl;
     const score = Math.round((result.score ?? 0) * 100);
-    return score >= this.config.threshold && result.level !== 'safe';
+    const meetsThreshold = score >= this.config.threshold;
+    const notSafe = result.level !== 'safe';
+    const shouldSend = enabled && hasChannel && meetsThreshold && notSafe;
+
+    console.log('[OpenClaw] shouldAlert 判断:', {
+      enabled,
+      hasChannel,
+      channels: { useWecom: this.config.useWecom, useFeishu: this.config.useFeishu, useQClaw: this.config.useQClaw },
+      score,
+      threshold: this.config.threshold,
+      meetsThreshold,
+      level: result.level,
+      notSafe,
+      result: shouldSend,
+    });
+
+    return shouldSend;
   }
 
   /**
@@ -80,6 +137,8 @@ export default class OpenClawService {
    */
   async sendAlert(result: DetectionResult, videoTitle?: string): Promise<boolean> {
     if (!this.shouldAlert(result)) return false;
+
+    console.log('[OpenClaw] 开始发送告警, 视频:', videoTitle);
 
     // 优先走企业微信
     if (this.config.useWecom) {

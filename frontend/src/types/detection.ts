@@ -15,6 +15,41 @@ export interface DetectionResult {
   ai_models_used?: string[];
   explanation_report?: any;
   feature_importance?: any;
+  // 视频检测特有字段
+  transcript?: string;       // 语音转写文本
+  ocr_text?: string;         // OCR 识别文本
+  frames_used?: number;      // 抽帧数
+  merged_text?: string;      // 合并后的全部文本（用于异步 GPT 核查）
+  // 各模型独立分数
+  bert_score?: number | null;
+  tfidf_score?: number | null;
+  // GPT 事实核查
+  gpt_fact_check?: GPTFactCheckResult;
+}
+
+// GPT 事实核查结果
+export interface GPTFactCheckResult {
+  verdict: 'true' | 'false' | 'misleading' | 'unverifiable';
+  confidence: number;
+  risk_level: 'safe' | 'warning' | 'danger';
+  summary: string;
+  analysis: string;
+  false_claims: FalseClaim[];
+  fact_points: string[];
+  risk_factors: string[];
+  safety_advice: string[];
+  related_scam_type: string;
+  gpt_model?: string;
+  gpt_latency?: number;
+  fallback?: boolean;
+  fallback_reason?: string;
+}
+
+// GPT 识别的虚假声明
+export interface FalseClaim {
+  original: string;    // 原文中的虚假声明
+  correction: string;  // 正确的事实
+  severity: 'high' | 'medium' | 'low';
 }
 
 // 音频捕获类型

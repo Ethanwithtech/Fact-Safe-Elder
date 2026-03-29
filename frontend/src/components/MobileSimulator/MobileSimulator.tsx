@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { HeartOutlined, HeartFilled, MessageOutlined, ShareAltOutlined } from '@ant-design/icons';
 import DetectionFloater from '../DetectionFloater/DetectionFloater';
 import FileUpload from '../FileUpload/FileUpload';
 import DetectionService from '../../services/DetectionService';
@@ -197,6 +196,10 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
       if (result.level === 'danger') setShowFullWarning(true);
       else if (result.level === 'warning') { setShowFullWarning(true); setTimeout(() => setShowFullWarning(false), 3000); }
 
+      // 每次检测前重新加载配置，确保 Settings 中的修改生效
+      openClawService.current.reloadConfig();
+      console.log('[MobileSimulator] 检测结果:', { level: result.level, score: result.score });
+
       if (openClawService.current.shouldAlert(result)) {
         setAlertSent('sending');
         try {
@@ -281,11 +284,11 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                   {!currentVideo.verified && <div className="follow-badge">+</div>}
                 </div>
                 <div className="side-btn" onClick={() => handleLike(currentVideo.id)}>
-                  {likedVideos.has(currentVideo.id) ? <HeartFilled style={{ color: '#ff2c55', fontSize: 30 }} /> : <HeartOutlined style={{ color: '#fff', fontSize: 30 }} />}
+                  <span style={{ fontSize: 28 }}>{likedVideos.has(currentVideo.id) ? '❤️' : '🤍'}</span>
                   <span>{currentVideo.likes}</span>
                 </div>
-                <div className="side-btn"><MessageOutlined style={{ color: '#fff', fontSize: 28 }} /><span>{currentVideo.comments}</span></div>
-                <div className="side-btn"><ShareAltOutlined style={{ color: '#fff', fontSize: 28 }} /><span>{currentVideo.shares}</span></div>
+                <div className="side-btn"><span style={{ fontSize: 26 }}>💬</span><span>{currentVideo.comments}</span></div>
+                <div className="side-btn"><span style={{ fontSize: 26 }}>↗️</span><span>{currentVideo.shares}</span></div>
                 <div className="music-disc-wrapper"><div className="music-disc-spin">🎵</div></div>
               </div>
 
