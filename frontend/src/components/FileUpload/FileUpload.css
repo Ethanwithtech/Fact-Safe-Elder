@@ -370,6 +370,29 @@
   color: var(--suggestion-color);
 }
 
+/* ===== 推送状态徽章 ===== */
+.fu-alert-badge {
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.fu-alert-badge.sending {
+  background: rgba(96,165,250,0.15);
+  color: #60a5fa;
+  animation: fu-dot-pulse 1.2s infinite;
+}
+.fu-alert-badge.sent {
+  background: rgba(82,196,26,0.15);
+  color: #52c41a;
+}
+.fu-alert-badge.failed {
+  background: rgba(255,77,79,0.15);
+  color: #ff7875;
+}
+
 /* ===== BERT + TF-IDF 模型分数卡片 ===== */
 .fu-model-scores {
   display: flex;

@@ -144,6 +144,7 @@ export default class DetectionService {
         merged_text: apiData.merged_text || '',
         bert_score: apiData.bert_score ?? null,
         tfidf_score: apiData.tfidf_score ?? null,
+        timing: apiData.timing || undefined,
       };
 
       console.log('[DetectionService] 视频检测结果:', result.level, '分数:', result.score,

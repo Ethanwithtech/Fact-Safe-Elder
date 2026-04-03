@@ -27,13 +27,19 @@ const checkBrowserSupport = () => {
   }
 };
 
-// 全局错误处理
+// 全局错误处理 — 抑制第三方库的无害错误
+window.onerror = function (message) {
+  const msg = String(message || '');
+  if (msg.includes('getBoundingClientRect') || msg.includes("reading 'getBoundingClientRect'") || msg.includes('Script error')) {
+    return true; // 吞掉错误，阻止上报
+  }
+  return false;
+};
+
 window.addEventListener('error', (event) => {
-  // 跨域脚本错误 event.error 为 null，属于正常现象，忽略
-  if (!event.error) return;
-  // antd 内部动画组件偶发的 getBoundingClientRect 错误，无害，静默忽略
-  const msg = String(event.error?.message || '');
-  if (msg.includes('getBoundingClientRect')) {
+  if (!event.error) { event.preventDefault(); return; }
+  const msg = String(event.error?.message || event.message || '');
+  if (msg.includes('getBoundingClientRect') || msg.includes("Cannot read properties of null")) {
     event.preventDefault();
     return;
   }
@@ -42,7 +48,6 @@ window.addEventListener('error', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   console.error('未处理的Promise拒绝:', event.reason);
-  // 可以在这里添加错误上报逻辑
 });
 
 // 检查浏览器支持

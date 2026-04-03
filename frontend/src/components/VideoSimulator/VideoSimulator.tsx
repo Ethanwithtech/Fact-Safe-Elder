@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Button, Card, message } from 'antd';
 import { AudioCapture, DetectionResult, VideoInfo } from '../../types/detection';
 import AudioCaptureService from '../../services/AudioCaptureService';
 import DetectionService from '../../services/DetectionService';
@@ -102,10 +101,10 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
       });
       
       onListeningChange(true);
-      message.success('开始监听音频，请播放视频内容');
+      console.log('开始监听音频');
     } catch (error) {
       console.error('启动音频监听失败:', error);
-      message.error('无法访问麦克风，请检查浏览器权限设置');
+      alert('无法访问麦克风，请检查浏览器权限设置');
     }
   };
 
@@ -117,7 +116,7 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
       audioData: null,
       transcript: ''
     });
-    message.info('已停止监听');
+    console.log('已停止监听');
   };
 
   const detectContent = async (content: string) => {
@@ -149,7 +148,8 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
 
   return (
     <div className="video-simulator">
-      <Card title="📱 短视频模拟器" className="simulator-card">
+      <div className="simulator-card">
+        <h3>📱 短视频模拟器</h3>
         {/* 视频播放区域 */}
         <div className="video-player">
           <div className="video-screen">
@@ -173,23 +173,13 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
         {/* 控制按钮 */}
         <div className="control-buttons">
           {!isListening ? (
-            <Button 
-              type="primary" 
-              size="large" 
-              onClick={startListening}
-              className="control-btn start-btn"
-            >
+            <button onClick={startListening} className="control-btn start-btn">
               🎤 开始监听
-            </Button>
+            </button>
           ) : (
-            <Button 
-              danger 
-              size="large" 
-              onClick={stopListening}
-              className="control-btn stop-btn"
-            >
+            <button onClick={stopListening} className="control-btn stop-btn">
               🛑 停止监听
-            </Button>
+            </button>
           )}
         </div>
 
@@ -200,10 +190,11 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
             <p>{audioCapture.transcript}</p>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* 模拟视频列表 */}
-      <Card title="🎬 体验视频" className="mock-videos">
+      <div className="mock-videos">
+        <h3>🎬 体验视频</h3>
         <div className="video-list">
           {mockVideos.map(video => (
             <div 
@@ -226,7 +217,7 @@ const VideoSimulator: React.FC<VideoSimulatorProps> = ({
             </div>
           ))}
         </div>
-      </Card>
+      </div>
     </div>
   );
 };

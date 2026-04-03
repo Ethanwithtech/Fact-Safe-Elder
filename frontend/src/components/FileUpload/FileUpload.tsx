@@ -1,11 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import DetectionService from '../../services/DetectionService';
+import OpenClawService from '../../services/OpenClawService';
 import { DetectionResult, GPTFactCheckResult } from '../../types/detection';
-import { Language, t } from '../../i18n';
+import { Language, t, translateReason } from '../../i18n';
 import './FileUpload.css';
 
 interface FileUploadProps {
   onDetectionResult?: (result: DetectionResult) => void;
+  onVideoUpload?: (fileUrl: string | null, fileName: string) => void;
+  onUploadWarning?: (result: DetectionResult) => void;
   lang: Language;
 }
 
@@ -22,7 +25,7 @@ function showToast(text: string, type: 'success' | 'warning' | 'error' = 'succes
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2500);
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUpload, onUploadWarning, lang }) => {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -39,6 +42,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logBoxRef = useRef<HTMLDivElement>(null);
   const detectionService = useRef(new DetectionService());
+  const openClawService = useRef(new OpenClawService());
+  const [alertSent, setAlertSent] = useState<string | null>(null);
 
   // 清理 blob URL 防止内存泄漏
   useEffect(() => {
@@ -67,6 +72,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
     setResult(null);
     setGptResult(null);
     setProgress(0);
+    onVideoUpload?.(url, selectedFile.name);
     showToast(t(lang, 'uploadSuccess'), 'success');
   };
 
@@ -143,26 +149,31 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
         showPhases(),
       ]);
 
-      // 分析完成 — 逐条展示各模块的实际结果
+      // 分析完成 — 逐条展示各模块的实际结果（附耗时）
       setScanProgress(100);
       setProgress(100);
+      const timing = (detResult as any).timing || {};
 
-      // OCR 识别结果
+      // OCR 识别结果（先展示，因为 OCR 比 ASR 快）
       if (detResult.ocr_text) {
         setAnalysisLog(prev => [...prev,
-          `✅ ${zh ? 'OCR 识别' : 'OCR recognized'}: "${detResult.ocr_text!.slice(0, 100)}${detResult.ocr_text!.length > 100 ? '...' : ''}"`,
+          `✅ OCR (${timing.ocr_seconds || '?'}s): "${detResult.ocr_text!.slice(0, 120)}${detResult.ocr_text!.length > 120 ? '...' : ''}"`,
         ]);
       } else {
-        setAnalysisLog(prev => [...prev, zh ? '⬚ OCR: 未识别到画面文字' : '⬚ OCR: No text found']);
+        setAnalysisLog(prev => [...prev,
+          `⬚ OCR (${timing.ocr_seconds || '?'}s): ${zh ? '未识别到画面文字' : 'No text found in frames'}`,
+        ]);
       }
 
       // ASR 语音转写结果
       if (detResult.transcript) {
         setAnalysisLog(prev => [...prev,
-          `✅ ${zh ? 'ASR 转写' : 'ASR transcript'}: "${detResult.transcript!.slice(0, 100)}${detResult.transcript!.length > 100 ? '...' : ''}"`,
+          `✅ ASR (${timing.asr_seconds || '?'}s): "${detResult.transcript!.slice(0, 120)}${detResult.transcript!.length > 120 ? '...' : ''}"`,
         ]);
       } else {
-        setAnalysisLog(prev => [...prev, zh ? '⬚ ASR: 未识别到语音' : '⬚ ASR: No speech found']);
+        setAnalysisLog(prev => [...prev,
+          `⬚ ASR (${timing.asr_seconds || '?'}s): ${zh ? '未识别到语音' : 'No speech found'}`,
+        ]);
       }
 
       // BERT 模型结果
@@ -172,7 +183,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
           ? (zh ? '⚠️ 风险' : '⚠️ Risky')
           : (zh ? '✅ 安全' : '✅ Safe');
         setAnalysisLog(prev => [...prev,
-          `🤖 BERT ${zh ? '判定' : 'verdict'}: ${bLabel} (${zh ? '风险度' : 'risk'} ${bPct}%)`,
+          `🤖 BERT: ${bLabel} (${bPct}%)`,
         ]);
       }
 
@@ -183,11 +194,11 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
           ? (zh ? '⚠️ 风险' : '⚠️ Risky')
           : (zh ? '✅ 安全' : '✅ Safe');
         setAnalysisLog(prev => [...prev,
-          `📊 TF-IDF ${zh ? '判定' : 'verdict'}: ${tLabel} (${zh ? '置信度' : 'conf'} ${tPct}%)`,
+          `📊 TF-IDF: ${tLabel} (${tPct}%)`,
         ]);
       }
 
-      // 融合结论
+      // AI 融合结论
       const levelLabel = detResult.level === 'danger'
         ? (zh ? '🚨 高风险' : '🚨 HIGH RISK')
         : detResult.level === 'warning'
@@ -195,7 +206,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
           : (zh ? '✅ 安全' : '✅ SAFE');
       const finalScore = Math.round((detResult.score ?? 0) * 100);
       setAnalysisLog(prev => [...prev,
-        `━━ ${zh ? '融合结论' : 'Final verdict'}: ${levelLabel} (${finalScore}/100) ━━`,
+        `━━ AI ${zh ? '判定' : 'verdict'} (${timing.ai_seconds || '?'}s): ${levelLabel} ${finalScore}/100 ━━`,
       ]);
 
       setResult(detResult);
@@ -203,12 +214,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
       onDetectionResult?.(detResult);
 
       // 第二阶段：异步 GPT 事实核查（后台静默进行）
-      const textForGpt = detResult.merged_text || detResult.transcript || detResult.ocr_text || '';
+      // 合并 ASR + OCR 文本，确保两者都传给 GPT
+      const asrText = detResult.transcript || '';
+      const ocrText = detResult.ocr_text || '';
+      const textForGpt = detResult.merged_text || [asrText, ocrText].filter(Boolean).join('\n') || '';
+      const gptContext = [
+        `视频: ${file.name}`,
+        asrText ? `ASR语音转写: ${asrText.slice(0, 300)}` : '',
+        ocrText ? `OCR画面文字: ${ocrText.slice(0, 300)}` : '',
+      ].filter(Boolean).join('\n');
+
       if (textForGpt.trim().length > 10) {
         setGptLoading(true);
         setAnalysisLog(prev => [...prev, zh ? '🔍 GPT 深度事实核查中...' : '🔍 GPT deep fact-checking...']);
         detectionService.current
-          .factCheck(textForGpt, `视频: ${file.name}`, detResult)
+          .factCheck(textForGpt, gptContext, detResult)
           .then((gpt) => {
             if (gpt && !gpt.fallback) {
               setGptResult(gpt);
@@ -253,13 +273,52 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
                   ? `${zh ? '诈骗类型' : 'Scam type'}: ${gpt.related_scam_type}` : '',
               ].filter(Boolean).join('\n');
 
-              // 更新 result 为融合后的最终结果
-              setResult(prev => prev ? {
-                ...prev,
+              // 更新 result 为融合后的最终结果（包含 GPT 分析内容）
+              const gptReasons: string[] = [];
+              if (gpt.summary) gptReasons.push(`GPT: ${gpt.summary}`);
+              if (gpt.false_claims && gpt.false_claims.length > 0) {
+                gpt.false_claims.forEach(c => {
+                  gptReasons.push(`❌ ${c.original} → ✅ ${c.correction}`);
+                });
+              }
+              if (gpt.risk_factors && gpt.risk_factors.length > 0) {
+                gptReasons.push(...gpt.risk_factors);
+              }
+              if (gpt.related_scam_type && gpt.related_scam_type !== '无') {
+                gptReasons.push(`${zh ? '诈骗类型' : 'Scam type'}: ${gpt.related_scam_type}`);
+              }
+
+              const gptSuggestions = gpt.safety_advice || [];
+
+              const fusedResult: DetectionResult = {
+                ...detResult,
                 level: finalLevel as 'safe' | 'warning' | 'danger',
                 score: finalScore,
                 message: finalMessage,
-              } : prev);
+                reasons: [...gptReasons, ...(detResult.reasons || [])],
+                suggestions: [...gptSuggestions, ...(detResult.suggestions || [])],
+              };
+              setResult(fusedResult);
+
+              // 通知手机模拟器显示警告
+              if (finalLevel !== 'safe') {
+                onUploadWarning?.(fusedResult);
+              }
+
+              // ★ 推送企业微信告警（虚假/危险内容）
+              if (finalLevel !== 'safe') {
+                openClawService.current.reloadConfig();
+                if (openClawService.current.shouldAlert(fusedResult)) {
+                  setAlertSent('sending');
+                  openClawService.current
+                    .sendAlert(fusedResult, file.name)
+                    .then(ok => {
+                      setAlertSent(ok ? 'sent' : 'failed');
+                      setTimeout(() => setAlertSent(null), 6000);
+                    })
+                    .catch(() => { setAlertSent('failed'); setTimeout(() => setAlertSent(null), 6000); });
+                }
+              }
 
               setAnalysisLog(prev => [
                 ...prev,
@@ -292,6 +351,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
     setProgress(0);
     setAnalysisLog([]);
     setScanProgress(0);
+    setAlertSent(null);
+    onVideoUpload?.(null, '');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -568,7 +629,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
               {result.message && (
                 <div className="result-conclusion">
                   <div className="result-section-title">🧠 {lang === 'zh' ? 'AI 综合分析' : 'AI Analysis'}</div>
-                  <div className="result-conclusion-text">{result.message}</div>
+                  <div className="result-conclusion-text">{
+                    result.message.split('\n').map(line => translateReason(lang, line)).join('\n')
+                  }</div>
                 </div>
               )}
 
@@ -580,7 +643,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
                     {(result.reasons || []).map((r, i) => (
                       <div key={i} className="reason-item-row">
                         <span className="reason-bullet">•</span>
-                        <span>{r}</span>
+                        <span>{translateReason(lang, r)}</span>
                       </div>
                     ))}
                   </div>
@@ -595,7 +658,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
                     {(result.suggestions || []).map((s, i) => (
                       <div key={i} className="suggestion-item-row">
                         <span className="suggestion-icon">💡</span>
-                        <span>{s}</span>
+                        <span>{translateReason(lang, s)}</span>
                       </div>
                     ))}
                   </div>
@@ -676,6 +739,15 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, lang }) => {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* 推送状态 */}
+              {alertSent && (
+                <div className={`fu-alert-badge ${alertSent}`}>
+                  {alertSent === 'sending' && (lang === 'zh' ? '📡 正在推送企业微信...' : '📡 Sending to WeCom...')}
+                  {alertSent === 'sent' && (lang === 'zh' ? '✅ 已推送企业微信告警' : '✅ Alert sent to WeCom')}
+                  {alertSent === 'failed' && (lang === 'zh' ? '❌ 推送失败' : '❌ Push failed')}
                 </div>
               )}
 

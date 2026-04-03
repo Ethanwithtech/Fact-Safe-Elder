@@ -273,3 +273,52 @@ export type TranslationKey = keyof typeof translations.zh;
 export const t = (lang: Language, key: TranslationKey): string => {
   return translations[lang]?.[key] || translations.zh[key] || key;
 };
+
+/**
+ * 翻译后端返回的中文 reasons / suggestions 为英文（lang=en 时）
+ */
+const reasonMap: Record<string, string> = {
+  '建议谨慎对待该内容': 'Proceed with caution',
+  '如遇可疑情况请拨打96110反诈热线': 'Call 96110 anti-fraud hotline if suspicious',
+  '投资需谨慎，高收益往往伴随高风险': 'Be cautious with investments — high returns mean high risk',
+  '不要轻易相信保证收益的投资项目': 'Do not trust guaranteed-return investment schemes',
+  '有病请找正规医院，不要轻信偏方': 'See a real doctor — do not trust folk remedies',
+  '保健品不能替代药物治疗': 'Supplements cannot replace medical treatment',
+  '冷静思考，不要被紧急性语言误导': 'Stay calm — do not be misled by urgency language',
+  '不要轻易添加陌生人联系方式或转账': 'Do not add strangers or transfer money',
+  'AI模型和规则引擎均未发现风险': 'AI models and rule engine found no risk',
+  '综合分析发现潜在风险': 'Comprehensive analysis found potential risk',
+  '如有疑问，请咨询家人或专业人士': 'Consult family or professionals if in doubt',
+  '遇到要求转账的情况请立即警惕': 'Be immediately alert to any money transfer requests',
+};
+
+export const translateReason = (lang: Language, text: string): string => {
+  if (lang === 'zh') return text;
+  // 精确匹配
+  if (reasonMap[text]) return reasonMap[text];
+  // 模式匹配
+  for (const [zh, en] of Object.entries(reasonMap)) {
+    if (text.includes(zh)) return text.replace(zh, en);
+  }
+  // BERT/TF-IDF 模式
+  const bertMatch = text.match(/BERT AI模型判定为风险内容（置信度 (\d+%)）/);
+  if (bertMatch) return `BERT AI model flagged as risky (confidence ${bertMatch[1]})`;
+  const tfidfMatch = text.match(/TF-IDF AI模型判定为风险内容（置信度 (\d+%)）/);
+  if (tfidfMatch) return `TF-IDF AI model flagged as risky (confidence ${tfidfMatch[1]})`;
+  // 关键词检测模式
+  const kwMatch = text.match(/检测到(\d+)个(.+?)关键词/);
+  if (kwMatch) return `Detected ${kwMatch[1]} ${kwMatch[2]} risk keywords`;
+  const urgMatch = text.match(/检测到(\d+)个紧急性诱导词汇/);
+  if (urgMatch) return `Detected ${urgMatch[1]} urgency manipulation keywords`;
+  if (text.includes('含有联系方式且存在其他风险因素')) return 'Contains contact info with other risk factors';
+  if (text.includes('ASR/OCR 冲突')) return text.replace('ASR/OCR 冲突', 'ASR/OCR conflict');
+  // _build_content_summary 翻译
+  if (text.includes('注意：视频内容存在可疑信息')) return '⚠️ Warning: Suspicious content detected in video';
+  if (text.includes('高风险警告：视频内容存在严重安全隐患')) return '🚨 High Risk: Serious security threat detected';
+  if (text.includes('视频内容相对安全')) return '✅ Video content appears safe';
+  if (text.includes('识别来源：')) return text.replace('识别来源：', 'Source: ').replace('语音转写(ASR)', 'Speech (ASR)').replace('画面文字(OCR)', 'Screen text (OCR)');
+  if (text.includes('内容摘要：')) return text.replace('内容摘要：', 'Summary: ');
+  if (text.includes('主要风险：')) return text.replace('主要风险：', 'Main risk: ');
+  // 无法翻译时返回原文
+  return text;
+};

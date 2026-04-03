@@ -612,22 +612,39 @@ class MultimodalDetector:
     提供高层API用于实际检测
     """
     
-    # 领域特定关键词
+    # 领域特定关键词（中英文双语）
     FINANCIAL_KEYWORDS = [
+        # 中文
         "保证收益", "无风险", "月入万元", "稳赚不赔", "高收益",
         "内幕消息", "限时优惠", "投资理财", "虚拟货币", "传销",
-        "无抵押贷款", "秒批", "黑户贷款", "刷单", "套现"
+        "无抵押贷款", "秒批", "黑户贷款", "刷单", "套现",
+        "赌博", "挖矿", "博彩", "彩票预测", "赌场", "下注",
+        "财务自由", "日赚千元", "月入十万", "躺赚", "被动收入",
+        "保本保息", "年化收益", "翻倍", "百倍收益",
+        # English
+        "guaranteed return", "no risk", "free money", "get rich",
+        "mining", "gambling", "casino", "bet", "cheat",
+        "investment secret", "passive income", "financial freedom",
+        "cryptocurrency", "bitcoin", "forex", "mlm", "pyramid",
     ]
     
     MEDICAL_KEYWORDS = [
+        # 中文
         "包治百病", "神奇疗效", "祖传秘方", "一次根治", "永不复发",
         "药到病除", "100%治愈", "三天见效", "医院不告诉你", "特效药",
-        "保健品", "偏方", "土方", "民间验方"
+        "保健品", "偏方", "土方", "民间验方", "癌症克星", "延年益寿",
+        # English
+        "miracle cure", "cure all", "secret remedy", "guaranteed cure",
+        "doctors hate", "big pharma", "anti-aging", "detox",
     ]
     
     URGENCY_KEYWORDS = [
+        # 中文
         "赶紧", "立即", "马上", "紧急", "限时", "截止今晚",
-        "最后一天", "错过后悔", "机不可失", "名额有限"
+        "最后一天", "错过后悔", "机不可失", "名额有限",
+        # English
+        "urgent", "hurry", "act now", "limited time", "don't miss",
+        "last chance", "expires today", "click now",
     ]
     
     def __init__(
@@ -973,8 +990,10 @@ class MultimodalDetector:
         reasons = []
         suggestions = []
         
+        text_lower = text.lower()  # 大小写不敏感匹配
+        
         # 金融诈骗检测
-        financial_matches = [kw for kw in self.FINANCIAL_KEYWORDS if kw in text]
+        financial_matches = [kw for kw in self.FINANCIAL_KEYWORDS if kw.lower() in text_lower]
         if financial_matches:
             risk_score += min(len(financial_matches) * 0.15, 0.5)
             reasons.append(f"检测到{len(financial_matches)}个金融风险关键词: {', '.join(financial_matches[:3])}")
@@ -982,7 +1001,7 @@ class MultimodalDetector:
             suggestions.append("不要轻易相信保证收益的投资项目")
         
         # 医疗虚假信息检测
-        medical_matches = [kw for kw in self.MEDICAL_KEYWORDS if kw in text]
+        medical_matches = [kw for kw in self.MEDICAL_KEYWORDS if kw.lower() in text_lower]
         if medical_matches:
             risk_score += min(len(medical_matches) * 0.15, 0.5)
             reasons.append(f"检测到{len(medical_matches)}个医疗风险关键词: {', '.join(medical_matches[:3])}")
@@ -990,7 +1009,7 @@ class MultimodalDetector:
             suggestions.append("保健品不能替代药物治疗")
         
         # 紧急性检测
-        urgency_matches = [kw for kw in self.URGENCY_KEYWORDS if kw in text]
+        urgency_matches = [kw for kw in self.URGENCY_KEYWORDS if kw.lower() in text_lower]
         if urgency_matches:
             risk_score += min(len(urgency_matches) * 0.1, 0.3)
             reasons.append(f"检测到{len(urgency_matches)}个紧急性诱导词汇")
@@ -998,7 +1017,7 @@ class MultimodalDetector:
         
         # 联系方式检测
         contact_patterns = ["微信", "qq", "电话", "手机", "转账", "汇款"]
-        contact_matches = [p for p in contact_patterns if p in text.lower()]
+        contact_matches = [p for p in contact_patterns if p in text_lower]
         if contact_matches and risk_score > 0.2:
             risk_score += 0.1
             reasons.append("含有联系方式且存在其他风险因素")

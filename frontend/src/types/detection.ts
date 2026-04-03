@@ -23,6 +23,8 @@ export interface DetectionResult {
   // 各模型独立分数
   bert_score?: number | null;
   tfidf_score?: number | null;
+  // 各阶段耗时
+  timing?: { ocr_seconds?: number; asr_seconds?: number; ai_seconds?: number };
   // GPT 事实核查
   gpt_fact_check?: GPTFactCheckResult;
 }

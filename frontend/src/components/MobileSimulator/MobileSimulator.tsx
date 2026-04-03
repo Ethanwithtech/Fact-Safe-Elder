@@ -4,7 +4,7 @@ import FileUpload from '../FileUpload/FileUpload';
 import DetectionService from '../../services/DetectionService';
 import OpenClawService from '../../services/OpenClawService';
 import { DetectionResult, VideoContent } from '../../types/detection';
-import { Language, t } from '../../i18n';
+import { Language, t, translateReason } from '../../i18n';
 import './MobileSimulator.css';
 
 interface MobileSimulatorProps {
@@ -58,6 +58,12 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
   const [liveExtractedLines, setLiveExtractedLines] = useState<string[]>([]);
   const [liveHighlightIdx, setLiveHighlightIdx] = useState(-1);
   const [scanProgress, setScanProgress] = useState(0);
+
+  // 上传视频在手机模拟器中播放
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [uploadWarning, setUploadWarning] = useState<DetectionResult | null>(null);
+  const [showUploadWarning, setShowUploadWarning] = useState(false);
 
   const detectionService = useRef(new DetectionService());
   const openClawService = useRef(new OpenClawService());
@@ -208,6 +214,64 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
           setTimeout(() => setAlertSent(null), 5000);
         } catch { setAlertSent('failed'); setTimeout(() => setAlertSent(null), 5000); }
       }
+
+      // ★ 异步 GPT 事实核查（后台进行，不阻塞 UI）
+      if (fullText.trim().length > 10) {
+        setAnalysisLog(prev => [...prev, lang === 'zh' ? '🔍 GPT 深度事实核查中...' : '🔍 GPT deep fact-checking...']);
+        detectionService.current
+          .factCheck(fullText, `视频: ${video.title}`, result)
+          .then((gpt) => {
+            if (gpt && !(gpt as any).fallback) {
+              const zh = lang === 'zh';
+              const gptVerdict = gpt.verdict;
+              let fusedLevel = result.level;
+              let fusedScore = result.score ?? 0;
+
+              if (gptVerdict === 'false' || gpt.risk_level === 'danger') {
+                fusedLevel = 'danger';
+                fusedScore = Math.max(fusedScore, 0.75);
+              } else if (gptVerdict === 'misleading' || gpt.risk_level === 'warning') {
+                if (fusedLevel === 'safe') fusedLevel = 'warning';
+                fusedScore = Math.max(fusedScore, 0.5);
+              }
+
+              // 融合 GPT reasons
+              const gptReasons: string[] = [];
+              if (gpt.summary) gptReasons.push(`GPT: ${gpt.summary}`);
+              if (gpt.false_claims && gpt.false_claims.length > 0) {
+                gpt.false_claims.forEach((c: any) => gptReasons.push(`❌ ${c.original} → ✅ ${c.correction}`));
+              }
+              if (gpt.related_scam_type && gpt.related_scam_type !== '无') {
+                gptReasons.push(`${zh ? '诈骗类型' : 'Scam type'}: ${gpt.related_scam_type}`);
+              }
+
+              const fusedResult: DetectionResult = {
+                ...result,
+                level: fusedLevel as 'safe' | 'warning' | 'danger',
+                score: fusedScore,
+                reasons: [...gptReasons, ...(result.reasons || [])],
+                suggestions: [...(gpt.safety_advice || []), ...(result.suggestions || [])],
+              };
+
+              setDetectionResult(fusedResult);
+              if (fusedLevel === 'danger') setShowFullWarning(true);
+
+              const verdictLabel = gptVerdict === 'false' ? (zh ? '❌ 虚假' : '❌ False')
+                : gptVerdict === 'misleading' ? (zh ? '⚠️ 误导' : '⚠️ Misleading')
+                : gptVerdict === 'true' ? (zh ? '✅ 属实' : '✅ True')
+                : (zh ? '❓ 待核实' : '❓ Unverifiable');
+
+              setAnalysisLog(prev => [
+                ...prev,
+                `✅ GPT: ${verdictLabel} (${gpt.gpt_latency || '?'}s)`,
+                `━━ ${zh ? '最终综合判定' : 'Final verdict'}: ${
+                  fusedLevel === 'danger' ? '🚨' : fusedLevel === 'warning' ? '⚠️' : '✅'
+                } ${Math.round(fusedScore * 100)}/100 ━━`,
+              ]);
+            }
+          })
+          .catch(() => { /* 静默失败 */ });
+      }
     } catch (error) {
       console.error('Detection failed:', error);
       setAnalysisLog(prev => [...prev, lang === 'zh' ? '❌ 检测异常' : '❌ Detection error']);
@@ -263,6 +327,65 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
             <div className="sb-right"><span>📶</span><span>WiFi</span><span>85% 🔋</span></div>
           </div>
           <div className="video-viewport" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd} onMouseDown={handleTouchStart} onMouseMove={(e) => touchStart && handleTouchMove(e)} onMouseUp={handleTouchEnd} onMouseLeave={handleTouchEnd}>
+
+            {/* ===== 上传视频播放模式 ===== */}
+            {activeTab === 'upload' && uploadedVideoUrl ? (
+              <div className="video-slide" style={{ background: '#000' }}>
+                <video
+                  className="uploaded-video-player"
+                  src={uploadedVideoUrl}
+                  controls
+                  playsInline
+                  autoPlay
+                  muted
+                  loop
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+
+                <div className="video-top-bar">
+                  <span className="top-tab">{t(lang, 'follow')}</span>
+                  <span className="top-tab active">{t(lang, 'recommend')}</span>
+                </div>
+
+                <div className="video-bottom">
+                  <div className="vb-username">@{lang === 'zh' ? '上传视频' : 'Uploaded Video'}</div>
+                  <div className="vb-desc">{uploadedFileName}</div>
+                </div>
+
+                {/* 上传视频的危险警告弹窗 */}
+                {showUploadWarning && uploadWarning && uploadWarning.level !== 'safe' && (
+                  <div className={`full-screen-warning ${uploadWarning.level}`} onClick={() => uploadWarning.level === 'warning' && setShowUploadWarning(false)}>
+                    <div className="warning-overlay-content">
+                      <div className="warning-icon-large">{uploadWarning.level === 'danger' ? '🚨' : '⚠️'}</div>
+                      <div className="warning-title-large">
+                        {uploadWarning.level === 'danger'
+                          ? (lang === 'zh' ? '⚠️ 检测到高风险内容！' : '⚠️ High Risk Detected!')
+                          : (lang === 'zh' ? '⚡ 内容存在可疑信息' : '⚡ Suspicious Content')}
+                      </div>
+                      <div className="warning-reasons">
+                        {(uploadWarning.reasons || []).slice(0, 4).map((r, i) => (
+                          <div key={i} className="warning-reason-item">• {translateReason(lang, r)}</div>
+                        ))}
+                      </div>
+                      <div className="warning-suggestion-main">
+                        {lang === 'zh' ? '💡 请勿轻信，谨防诈骗！' : '💡 Stay alert! Beware of scams!'}
+                      </div>
+                      <button className="warning-dismiss-btn" onClick={() => setShowUploadWarning(false)}>
+                        {lang === 'zh' ? '我已知晓，继续观看' : 'I understand, continue'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : activeTab === 'upload' && !uploadedVideoUrl ? (
+              <div className="video-slide" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)' }}>
+                  <span style={{ fontSize: 48 }}>📤</span>
+                  <p style={{ fontSize: 14, marginTop: 12 }}>{lang === 'zh' ? '请在右侧上传视频' : 'Upload a video on the right'}</p>
+                </div>
+              </div>
+            ) : (
+            /* ===== 原有模拟视频播放模式 ===== */
             <div className={`video-slide ${isTransitioning ? 'transitioning' : ''}`} style={{ background: gradients[currentIndex % gradients.length] }}>
               <div className="video-center-icon">{currentVideo.thumbnail}</div>
 
@@ -314,7 +437,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                   <div className="warning-overlay-content">
                     <div className="warning-icon-large">{detectionResult.level === 'danger' ? '🚨' : '⚠️'}</div>
                     <div className="warning-title-large">{detectionResult.level === 'danger' ? (lang==='zh'?'⚠️ 检测到高风险内容！':'⚠️ High Risk Detected!') : (lang==='zh'?'⚡ 内容存在可疑信息':'⚡ Suspicious Content')}</div>
-                    <div className="warning-reasons">{(detectionResult.reasons||[]).slice(0,3).map((r,i) => <div key={i} className="warning-reason-item">• {r}</div>)}</div>
+                    <div className="warning-reasons">{(detectionResult.reasons||[]).slice(0,3).map((r,i) => <div key={i} className="warning-reason-item">• {translateReason(lang, r)}</div>)}</div>
                     <div className="warning-suggestion-main">{lang==='zh'?'💡 请勿轻信，谨防诈骗！':'💡 Stay alert! Beware of scams!'}</div>
                     {alertSent === 'sent' && <div className="openclaw-status sent">✅ {lang==='zh'?'已通知家人（企业微信）':'Family notified'}</div>}
                     {alertSent === 'sending' && <div className="openclaw-status sending">📡 {lang==='zh'?'正在通知家人...':'Notifying family...'}</div>}
@@ -335,6 +458,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                 <DetectionFloater result={detectionResult} onClose={() => setDetectionResult(null)} embedded={true} lang={lang} />
               )}
             </div>
+            )}
           </div>
 
           <div className="bottom-nav">
@@ -404,8 +528,8 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                       {detectionResult.level === 'safe' && t(lang, 'safe')}
                     </div>
                     <div className="result-score"><div className="score-bar"><div className={`score-fill ${detectionResult.level}`} style={{ width: `${(detectionResult.score??0)*100}%` }}></div></div><span className="score-num">{Math.round((detectionResult.score??0)*100)}/100</span></div>
-                    <div className="result-reasons">{(detectionResult.reasons||[]).map((r,i) => <div key={i} className="reason-item">• {r}</div>)}</div>
-                    <div className="result-suggestions">{(detectionResult.suggestions||[]).map((s,i) => <div key={i} className="suggestion-item">💡 {s}</div>)}</div>
+                    <div className="result-reasons">{(detectionResult.reasons||[]).map((r,i) => <div key={i} className="reason-item">• {translateReason(lang, r)}</div>)}</div>
+                    <div className="result-suggestions">{(detectionResult.suggestions||[]).map((s,i) => <div key={i} className="suggestion-item">💡 {translateReason(lang, s)}</div>)}</div>
                     <div className="result-meta">
                       {detectionResult.detection_method && <span className="detection-method-tag">{detectionResult.detection_method === 'ai_multimodal' ? '🤖 AI多模态' : detectionResult.detection_method === 'hybrid' ? '🤖+📋 混合' : detectionResult.detection_method === 'local_rule_engine' ? '📋 本地规则' : '🔍 检测'}</span>}
                       <span className="detection-time-tag">⏱️ {new Date().toLocaleTimeString(lang==='zh'?'zh-CN':'en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span>
@@ -441,7 +565,12 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
             </div>
           </>
         ) : (
-          <div className="panel-card"><div className="panel-body"><FileUpload onDetectionResult={onDetectionResult} lang={lang} /></div></div>
+          <div className="panel-card"><div className="panel-body"><FileUpload
+            onDetectionResult={onDetectionResult}
+            onVideoUpload={(url, name) => { setUploadedVideoUrl(url); setUploadedFileName(name); setShowUploadWarning(false); setUploadWarning(null); }}
+            onUploadWarning={(res) => { setUploadWarning(res); setShowUploadWarning(true); }}
+            lang={lang}
+          /></div></div>
         )}
       </div>
     </div>

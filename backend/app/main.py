@@ -173,7 +173,7 @@ class RuleBasedDetector:
 rule_detector = RuleBasedDetector()
 ai_detector = None
 
-def _try_extract_frames_opencv(video_path: str, max_frames: int = 3) -> List[Any]:
+def _try_extract_frames_opencv(video_path: str, max_frames: int = 8) -> List[Any]:
     """
     抽帧：优先用opencv（若不可用则返回空列表）
     返回：PIL.Image 列表（若PIL不可用则返回空）
@@ -240,10 +240,10 @@ def _try_ocr_frames(frames: List[Any], max_chars: int = 800) -> str:
                     texts.append(t.strip())
 
         merged = "\n".join([t for t in dict.fromkeys(texts) if t])
-        logger.info(f"EasyOCR 识别结果: {merged[:200] if merged else '(空)'}")
+        logger.info(f"EasyOCR 识别结果 ({len(frames)}帧): {merged[:200] if merged else '(空)'}")
         return merged[:max_chars]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"EasyOCR 失败: {e}")
 
     # pytesseract fallback
     try:
@@ -296,9 +296,10 @@ def _try_transcribe_whisper(video_path: str) -> str:
         except Exception:
             pass  # ffmpeg 检查失败时让 whisper 自行处理
 
-        result = model.transcribe(video_path, language="zh")
+        result = model.transcribe(video_path)  # 自动检测语言（支持中英文等）
+        detected_lang = result.get("language", "unknown")
         text = (result.get("text") or "").strip()
-        logger.info(f"Whisper 转写结果: {text[:200] if text else '(空)'}")
+        logger.info(f"Whisper 转写结果 (lang={detected_lang}): {text[:200] if text else '(空)'}")
         return text
     except Exception as e:
         logger.warning(f"Whisper 转写失败: {e}")
@@ -510,6 +511,94 @@ async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=f"检测服务异常: {str(e)}")
 
 
+def _detect_asr_ocr_conflict(
+    transcript: str, ocr_text: str
+) -> Optional[Dict[str, Any]]:
+    """
+    检测 ASR 语音内容和 OCR 字幕/文案之间的矛盾。
+    如果语音说的和画面文字表达的含义相反或者明显不同，标记为危险信号。
+    
+    典型场景：
+    - 字幕写"官方认证安全产品"，但语音在说"私下转账加微信"
+    - 字幕写"正规医院推荐"，但语音在推销偏方
+    - 字幕显示正规内容吸引注意力，语音夹带诈骗信息
+    
+    Returns: { conflict: True, reason: ..., severity: ... } or None
+    """
+    if not transcript or not ocr_text:
+        return None
+    
+    t_lower = transcript.lower().strip()
+    o_lower = ocr_text.lower().strip()
+    
+    # 如果两者内容基本相同（相似度高），不算冲突
+    # 简单方法：共同词占比
+    t_words = set(t_lower)
+    o_words = set(o_lower)
+    if len(t_words | o_words) > 0:
+        overlap = len(t_words & o_words) / len(t_words | o_words)
+        if overlap > 0.6:
+            return None  # 内容高度相似，无冲突
+    
+    # 风险关键词集合
+    scam_keywords = {
+        "转账", "汇款", "加微信", "加qq", "扫码", "二维码",
+        "免费", "保证收益", "无风险", "月入", "秒赚",
+        "祖传秘方", "包治百病", "特效药", "三天见效",
+        "限时", "紧急", "马上", "立即", "点击链接",
+        "身份证", "银行卡", "验证码", "密码",
+        "transfer", "free", "guaranteed", "no risk", "contact me",
+        "click link", "password", "bank card", "wechat",
+    }
+    
+    # 正面关键词（常用于字幕伪装）
+    legit_keywords = {
+        "官方", "认证", "正规", "医院", "权威", "央视",
+        "安全", "合法", "国家", "政府", "公安",
+        "official", "certified", "hospital", "authority", "safe", "legal",
+    }
+    
+    # 检测模式：字幕看起来正规，语音藏着诈骗内容
+    ocr_has_legit = any(kw in o_lower for kw in legit_keywords)
+    asr_has_scam = any(kw in t_lower for kw in scam_keywords)
+    
+    # 反向模式：语音看起来正规，字幕藏着诈骗内容
+    asr_has_legit = any(kw in t_lower for kw in legit_keywords)
+    ocr_has_scam = any(kw in o_lower for kw in scam_keywords)
+    
+    conflict = None
+    
+    if ocr_has_legit and asr_has_scam:
+        conflict = {
+            "conflict": True,
+            "reason": "字幕显示正规内容，但语音中包含诈骗/诱导信息，疑似利用字幕伪装掩盖真实意图",
+            "reason_en": "Subtitles show legitimate content but speech contains scam/lure keywords — possible disguise tactic",
+            "severity": "high",
+        }
+    elif asr_has_legit and ocr_has_scam:
+        conflict = {
+            "conflict": True,
+            "reason": "语音内容看似正规，但画面文字包含诈骗/诱导信息",
+            "reason_en": "Speech sounds legitimate but on-screen text contains scam/lure keywords",
+            "severity": "high",
+        }
+    elif asr_has_scam and ocr_has_scam:
+        # 两者都有风险，不算冲突但需加重
+        pass
+    elif (asr_has_scam and not ocr_has_scam) or (ocr_has_scam and not asr_has_scam):
+        conflict = {
+            "conflict": True,
+            "reason": "语音内容和画面文字表达的风险信号不一致，存在信息误导嫌疑",
+            "reason_en": "Speech and on-screen text convey inconsistent risk signals — possible misdirection",
+            "severity": "medium",
+        }
+    
+    if conflict:
+        logger.warning(f"ASR/OCR 冲突检测: {conflict['reason']}")
+    
+    return conflict
+
+
 def _build_content_summary(
     level: str,
     merged_text: str,
@@ -575,11 +664,24 @@ async def detect_video(
             content = await video.read()
             tmp.write(content)
 
-        # 抽帧 & 转写
-        frames = _try_extract_frames_opencv(tmp_path, max_frames=3)
-        ocr_text = _try_ocr_frames(frames)
-        transcript = _try_transcribe_whisper(tmp_path)
+        # ====== 分步处理：OCR 先行 → AI 快速判断 → ASR 补充 → 完整判断 ======
+        import time as _time
 
+        # 第 1 步：抽帧 + OCR（快，~1-3s）
+        # 抽 8 帧覆盖视频不同时间段（多页面内容）
+        t0 = _time.time()
+        frames = _try_extract_frames_opencv(tmp_path, max_frames=8)
+        ocr_text = _try_ocr_frames(frames)
+        t_ocr = round(_time.time() - t0, 2)
+        logger.info(f"OCR 完成: {t_ocr}s, 文本: {ocr_text[:100] if ocr_text else '(空)'}")
+
+        # 第 2 步：ASR 语音转写（慢，~3-10s）
+        t1 = _time.time()
+        transcript = _try_transcribe_whisper(tmp_path)
+        t_asr = round(_time.time() - t1, 2)
+        logger.info(f"ASR 完成: {t_asr}s, 文本: {transcript[:100] if transcript else '(空)'}")
+
+        # 合并所有文本
         merged_text = (text or "").strip()
         if ocr_text:
             merged_text = f"{merged_text}\n{ocr_text}".strip()
@@ -587,21 +689,21 @@ async def detect_video(
             merged_text = f"{merged_text}\n{transcript}".strip()
 
         if ai_detector is not None:
-            # 选取"信息量最大"的帧：优先OCR文本最多的帧，否则用第一帧
+            # 选取最佳帧
             image = frames[0] if frames else None
             if frames:
                 best_img = frames[0]
                 best_len = 0
                 for img in frames:
-                    t = _try_ocr_frames([img], max_chars=2000)
-                    if len(t) > best_len:
-                        best_len = len(t)
+                    t_f = _try_ocr_frames([img], max_chars=2000)
+                    if len(t_f) > best_len:
+                        best_len = len(t_f)
                         best_img = img
                 image = best_img
 
+            # 用合并后的全部文本（OCR + ASR）跑 AI 模型
             result = await ai_detector.detect({"text": merged_text or " ", "image": image})
 
-            # 生成基于实际内容的 AI 结论（替代模板化 explanation）
             ai_message = _build_content_summary(
                 result.risk_level.value, merged_text, transcript, ocr_text,
                 result.explanation or "", list(result.reasons),
@@ -624,6 +726,12 @@ async def detect_video(
                 "frames_used": len(frames),
                 "bert_score": round(result.bert_score, 4) if result.bert_score is not None else None,
                 "tfidf_score": round(result.tfidf_score, 4) if result.tfidf_score is not None else None,
+                # 各阶段耗时（前端可展示）
+                "timing": {
+                    "ocr_seconds": t_ocr,
+                    "asr_seconds": t_asr,
+                    "ai_seconds": float(result.inference_time),
+                },
             }
         else:
             detection_result = rule_detector.detect(merged_text or "")
@@ -637,6 +745,23 @@ async def detect_video(
         # GPT 事实核查已拆到独立端点 POST /api/fact-check，前端异步调用
         # 这里只返回 merged_text 供前端二次请求
         detection_result["merged_text"] = merged_text[:2000] if merged_text else ""
+
+        # ★ ASR vs OCR 冲突检测
+        conflict = _detect_asr_ocr_conflict(transcript, ocr_text)
+        if conflict and conflict.get("conflict"):
+            detection_result["asr_ocr_conflict"] = conflict
+            # 冲突 = 高危信号，提升风险等级
+            if conflict["severity"] == "high":
+                if detection_result["level"] == "safe":
+                    detection_result["level"] = "warning"
+                    detection_result["score"] = max(detection_result.get("score", 0), 0.55)
+                elif detection_result["level"] == "warning":
+                    detection_result["level"] = "danger"
+                    detection_result["score"] = max(detection_result.get("score", 0), 0.75)
+            detection_result.setdefault("reasons", []).insert(0,
+                f"⚠️ ASR/OCR 冲突: {conflict['reason']}"
+            )
+            logger.info(f"ASR/OCR 冲突已标记: severity={conflict['severity']}, level→{detection_result['level']}")
 
         detection_result["detection_id"] = f"vid_{hash(video.filename) % 100000}_{int(datetime.now().timestamp())}"
 
