@@ -154,25 +154,31 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
       setProgress(100);
       const timing = (detResult as any).timing || {};
 
-      // OCR 识别结果（先展示，因为 OCR 比 ASR 快）
+      // OCR 识别结果
       if (detResult.ocr_text) {
         setAnalysisLog(prev => [...prev,
-          `✅ OCR (${timing.ocr_seconds || '?'}s): "${detResult.ocr_text!.slice(0, 120)}${detResult.ocr_text!.length > 120 ? '...' : ''}"`,
+          `✅ OCR: "${detResult.ocr_text!.slice(0, 120)}${detResult.ocr_text!.length > 120 ? '...' : ''}"`,
         ]);
       } else {
         setAnalysisLog(prev => [...prev,
-          `⬚ OCR (${timing.ocr_seconds || '?'}s): ${zh ? '未识别到画面文字' : 'No text found in frames'}`,
+          `⬚ OCR: ${zh ? '未识别到画面文字' : 'No text found in frames'}`,
         ]);
       }
 
       // ASR 语音转写结果
       if (detResult.transcript) {
         setAnalysisLog(prev => [...prev,
-          `✅ ASR (${timing.asr_seconds || '?'}s): "${detResult.transcript!.slice(0, 120)}${detResult.transcript!.length > 120 ? '...' : ''}"`,
+          `✅ ASR: "${detResult.transcript!.slice(0, 120)}${detResult.transcript!.length > 120 ? '...' : ''}"`,
         ]);
       } else {
         setAnalysisLog(prev => [...prev,
-          `⬚ ASR (${timing.asr_seconds || '?'}s): ${zh ? '未识别到语音' : 'No speech found'}`,
+          `⬚ ASR: ${zh ? '未识别到语音' : 'No speech found'}`,
+        ]);
+      }
+
+      if (timing.ocr_asr_seconds) {
+        setAnalysisLog(prev => [...prev,
+          `⏱ OCR+ASR ${zh ? '并行耗时' : 'parallel'}: ${timing.ocr_asr_seconds}s`,
         ]);
       }
 

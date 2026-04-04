@@ -664,22 +664,24 @@ async def detect_video(
             content = await video.read()
             tmp.write(content)
 
-        # ====== 分步处理：OCR 先行 → AI 快速判断 → ASR 补充 → 完整判断 ======
+        # ====== 并行处理：OCR 和 ASR 同时进行，大幅减少总耗时 ======
         import time as _time
+        import concurrent.futures
 
-        # 第 1 步：抽帧 + OCR（快，~1-3s）
-        # 抽 8 帧覆盖视频不同时间段（多页面内容）
         t0 = _time.time()
-        frames = _try_extract_frames_opencv(tmp_path, max_frames=8)
-        ocr_text = _try_ocr_frames(frames)
-        t_ocr = round(_time.time() - t0, 2)
-        logger.info(f"OCR 完成: {t_ocr}s, 文本: {ocr_text[:100] if ocr_text else '(空)'}")
 
-        # 第 2 步：ASR 语音转写（慢，~3-10s）
-        t1 = _time.time()
-        transcript = _try_transcribe_whisper(tmp_path)
-        t_asr = round(_time.time() - t1, 2)
-        logger.info(f"ASR 完成: {t_asr}s, 文本: {transcript[:100] if transcript else '(空)'}")
+        # 抽帧（很快 ~0.1s）
+        frames = _try_extract_frames_opencv(tmp_path, max_frames=3)
+
+        # OCR 和 ASR 并行执行（用线程池，因为 Whisper 和 EasyOCR 都是 CPU 密集型）
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            future_ocr = pool.submit(_try_ocr_frames, frames)
+            future_asr = pool.submit(_try_transcribe_whisper, tmp_path)
+            ocr_text = future_ocr.result()
+            transcript = future_asr.result()
+
+        t_total = round(_time.time() - t0, 2)
+        logger.info(f"OCR+ASR 并行完成: {t_total}s | OCR: {len(ocr_text)}字 | ASR: {len(transcript)}字")
 
         # 合并所有文本
         merged_text = (text or "").strip()
@@ -728,8 +730,7 @@ async def detect_video(
                 "tfidf_score": round(result.tfidf_score, 4) if result.tfidf_score is not None else None,
                 # 各阶段耗时（前端可展示）
                 "timing": {
-                    "ocr_seconds": t_ocr,
-                    "asr_seconds": t_asr,
+                    "ocr_asr_seconds": t_total,
                     "ai_seconds": float(result.inference_time),
                 },
             }
