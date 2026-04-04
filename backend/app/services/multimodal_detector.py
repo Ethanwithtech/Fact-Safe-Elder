@@ -808,8 +808,13 @@ class MultimodalDetector:
             
             if self._text_model_loaded and text and self.text_classifier and self.text_tokenizer:
                 try:
+                    # 提取中文部分给 BERT（中文模型被英文干扰后性能暴跌）
+                    import re as _re
+                    chinese_text = _re.sub(r'[a-zA-Z0-9\s.,!?;:\'"()\[\]{}\-_/\\@#$%^&*+=<>~`]+', ' ', text).strip()
+                    bert_input_text = chinese_text if len(chinese_text) > 5 else text
+                    
                     inputs = self.text_tokenizer(
-                        text,
+                        bert_input_text,
                         return_tensors="pt",
                         max_length=512,
                         truncation=True,
@@ -840,7 +845,10 @@ class MultimodalDetector:
                         bert_is_risky = bert_risk_score > 0.4
                     
                     detection_method = "ai_bert"
-                    logger.info(f"BERT推理: safe={safe_prob:.4f}, warn={warning_prob:.4f}, danger={danger_prob:.4f}, risk_score={bert_risk_score:.4f}, risky={bert_is_risky}")
+                    if num_labels == 2:
+                        logger.info(f"BERT推理: safe={safe_prob:.4f}, risky={risky_prob:.4f}, risk_score={bert_risk_score:.4f}, risky={bert_is_risky}")
+                    else:
+                        logger.info(f"BERT推理: safe={safe_prob:.4f}, warn={warning_prob:.4f}, danger={danger_prob:.4f}, risk_score={bert_risk_score:.4f}, risky={bert_is_risky}")
                 except Exception as e:
                     logger.warning(f"BERT推理异常: {e}")
             
