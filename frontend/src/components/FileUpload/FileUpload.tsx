@@ -92,10 +92,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
   const handleDragLeave = () => setDragOver(false);
 
   const handleAnalyze = async () => {
-    if (!file) {
-      showToast(t(lang, 'uploadNoFile'), 'warning');
-      return;
-    }
+    if (!file) { showToast(t(lang, 'uploadNoFile'), 'warning'); return; }
 
     setIsAnalyzing(true);
     setProgress(0);
@@ -103,242 +100,173 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
     setGptResult(null);
     setAnalysisLog([]);
     setScanProgress(0);
+    setAlertSent(null);
 
     const zh = lang === 'zh';
+    setAnalysisLog([zh ? '📤 上传视频...' : '📤 Uploading video...']);
 
-    // 实时分析阶段（模拟后端处理过程）
-    const phases = zh
-      ? [
-          { text: '📡 连接AI检测引擎...', pct: 5 },
-          { text: '📤 上传视频文件到服务器...', pct: 15 },
-          { text: '🎞️ OpenCV 抽取关键帧...', pct: 25 },
-          { text: '📝 EasyOCR 字幕/文字识别...', pct: 40 },
-          { text: '🎙️ Whisper ASR 语音转写...', pct: 55 },
-          { text: '🤖 MacBERT 中文语义编码...', pct: 70 },
-          { text: '📊 TF-IDF 统计模型分析...', pct: 80 },
-          { text: '🔍 关键词/诈骗模式扫描...', pct: 88 },
-          { text: '🧠 三层融合风险评估...', pct: 92 },
-        ]
-      : [
-          { text: '📡 Connecting AI engine...', pct: 5 },
-          { text: '📤 Uploading video to server...', pct: 15 },
-          { text: '🎞️ OpenCV frame extraction...', pct: 25 },
-          { text: '📝 EasyOCR text recognition...', pct: 40 },
-          { text: '🎙️ Whisper ASR transcription...', pct: 55 },
-          { text: '🤖 MacBERT semantic encoding...', pct: 70 },
-          { text: '📊 TF-IDF statistical analysis...', pct: 80 },
-          { text: '🔍 Keyword / scam pattern scan...', pct: 88 },
-          { text: '🧠 3-layer fusion risk assessment...', pct: 92 },
-        ];
-
-    // 逐步推出分析日志（与实际 API 调用并行）
-    const showPhases = async () => {
-      for (let i = 0; i < phases.length; i++) {
-        setAnalysisLog(prev => [...prev, phases[i].text]);
-        setScanProgress(phases[i].pct);
-        setProgressMsg(phases[i].text);
-        setProgress(phases[i].pct);
-        await new Promise(r => setTimeout(r, 350 + Math.random() * 300));
-      }
-    };
+    // 保存最新的检测结果（用于 GPT 阶段引用）
+    let latestResult: DetectionResult | null = null;
 
     try {
-      // 并行：显示分析阶段 + 实际 API 调用
-      const [detResult] = await Promise.all([
-        detectionService.current.detectVideo(file),
-        showPhases(),
-      ]);
+      await detectionService.current.detectVideoStream(file, '', (event, data) => {
+        switch (event) {
+          case 'frame':
+            setScanProgress(10);
+            setAnalysisLog(prev => [...prev,
+              `🎞️ ${zh ? '抽取' : 'Extracted'} ${data.frames} ${zh ? '帧' : 'frames'} (${data.time}s)`,
+            ]);
+            break;
 
-      // 分析完成 — 逐条展示各模块的实际结果（附耗时）
-      setScanProgress(100);
-      setProgress(100);
-      const timing = (detResult as any).timing || {};
-
-      // OCR 识别结果
-      if (detResult.ocr_text) {
-        setAnalysisLog(prev => [...prev,
-          `✅ OCR: "${detResult.ocr_text!.slice(0, 120)}${detResult.ocr_text!.length > 120 ? '...' : ''}"`,
-        ]);
-      } else {
-        setAnalysisLog(prev => [...prev,
-          `⬚ OCR: ${zh ? '未识别到画面文字' : 'No text found in frames'}`,
-        ]);
-      }
-
-      // ASR 语音转写结果
-      if (detResult.transcript) {
-        setAnalysisLog(prev => [...prev,
-          `✅ ASR: "${detResult.transcript!.slice(0, 120)}${detResult.transcript!.length > 120 ? '...' : ''}"`,
-        ]);
-      } else {
-        setAnalysisLog(prev => [...prev,
-          `⬚ ASR: ${zh ? '未识别到语音' : 'No speech found'}`,
-        ]);
-      }
-
-      if (timing.ocr_asr_seconds) {
-        setAnalysisLog(prev => [...prev,
-          `⏱ OCR+ASR ${zh ? '并行耗时' : 'parallel'}: ${timing.ocr_asr_seconds}s`,
-        ]);
-      }
-
-      // BERT 模型结果
-      if (detResult.bert_score != null) {
-        const bPct = Math.round(detResult.bert_score * 100);
-        const bLabel = detResult.bert_score > 0.5
-          ? (zh ? '⚠️ 风险' : '⚠️ Risky')
-          : (zh ? '✅ 安全' : '✅ Safe');
-        setAnalysisLog(prev => [...prev,
-          `🤖 BERT: ${bLabel} (${bPct}%)`,
-        ]);
-      }
-
-      // TF-IDF 模型结果
-      if (detResult.tfidf_score != null) {
-        const tPct = Math.round(detResult.tfidf_score * 100);
-        const tLabel = detResult.tfidf_score > 0.5
-          ? (zh ? '⚠️ 风险' : '⚠️ Risky')
-          : (zh ? '✅ 安全' : '✅ Safe');
-        setAnalysisLog(prev => [...prev,
-          `📊 TF-IDF: ${tLabel} (${tPct}%)`,
-        ]);
-      }
-
-      // AI 融合结论
-      const levelLabel = detResult.level === 'danger'
-        ? (zh ? '🚨 高风险' : '🚨 HIGH RISK')
-        : detResult.level === 'warning'
-          ? (zh ? '⚠️ 可疑' : '⚠️ SUSPICIOUS')
-          : (zh ? '✅ 安全' : '✅ SAFE');
-      const finalScore = Math.round((detResult.score ?? 0) * 100);
-      setAnalysisLog(prev => [...prev,
-        `━━ AI ${zh ? '判定' : 'verdict'} (${timing.ai_seconds || '?'}s): ${levelLabel} ${finalScore}/100 ━━`,
-      ]);
-
-      setResult(detResult);
-      setIsAnalyzing(false);
-      onDetectionResult?.(detResult);
-
-      // 第二阶段：异步 GPT 事实核查（后台静默进行）
-      // 合并 ASR + OCR 文本，确保两者都传给 GPT
-      const asrText = detResult.transcript || '';
-      const ocrText = detResult.ocr_text || '';
-      const textForGpt = detResult.merged_text || [asrText, ocrText].filter(Boolean).join('\n') || '';
-      const gptContext = [
-        `视频: ${file.name}`,
-        asrText ? `ASR语音转写: ${asrText.slice(0, 300)}` : '',
-        ocrText ? `OCR画面文字: ${ocrText.slice(0, 300)}` : '',
-      ].filter(Boolean).join('\n');
-
-      if (textForGpt.trim().length > 10) {
-        setGptLoading(true);
-        setAnalysisLog(prev => [...prev, zh ? '🔍 GPT 深度事实核查中...' : '🔍 GPT deep fact-checking...']);
-        detectionService.current
-          .factCheck(textForGpt, gptContext, detResult)
-          .then((gpt) => {
-            if (gpt && !gpt.fallback) {
-              setGptResult(gpt);
-
-              // ★ 融合 GPT 结果更新最终判定
-              const gptLevel = gpt.risk_level || 'safe';
-              const gptVerdict = gpt.verdict; // true/false/misleading/unverifiable
-              // GPT 判定为 false 或 danger 时，提升最终等级
-              let finalLevel = detResult.level;
-              let finalScore = detResult.score ?? 0;
-
-              if (gptVerdict === 'false' || gptLevel === 'danger') {
-                finalLevel = 'danger';
-                finalScore = Math.max(finalScore, 0.75);
-              } else if (gptVerdict === 'misleading' || gptLevel === 'warning') {
-                if (finalLevel === 'safe') finalLevel = 'warning';
-                finalScore = Math.max(finalScore, 0.5);
-              }
-
-              // 生成综合结论 message
-              const verdictMap: Record<string, [string, string]> = {
-                'false': [zh ? '❌ 虚假信息' : '❌ False Information', 'danger'],
-                'misleading': [zh ? '⚠️ 误导性信息' : '⚠️ Misleading', 'warning'],
-                'true': [zh ? '✅ 信息属实' : '✅ Verified True', 'safe'],
-                'unverifiable': [zh ? '❓ 暂无法核实' : '❓ Unverifiable', 'warning'],
-              };
-              const [verdictText] = verdictMap[gptVerdict] || [gptVerdict, 'warning'];
-
-              const bertLabel = detResult.bert_score != null
-                ? `BERT: ${Math.round(detResult.bert_score * 100)}%${zh ? '风险' : ' risk'}`
-                : '';
-              const tfidfLabel = detResult.tfidf_score != null
-                ? `TF-IDF: ${Math.round(detResult.tfidf_score * 100)}%${zh ? '风险' : ' risk'}`
-                : '';
-              const modelsLine = [bertLabel, tfidfLabel].filter(Boolean).join(' | ');
-
-              const finalMessage = [
-                `${zh ? 'GPT 事实核查' : 'GPT Fact Check'}: ${verdictText}`,
-                gpt.summary || '',
-                modelsLine ? `${zh ? 'AI 模型' : 'AI Models'}: ${modelsLine}` : '',
-                gpt.related_scam_type && gpt.related_scam_type !== '无'
-                  ? `${zh ? '诈骗类型' : 'Scam type'}: ${gpt.related_scam_type}` : '',
-              ].filter(Boolean).join('\n');
-
-              // 更新 result 为融合后的最终结果（包含 GPT 分析内容）
-              const gptReasons: string[] = [];
-              if (gpt.summary) gptReasons.push(`GPT: ${gpt.summary}`);
-              if (gpt.false_claims && gpt.false_claims.length > 0) {
-                gpt.false_claims.forEach(c => {
-                  gptReasons.push(`❌ ${c.original} → ✅ ${c.correction}`);
-                });
-              }
-              if (gpt.risk_factors && gpt.risk_factors.length > 0) {
-                gptReasons.push(...gpt.risk_factors);
-              }
-              if (gpt.related_scam_type && gpt.related_scam_type !== '无') {
-                gptReasons.push(`${zh ? '诈骗类型' : 'Scam type'}: ${gpt.related_scam_type}`);
-              }
-
-              const gptSuggestions = gpt.safety_advice || [];
-
-              const fusedResult: DetectionResult = {
-                ...detResult,
-                level: finalLevel as 'safe' | 'warning' | 'danger',
-                score: finalScore,
-                message: finalMessage,
-                reasons: [...gptReasons, ...(detResult.reasons || [])],
-                suggestions: [...gptSuggestions, ...(detResult.suggestions || [])],
-              };
-              setResult(fusedResult);
-
-              // 通知手机模拟器显示警告
-              if (finalLevel !== 'safe') {
-                onUploadWarning?.(fusedResult);
-              }
-
-              // ★ 推送企业微信告警（虚假/危险内容）
-              if (finalLevel !== 'safe') {
-                openClawService.current.reloadConfig();
-                if (openClawService.current.shouldAlert(fusedResult)) {
-                  setAlertSent('sending');
-                  openClawService.current
-                    .sendAlert(fusedResult, file.name)
-                    .then(ok => {
-                      setAlertSent(ok ? 'sent' : 'failed');
-                      setTimeout(() => setAlertSent(null), 6000);
-                    })
-                    .catch(() => { setAlertSent('failed'); setTimeout(() => setAlertSent(null), 6000); });
-                }
-              }
-
-              setAnalysisLog(prev => [
-                ...prev,
-                `✅ GPT: ${verdictText} (${gpt.gpt_latency || '?'}s)`,
-                `━━ ${zh ? '最终综合判定' : 'Final combined verdict'}: ${
-                  finalLevel === 'danger' ? (zh ? '🚨 高风险' : '🚨 HIGH RISK')
-                  : finalLevel === 'warning' ? (zh ? '⚠️ 可疑' : '⚠️ SUSPICIOUS')
-                  : (zh ? '✅ 安全' : '✅ SAFE')
-                } (${Math.round(finalScore * 100)}/100) ━━`,
+          case 'ocr':
+            if (data.duplicate) break;
+            setScanProgress(prev => Math.min(prev + 15, 60));
+            if (data.text) {
+              setAnalysisLog(prev => [...prev,
+                `📝 OCR #${data.frame_idx + 1}: "${(data.text as string).slice(0, 80)}${(data.text as string).length > 80 ? '...' : ''}"`,
+              ]);
+            } else {
+              setAnalysisLog(prev => [...prev,
+                `⬚ OCR #${data.frame_idx + 1}: ${zh ? '无文字' : 'no text'}`,
               ]);
             }
-          })
-          .catch(() => { /* 静默失败 */ })
-          .finally(() => setGptLoading(false));
+            break;
+
+          case 'asr':
+            if (data.status === 'started') {
+              setAnalysisLog(prev => [...prev, zh ? '🎙️ ASR 语音转写中...' : '🎙️ ASR transcribing...']);
+            } else if (data.status === 'done') {
+              setScanProgress(prev => Math.min(prev + 15, 80));
+              if (data.text) {
+                setAnalysisLog(prev => [...prev,
+                  `✅ ASR: "${(data.text as string).slice(0, 100)}${(data.text as string).length > 100 ? '...' : ''}"`,
+                ]);
+              } else {
+                setAnalysisLog(prev => [...prev, zh ? '⬚ ASR: 未识别到语音' : '⬚ ASR: No speech found']);
+              }
+            }
+            break;
+
+          case 'ai': {
+            const stage = data.stage || '';
+            setScanProgress(prev => Math.min(prev + 10, 95));
+            if (stage.startsWith('ocr_frame_')) {
+              // OCR 帧的快速 AI 分析 — 立即展示初步结果
+              const lbl = data.level === 'danger' ? '🚨' : data.level === 'warning' ? '⚠️' : '✅';
+              const bPct = data.bert_score != null ? Math.round(data.bert_score * 100) : '?';
+              const tPct = data.tfidf_score != null ? Math.round(data.tfidf_score * 100) : '?';
+              setAnalysisLog(prev => [...prev,
+                `${lbl} AI: BERT ${bPct}% | TF-IDF ${tPct}% → ${data.level} (${Math.round((data.score || 0) * 100)}/100)`,
+              ]);
+              // 更新初步结果到 UI
+              const partialResult: DetectionResult = {
+                level: data.level || 'safe',
+                score: data.score || 0,
+                confidence: data.confidence || 0.5,
+                message: '',
+                reasons: data.reasons || [],
+                suggestions: data.suggestions || [],
+                timestamp: new Date(),
+                detection_method: 'ai_video_upload',
+                bert_score: data.bert_score,
+                tfidf_score: data.tfidf_score,
+                ocr_text: data.text_analyzed || '',
+              };
+              setResult(partialResult);
+              latestResult = partialResult;
+              // 如果已经检测到 danger，立即通知
+              if (data.level === 'danger') {
+                onUploadWarning?.(partialResult);
+              }
+            } else if (stage === 'final') {
+              // 最终完整结果
+              const finalResult: DetectionResult = {
+                level: data.level || 'safe',
+                score: data.score || 0,
+                confidence: data.confidence || 0.5,
+                message: data.message || '',
+                reasons: data.reasons || [],
+                suggestions: data.suggestions || [],
+                timestamp: new Date(),
+                detection_method: data.detection_method || 'ai_video_upload',
+                transcript: data.transcript || '',
+                ocr_text: data.ocr_text || '',
+                frames_used: data.frames_used || 0,
+                merged_text: data.merged_text || '',
+                bert_score: data.bert_score,
+                tfidf_score: data.tfidf_score,
+              };
+              setResult(finalResult);
+              latestResult = finalResult;
+              onDetectionResult?.(finalResult);
+              if (data.level !== 'safe') {
+                onUploadWarning?.(finalResult);
+              }
+            }
+            break;
+          }
+
+          case 'conflict':
+            setAnalysisLog(prev => [...prev,
+              `⚠️ ${zh ? 'ASR/OCR 冲突' : 'ASR/OCR conflict'}: ${data.reason || data.reason_en || ''}`,
+            ]);
+            break;
+
+          case 'done':
+            setScanProgress(100);
+            setProgress(100);
+            setAnalysisLog(prev => [...prev,
+              `━━ ${zh ? 'AI 检测完成' : 'AI detection complete'} ━━`,
+            ]);
+            break;
+
+          case 'error':
+            setAnalysisLog(prev => [...prev, `❌ ${data.message || 'Error'}`]);
+            break;
+        }
+      });
+
+      setIsAnalyzing(false);
+
+      // GPT 异步深度事实核查
+      const dr = latestResult;
+      if (dr) {
+        const textForGpt = dr.merged_text || dr.transcript || dr.ocr_text || '';
+        const gptContext = [
+          `视频: ${file.name}`,
+          dr.transcript ? `ASR: ${dr.transcript.slice(0, 300)}` : '',
+          dr.ocr_text ? `OCR: ${dr.ocr_text.slice(0, 300)}` : '',
+        ].filter(Boolean).join('\n');
+
+        if (textForGpt.trim().length > 10) {
+          setGptLoading(true);
+          setAnalysisLog(prev => [...prev, zh ? '🔍 GPT 深度事实核查中...' : '🔍 GPT deep fact-checking...']);
+          try {
+            const gpt = await detectionService.current.factCheck(textForGpt, gptContext, dr);
+            if (gpt && !gpt.fallback) {
+              setGptResult(gpt);
+              const gptVerdict = gpt.verdict;
+              let finalLevel = dr.level;
+              let finalScore = dr.score ?? 0;
+              if (gptVerdict === 'false' || gpt.risk_level === 'danger') { finalLevel = 'danger'; finalScore = Math.max(finalScore, 0.75); }
+              else if (gptVerdict === 'misleading' || gpt.risk_level === 'warning') { if (finalLevel === 'safe') finalLevel = 'warning'; finalScore = Math.max(finalScore, 0.5); }
+
+              const verdictMap: Record<string, string> = { 'false': zh ? '❌ 虚假' : '❌ False', 'misleading': zh ? '⚠️ 误导' : '⚠️ Misleading', 'true': zh ? '✅ 属实' : '✅ True', 'unverifiable': zh ? '❓ 待核实' : '❓ Unverifiable' };
+              const verdictText = verdictMap[gptVerdict] || gptVerdict;
+
+              const gptReasons: string[] = [];
+              if (gpt.summary) gptReasons.push(`GPT: ${gpt.summary}`);
+              if (gpt.false_claims?.length) gpt.false_claims.forEach(c => gptReasons.push(`❌ ${c.original} → ✅ ${c.correction}`));
+              if (gpt.related_scam_type && gpt.related_scam_type !== '无') gptReasons.push(`${zh ? '诈骗类型' : 'Scam'}: ${gpt.related_scam_type}`);
+
+              const fusedResult: DetectionResult = { ...dr, level: finalLevel as any, score: finalScore, reasons: [...gptReasons, ...(dr.reasons || [])], suggestions: [...(gpt.safety_advice || []), ...(dr.suggestions || [])] };
+              setResult(fusedResult);
+              if (finalLevel !== 'safe') { onUploadWarning?.(fusedResult); openClawService.current.reloadConfig(); if (openClawService.current.shouldAlert(fusedResult)) { setAlertSent('sending'); openClawService.current.sendAlert(fusedResult, file.name).then(ok => { setAlertSent(ok ? 'sent' : 'failed'); setTimeout(() => setAlertSent(null), 6000); }).catch(() => { setAlertSent('failed'); }); } }
+              setAnalysisLog(prev => [...prev, `✅ GPT: ${verdictText} (${gpt.gpt_latency || '?'}s)`, `━━ ${zh ? '最终判定' : 'Final'}: ${finalLevel === 'danger' ? '🚨' : finalLevel === 'warning' ? '⚠️' : '✅'} ${Math.round(finalScore * 100)}/100 ━━`]);
+            }
+          } catch { /* GPT 失败静默 */ }
+          finally { setGptLoading(false); }
+        }
       }
     } catch (error) {
       setIsAnalyzing(false);

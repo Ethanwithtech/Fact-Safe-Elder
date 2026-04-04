@@ -781,6 +781,161 @@ async def detect_video(
             pass
 
 
+@app.post("/detect/video/stream")
+async def detect_video_stream(
+    video: UploadFile = File(...),
+    text: str = Form(""),
+):
+    """
+    SSE 流式视频检测 — 每完成一个阶段立即推送给前端
+    
+    事件类型:
+      - frame:   抽帧完成
+      - ocr:     第 N 帧 OCR 完成（含识别到的文字）
+      - asr:     ASR 语音转写完成
+      - ai:      BERT + TF-IDF AI 分析结果（每次有新文本就重新分析）
+      - conflict: ASR/OCR 冲突检测
+      - done:    全部完成
+      - error:   出错
+    """
+    from fastapi.responses import StreamingResponse
+    import json as _json
+    import time as _time
+
+    # ★ 在进入生成器之前读取文件（生成器中无法 await UploadFile.read）
+    file_content = await video.read()
+    suffix = os.path.splitext(video.filename or ".mp4")[1] or ".mp4"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp_path = tmp.name
+        tmp.write(file_content)
+
+    def sse(event: str, data: dict) -> str:
+        return f"event: {event}\ndata: {_json.dumps(data, ensure_ascii=False)}\n\n"
+
+    async def event_stream():
+        try:
+            # === 第 1 步：抽帧 ===
+            t0 = _time.time()
+            frames = _try_extract_frames_opencv(tmp_path, max_frames=3)
+            yield sse("frame", {"frames": len(frames), "time": round(_time.time() - t0, 2)})
+
+            # === 第 2 步：逐帧 OCR（每帧完成就推送） ===
+            all_ocr_texts: List[str] = []
+            accumulated_text = (text or "").strip()
+
+            for i, frame in enumerate(frames):
+                t1 = _time.time()
+                frame_ocr = _try_ocr_frames([frame], max_chars=500)
+                ocr_time = round(_time.time() - t1, 2)
+
+                if frame_ocr and frame_ocr not in "\n".join(all_ocr_texts):
+                    all_ocr_texts.append(frame_ocr)
+                    accumulated_text = f"{accumulated_text}\n{frame_ocr}".strip()
+
+                    yield sse("ocr", {
+                        "frame_idx": i,
+                        "text": frame_ocr,
+                        "time": ocr_time,
+                        "all_ocr": "\n".join(all_ocr_texts),
+                    })
+
+                    # ★ 有新 OCR 文本就立即跑一次 AI 分析
+                    if ai_detector is not None and len(accumulated_text) > 5:
+                        quick_result = await ai_detector.detect({"text": accumulated_text, "image": frame})
+                        yield sse("ai", {
+                            "stage": f"ocr_frame_{i}",
+                            "level": quick_result.risk_level.value,
+                            "score": float(quick_result.risk_score),
+                            "confidence": float(quick_result.confidence),
+                            "bert_score": round(quick_result.bert_score, 4) if quick_result.bert_score is not None else None,
+                            "tfidf_score": round(quick_result.tfidf_score, 4) if quick_result.tfidf_score is not None else None,
+                            "reasons": list(quick_result.reasons),
+                            "suggestions": list(quick_result.suggestions),
+                            "text_analyzed": accumulated_text[:200],
+                        })
+                else:
+                    yield sse("ocr", {"frame_idx": i, "text": "", "time": ocr_time, "duplicate": True})
+
+            ocr_text = "\n".join(all_ocr_texts)
+
+            # === 第 3 步：ASR 语音转写（在后台线程） ===
+            yield sse("asr", {"status": "started"})
+            loop = asyncio.get_event_loop()
+            transcript = await loop.run_in_executor(None, _try_transcribe_whisper, tmp_path)
+            yield sse("asr", {"status": "done", "text": transcript[:500] if transcript else ""})
+
+            # ASR 完成后更新 accumulated_text
+            if transcript:
+                accumulated_text = f"{accumulated_text}\n{transcript}".strip()
+
+            # === 第 4 步：完整 AI 分析（OCR + ASR 合并） ===
+            merged_text = accumulated_text
+            if ai_detector is not None:
+                image = frames[0] if frames else None
+                result = await ai_detector.detect({"text": merged_text or " ", "image": image})
+                ai_message = _build_content_summary(
+                    result.risk_level.value, merged_text, transcript, ocr_text,
+                    result.explanation or "", list(result.reasons),
+                )
+                detection_result = {
+                    "level": result.risk_level.value,
+                    "score": float(result.risk_score),
+                    "confidence": float(result.confidence),
+                    "message": ai_message,
+                    "reasons": list(result.reasons),
+                    "suggestions": list(result.suggestions),
+                    "detection_method": "ai_video_upload",
+                    "transcript": transcript[:500] if transcript else "",
+                    "ocr_text": ocr_text[:800] if ocr_text else "",
+                    "frames_used": len(frames),
+                    "bert_score": round(result.bert_score, 4) if result.bert_score is not None else None,
+                    "tfidf_score": round(result.tfidf_score, 4) if result.tfidf_score is not None else None,
+                    "merged_text": merged_text[:2000] if merged_text else "",
+                }
+            else:
+                detection_result = rule_detector.detect(merged_text or "")
+                detection_result.update({
+                    "detection_method": "rule_engine_video_upload",
+                    "transcript": transcript[:500] if transcript else "",
+                    "ocr_text": ocr_text[:800] if ocr_text else "",
+                    "frames_used": len(frames),
+                    "merged_text": merged_text[:2000] if merged_text else "",
+                })
+
+            # ASR/OCR 冲突检测
+            conflict = _detect_asr_ocr_conflict(transcript, ocr_text)
+            if conflict and conflict.get("conflict"):
+                detection_result["asr_ocr_conflict"] = conflict
+                if conflict["severity"] == "high":
+                    if detection_result["level"] == "safe":
+                        detection_result["level"] = "warning"
+                        detection_result["score"] = max(detection_result.get("score", 0), 0.55)
+                    elif detection_result["level"] == "warning":
+                        detection_result["level"] = "danger"
+                        detection_result["score"] = max(detection_result.get("score", 0), 0.75)
+                detection_result.setdefault("reasons", []).insert(0, f"⚠️ ASR/OCR 冲突: {conflict['reason']}")
+                yield sse("conflict", conflict)
+
+            yield sse("ai", {"stage": "final", **detection_result})
+            yield sse("done", detection_result)
+
+        except Exception as e:
+            logger.error(f"流式视频检测失败: {e}", exc_info=True)
+            yield sse("error", {"message": str(e)})
+        finally:
+            try:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.post("/notify-family")
 async def notify_family(request: FamilyNotifyRequest):
     """

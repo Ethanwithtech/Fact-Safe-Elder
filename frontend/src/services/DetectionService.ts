@@ -165,6 +165,58 @@ export default class DetectionService {
   }
 
   /**
+   * SSE 流式视频检测 — 每个阶段完成后立即回调
+   * @param onEvent 每收到一个 SSE 事件就调用
+   * @returns Promise<void> 流结束时 resolve
+   */
+  async detectVideoStream(
+    file: File,
+    text: string,
+    onEvent: (event: string, data: any) => void,
+  ): Promise<void> {
+    const formData = new FormData();
+    formData.append('video', file);
+    if (text) formData.append('text', text);
+
+    console.log('[DetectionService] 开始流式视频检测:', file.name);
+
+    const response = await fetch(`${this.baseURL}/detect/video/stream`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok || !response.body) {
+      throw new Error(`Stream failed: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      let currentEvent = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith('data: ') && currentEvent) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            onEvent(currentEvent, data);
+          } catch { /* ignore parse error */ }
+          currentEvent = '';
+        }
+      }
+    }
+  }
+
+  /**
    * 异步 GPT 事实核查（在 AI 检测结果展示后调用）
    * 返回 GPTFactCheckResult 或 null（失败时）
    */
