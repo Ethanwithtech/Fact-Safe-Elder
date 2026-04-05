@@ -106,7 +106,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
     setAnalysisLog([zh ? '📤 上传视频...' : '📤 Uploading video...']);
 
     // 保存最新的检测结果（用于 GPT 阶段引用）
-    let latestResult: DetectionResult | null = null;
+    const latest = { result: null as DetectionResult | null };
 
     try {
       await detectionService.current.detectVideoStream(file, '', (event, data) => {
@@ -173,7 +173,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 ocr_text: data.text_analyzed || '',
               };
               setResult(partialResult);
-              latestResult = partialResult;
+              latest.result = partialResult;
               // 如果已经检测到 danger，立即通知
               if (data.level === 'danger') {
                 onUploadWarning?.(partialResult);
@@ -197,7 +197,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 tfidf_score: data.tfidf_score,
               };
               setResult(finalResult);
-              latestResult = finalResult;
+              latest.result = finalResult;
               onDetectionResult?.(finalResult);
               if (data.level !== 'safe') {
                 onUploadWarning?.(finalResult);
@@ -229,7 +229,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
       setIsAnalyzing(false);
 
       // GPT 异步深度事实核查
-      const dr = latestResult;
+      const dr = latest.result;
       if (dr) {
         const textForGpt = dr.merged_text || dr.transcript || dr.ocr_text || '';
         const gptContext = [
