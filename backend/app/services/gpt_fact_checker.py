@@ -18,6 +18,19 @@ except ImportError:
     HTTPX_AVAILABLE = False
     logger.warning("httpx 未安装，GPT 事实核查不可用")
 
+# 尝试导入 PII 脱敏模块
+try:
+    from app.core.pii_redaction import redact_pii
+    PII_REDACTION_AVAILABLE = True
+except ImportError:
+    try:
+        from core.pii_redaction import redact_pii
+        PII_REDACTION_AVAILABLE = True
+    except ImportError:
+        PII_REDACTION_AVAILABLE = False
+        def redact_pii(text: str, aggressive: bool = False) -> str:
+            return text
+
 
 # HKBU GenAI Platform 配置
 HKBU_API_BASE = os.environ.get(
@@ -28,7 +41,7 @@ HKBU_API_KEY = os.environ.get(
     "HKBU_API_KEY",
     "e0d5e784-391d-4d3e-9d10-d6443227d95a"
 )
-HKBU_MODEL = os.environ.get("HKBU_MODEL", "gpt-4.1")
+HKBU_MODEL = os.environ.get("HKBU_MODEL", "gpt-4.1-mini")
 
 
 # 事实核查 System Prompt
@@ -88,7 +101,7 @@ class GPTFactChecker:
         api_base: str = HKBU_API_BASE,
         api_key: str = HKBU_API_KEY,
         model: str = HKBU_MODEL,
-        timeout: float = 30.0,
+        timeout: float = 20.0,
     ):
         self.api_base = api_base.rstrip("/")
         self.api_key = api_key
@@ -129,6 +142,13 @@ class GPTFactChecker:
 
         if not content or not content.strip():
             return self._fallback_result("无文本内容可供核查")
+        
+        # PII 脱敏 (Section 5.5.1 - Privacy Protection)
+        # GPT 核查不需要个人隐私信息,脱敏后发送以保护用户隐私
+        if PII_REDACTION_AVAILABLE:
+            content = redact_pii(content, aggressive=False)
+            if context:
+                context = redact_pii(context, aggressive=False)
 
         # 构建用户消息
         user_message = self._build_user_message(content, context, detection_result)
@@ -149,7 +169,7 @@ class GPTFactChecker:
                     {"role": "system", "content": FACT_CHECK_SYSTEM_PROMPT},
                     {"role": "user", "content": user_message},
                 ],
-                "max_tokens": 2048,
+                "max_tokens": 1024,
             }
 
             # gpt-5 系列和 o3 系列不支持自定义 temperature

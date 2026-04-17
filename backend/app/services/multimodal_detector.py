@@ -896,12 +896,14 @@ class MultimodalDetector:
             risk_score = 0.0
             risk_contributions = []
             
+            # 融合权重: 归一化比例 0.3:0.1:0.2 → 0.500:0.167:0.333 (sum=1.0)
+            # 来源: Section 4.3 grid search 最优权重
             if bert_risk_score is not None:
-                risk_contributions.append(("BERT", bert_risk_score, 0.50))  # 50% 权重（语义理解）
+                risk_contributions.append(("BERT", bert_risk_score, 0.500))  # 50.0%（语义理解）
             if simple_risk_score is not None:
-                risk_contributions.append(("TF-IDF", simple_risk_score, 0.30))  # 30% 权重（v3 大幅提升）
+                risk_contributions.append(("TF-IDF", simple_risk_score, 0.167))  # 16.7%（词频统计）
             if rule_result['risk_score'] > 0:
-                risk_contributions.append(("Rules", rule_result['risk_score'], 0.20))  # 20% 权重
+                risk_contributions.append(("Rules", rule_result['risk_score'], 0.333))  # 33.3%（关键词规则）
             
             if risk_contributions:
                 total_weight = sum(w for _, _, w in risk_contributions)

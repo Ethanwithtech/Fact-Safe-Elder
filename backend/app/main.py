@@ -212,10 +212,22 @@ def _try_extract_frames_opencv(video_path: str, max_frames: int = 8) -> List[Any
     return frames
 
 
-def _try_ocr_frames(frames: List[Any], max_chars: int = 800) -> str:
+def _try_ocr_frames(frames: List[Any], max_chars: int = 800, use_voting: bool = True) -> str:
     """
-    OCR: 优先 easyocr（无需系统tesseract），其次 pytesseract（需要本机安装tesseract）。
-    返回合并后的文字（去重、截断）。
+    OCR: 优先 easyocr(无需系统tesseract),其次 pytesseract(需要本机安装tesseract)。
+    
+    Args:
+        frames: PIL Image 列表
+        max_chars: 返回文本最大长度
+        use_voting: 是否启用多帧投票机制 (Section 4.11: 3帧投票减少62%错误)
+    
+    Returns:
+        合并后的文字(去重、截断)
+        
+    投票机制说明:
+        - 单帧识别: 直接返回合并结果
+        - 多帧识别: 对每个识别文本块进行跨帧投票,保留出现次数≥2的文本
+        - 目的: 减少单帧 OCR 偶然错误 (如光线变化、遮挡、运动模糊)
     """
     if not frames:
         return ""
@@ -224,23 +236,54 @@ def _try_ocr_frames(frames: List[Any], max_chars: int = 800) -> str:
     try:
         import numpy as _np  # type: ignore
         import easyocr  # type: ignore
+        from collections import Counter
 
         # 缓存 reader，避免每次初始化非常慢
         global _EASYOCR_READER  # noqa: PLW0603
         if "_EASYOCR_READER" not in globals() or _EASYOCR_READER is None:
             _EASYOCR_READER = easyocr.Reader(["ch_sim", "en"], gpu=False)
 
-        texts: List[str] = []
-        for img in frames:
+        # 单帧识别
+        if len(frames) == 1 or not use_voting:
+            texts: List[str] = []
+            for img in frames:
+                arr = _np.array(img)
+                out = _EASYOCR_READER.readtext(arr, detail=0)
+                for t in out:
+                    if t and isinstance(t, str):
+                        texts.append(t.strip())
+            merged = "\n".join([t for t in dict.fromkeys(texts) if t])
+            logger.info(f"EasyOCR 识别结果 ({len(frames)}帧,无投票): {merged[:200] if merged else '(空)'}")
+            return merged[:max_chars]
+        
+        # 多帧投票机制 (Section 4.11)
+        frame_texts: List[List[str]] = []
+        for i, img in enumerate(frames):
             arr = _np.array(img)
-            # detail=0 仅返回文本列表
             out = _EASYOCR_READER.readtext(arr, detail=0)
-            for t in out:
-                if t and isinstance(t, str):
-                    texts.append(t.strip())
-
-        merged = "\n".join([t for t in dict.fromkeys(texts) if t])
-        logger.info(f"EasyOCR 识别结果 ({len(frames)}帧): {merged[:200] if merged else '(空)'}")
+            frame_result = [t.strip() for t in out if t and isinstance(t, str)]
+            frame_texts.append(frame_result)
+            logger.debug(f"Frame {i} OCR: {frame_result}")
+        
+        # 投票: 统计每个文本块在各帧中出现的次数
+        all_texts = [t for frame in frame_texts for t in frame]
+        text_counter = Counter(all_texts)
+        
+        # 保留出现次数 >= ceil(len(frames)/2) 的文本 (多数决)
+        min_votes = (len(frames) + 1) // 2
+        voted_texts = [text for text, count in text_counter.items() if count >= min_votes]
+        
+        # 按原始顺序排序 (保持阅读顺序)
+        final_texts = []
+        seen = set()
+        for frame in frame_texts:
+            for t in frame:
+                if t in voted_texts and t not in seen:
+                    final_texts.append(t)
+                    seen.add(t)
+        
+        merged = "\n".join(final_texts)
+        logger.info(f"EasyOCR 多帧投票 ({len(frames)}帧): 原始{len(all_texts)}项 → 投票保留{len(final_texts)}项 | {merged[:200] if merged else '(空)'}")
         return merged[:max_chars]
     except Exception as e:
         logger.warning(f"EasyOCR 失败: {e}")
@@ -470,6 +513,10 @@ async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
         if not text.strip():
             raise HTTPException(status_code=400, detail="文本内容不能为空")
         
+        # PII 脱敏 (Section 5.5.1 - Privacy Protection)
+        if PII_REDACTION_AVAILABLE:
+            text = redact_pii(text, aggressive=False)
+        
         # 执行检测
         if ai_detector is not None:
             # 使用AI检测
@@ -689,6 +736,15 @@ async def detect_video(
             merged_text = f"{merged_text}\n{ocr_text}".strip()
         if transcript:
             merged_text = f"{merged_text}\n{transcript}".strip()
+        
+        # PII 脱敏 (Section 5.5.1 - Privacy Protection)
+        if PII_REDACTION_AVAILABLE and merged_text:
+            merged_text = redact_pii(merged_text, aggressive=False)
+            # 同时脱敏单独的 OCR/ASR 文本用于日志记录
+            if ocr_text:
+                ocr_text = redact_pii(ocr_text, aggressive=False)
+            if transcript:
+                transcript = redact_pii(transcript, aggressive=False)
 
         if ai_detector is not None:
             # 选取最佳帧

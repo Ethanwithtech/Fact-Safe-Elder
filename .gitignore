@@ -140,3 +140,23 @@ settings.local.json
 dump.rdb
 
 .vercel
+
+# Playwright MCP logs
+.playwright-mcp/
+
+# Backup directories
+.backup_before_pull/
+
+# Large video files in root (test videos should be in test_videos/)
+*.mov
+*.mp4
+
+# Zip archives
+*.zip
+
+# Model joblib files
+*.joblib
+
+# Report documents (keep in repo only if needed)
+FYP_Final_Report.docx
+research_report_factsafe_extended_abstract_polished.docx

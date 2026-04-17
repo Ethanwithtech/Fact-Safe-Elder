@@ -102,28 +102,32 @@ python train_multimodal_model.py \
 ## 📁 项目结构
 
 ```
-tyt/
-├── backend/                 # 后端服务
+Fact-Safe-Elder/
+├── backend/                 # 后端服务 (FastAPI)
 │   ├── app/
-│   │   ├── main.py         # FastAPI主入口
+│   │   ├── main.py         # FastAPI 主入口
+│   │   ├── core/           # PII 脱敏等核心模块
 │   │   ├── services/       # 业务逻辑
 │   │   │   ├── multimodal_detector.py  # 多模态检测器
+│   │   │   ├── gpt_fact_checker.py     # GPT 异步事实核查
 │   │   │   ├── family_notification.py  # 家人通知
 │   │   │   └── dataset_loader.py       # 数据加载
-│   │   └── api/            # API路由
+│   │   └── api/            # API 路由
 │   └── requirements.txt
-├── frontend/               # 前端应用
+├── frontend/               # 前端应用 (React)
 │   ├── src/
-│   │   ├── components/     # React组件
+│   │   ├── components/     # React 组件
 │   │   └── services/       # 前端服务
 │   └── package.json
-├── data/                   # 数据目录
-│   └── raw/               # 原始数据
-├── models/                # 模型文件
-├── train_multimodal_model.py  # 训练脚本
-├── PRD_老人短视频虚假信息检测系统.md
-├── 技术设计文档.md
-└── README.md
+├── data/                   # 数据集与评估结果
+│   └── raw/               # 原始训练数据
+├── models/                # 训练好的模型文件
+├── scripts/               # 训练、导出、统计等辅助脚本
+├── test_videos/           # 测试视频
+├── report_screenshots/    # 报告截图
+├── docker-compose.yml     # Docker 部署配置
+├── start.sh               # 一键启动脚本
+└── README.md              # 项目说明与安装指南
 ```
 
 ## 🔌 API接口
