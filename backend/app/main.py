@@ -101,18 +101,28 @@ class RuleBasedDetector:
         "保证收益", "无风险", "月入万元", "稳赚不赔", "高收益",
         "内幕消息", "限时优惠", "投资理财", "虚拟货币", "传销",
         "无抵押贷款", "秒批", "黑户贷款", "刷单", "套现",
-        "保本保息", "年化收益", "日赚千元"
+        "保本保息", "年化收益", "日赚千元",
+        # 粤语 / 香港常见金融诈骗话术
+        "保證回報", "冇風險", "無風險", "高息", "穩賺", "包賺",
+        "轉數快", "FPS", "入數", "匯款", "加我WhatsApp", "加我微信",
+        "股票貼士", "內幕消息", "退休投資", "長者投資"
     ]
     
     MEDICAL_KEYWORDS = [
         "包治百病", "神奇疗效", "祖传秘方", "一次根治", "永不复发",
         "药到病除", "100%治愈", "三天见效", "医院不告诉你", "特效药",
-        "保健品", "偏方", "土方", "民间验方", "癌症克星"
+        "保健品", "偏方", "土方", "民间验方", "癌症克星",
+        # 粤语 / 繁体健康误导话术
+        "包醫百病", "祖傳秘方", "神奇療效", "三日見效", "醫院唔會話你知",
+        "保健產品", "長壽秘方", "降血糖", "通血管", "冇副作用"
     ]
     
     URGENCY_KEYWORDS = [
         "赶紧", "立即", "马上", "紧急", "限时", "截止今晚",
-        "最后一天", "错过后悔", "机不可失", "名额有限"
+        "最后一天", "错过后悔", "机不可失", "名额有限",
+        # 粤语紧迫性话术
+        "即刻", "而家", "快啲", "限時", "今晚截止", "最後機會",
+        "唔好錯過", "名額有限", "只限今日"
     ]
     
     def detect(self, text: str) -> Dict[str, Any]:
@@ -321,9 +331,15 @@ def _try_transcribe_whisper(video_path: str) -> str:
         if home_bin not in os.environ.get("PATH", ""):
             os.environ["PATH"] = home_bin + os.pathsep + os.environ.get("PATH", "")
 
-        import whisper  # type: ignore
-        model = whisper.load_model("base")
-        logger.info(f"Whisper 开始转写: {video_path}")
+        whisper_model = os.environ.get("WHISPER_MODEL", "base")
+        use_hf_whisper = os.path.isdir(whisper_model)
+        if use_hf_whisper:
+            from transformers import pipeline  # type: ignore
+            model = pipeline("automatic-speech-recognition", model=whisper_model, device=-1)
+        else:
+            import whisper  # type: ignore
+            model = whisper.load_model(whisper_model)
+        logger.info(f"Whisper 开始转写: {video_path} | model={whisper_model} | hf={use_hf_whisper}")
 
         # 先检查是否有音频流
         try:
@@ -339,10 +355,28 @@ def _try_transcribe_whisper(video_path: str) -> str:
         except Exception:
             pass  # ffmpeg 检查失败时让 whisper 自行处理
 
-        result = model.transcribe(video_path)  # 自动检测语言（支持中英文等）
-        detected_lang = result.get("language", "unknown")
-        text = (result.get("text") or "").strip()
-        logger.info(f"Whisper 转写结果 (lang={detected_lang}): {text[:200] if text else '(空)'}")
+        # 香港比赛场景：启用 mixed Chinese prompt。
+        # 不是只识别粤语：默认按“普通话 + 粤语 + 繁体/简体 + 英文夹杂”处理。
+        # Whisper 没有独立稳定的 yue 语言码，因此统一使用 zh 解码，并用 prompt 保留香港/内地诈骗关键词。
+        asr_language = os.environ.get("ASR_LANGUAGE", "mixed").lower()  # mixed | auto | zh | yue
+        mixed_chinese_prompt = (
+            "以下音訊可能包含普通話、香港粵語、繁體中文、簡體中文、英文和中英夾雜。"
+            "請準確保留關鍵詞，例如：保证收益、无风险、加微信、保健品、包治百病、祖传秘方、"
+            "保證回報、冇風險、轉數快、FPS、加我WhatsApp、加我微信、"
+            "包醫百病、祖傳秘方、長者優惠、即刻、限時、匯款。"
+        )
+        transcribe_kwargs = {"initial_prompt": mixed_chinese_prompt}
+        if asr_language in {"mixed", "zh", "yue", "cantonese"}:
+            transcribe_kwargs["language"] = "zh"
+        if use_hf_whisper:
+            result = model(video_path, generate_kwargs={"language": "zh", "task": "transcribe"})
+            detected_lang = "zh"
+            text = (result.get("text") or "").strip()
+        else:
+            result = model.transcribe(video_path, **transcribe_kwargs)
+            detected_lang = result.get("language", "unknown")
+            text = (result.get("text") or "").strip()
+        logger.info(f"Whisper 转写结果 (mode={asr_language}, lang={detected_lang}): {text[:200] if text else '(空)'}")
         return text
     except Exception as e:
         logger.warning(f"Whisper 转写失败: {e}")

@@ -10,7 +10,17 @@ export default class DetectionService {
   private cacheTimeout = 30 * 1000; // 30秒缓存（缩短以支持实时检测体验）
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const configuredURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const browserHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+    const isRemotePreview = browserHost !== 'localhost' && browserHost !== '127.0.0.1';
+
+    // 手机真机访问电脑 IP 时，不能继续请求 localhost:8000；应自动切到同一主机的 8000 端口。
+    if (isRemotePreview && configuredURL.includes('localhost')) {
+      this.baseURL = `${window.location.protocol}//${browserHost}:8000`;
+    } else {
+      this.baseURL = configuredURL;
+    }
+
     console.log('[DetectionService] 初始化, API地址:', this.baseURL);
   }
 

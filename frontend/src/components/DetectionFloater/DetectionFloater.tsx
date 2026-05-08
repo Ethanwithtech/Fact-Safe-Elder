@@ -23,11 +23,11 @@ const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, em
   const riskInfo = (() => {
     switch (level) {
       case 'danger':
-        return { color: '#ff4d4f', icon: '🚨', label: lang === 'zh' ? '高风险' : 'HIGH RISK' };
+        return { color: '#ff4d4f', icon: '🚨', label: lang !== 'en' ? '高风险' : 'HIGH RISK' };
       case 'warning':
-        return { color: '#faad14', icon: '⚠️', label: lang === 'zh' ? '注意' : 'CAUTION' };
+        return { color: '#faad14', icon: '⚠️', label: lang !== 'en' ? '注意' : 'CAUTION' };
       case 'safe': default:
-        return { color: '#52c41a', icon: '✅', label: lang === 'zh' ? '安全' : 'SAFE' };
+        return { color: '#52c41a', icon: '✅', label: lang !== 'en' ? '安全' : 'SAFE' };
     }
   })();
 
@@ -68,7 +68,7 @@ const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, em
               </div>
               {reasons.length > 0 && (
                 <div className="island-detail-sec">
-                  <div className="island-detail-label">⚡ {lang === 'zh' ? '风险因素' : 'Risk Factors'}</div>
+                  <div className="island-detail-label">⚡ {lang !== 'en' ? '风险因素' : 'Risk Factors'}</div>
                   {reasons.map((r, i) => (
                     <div key={i} className="island-detail-reason" style={{ borderLeftColor: riskInfo.color }}>• {r}</div>
                   ))}
@@ -76,7 +76,7 @@ const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, em
               )}
               {suggestions.length > 0 && (
                 <div className="island-detail-sec">
-                  <div className="island-detail-label">💡 {lang === 'zh' ? '安全建议' : 'Suggestions'}</div>
+                  <div className="island-detail-label">💡 {lang !== 'en' ? '安全建议' : 'Suggestions'}</div>
                   {suggestions.map((s, i) => (
                     <div key={i} className="island-detail-suggestion">💡 {s}</div>
                   ))}

@@ -36,7 +36,10 @@ const RISK_KEYWORDS = [
   '中奖','扫码','加微信','转账','汇款','紧急','赶紧','立即',
   '身份证','银行卡','验证更新','点击链接','失效',
   '月收益','财务自由','下载','扫描二维码','订购热线',
-  '央视推荐','买三送一','特惠价',
+    '央视推荐','买三送一','特惠价',
+    // 粤语 / 香港常见诈骗话术
+    '保證回報','冇風險','無風險','即刻','而家','限時','加我微信','加我WhatsApp',
+    '轉數快','FPS','入數','匯款','包醫百病','祖傳秘方','唔好錯過','長者優惠',
 ];
 
 const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, lang }) => {
@@ -85,9 +88,9 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
   }, [currentIndex]);
 
   const mockVideos: VideoContent[] = useMemo(() => [
-    { id:1, username:lang==='zh'?'理财导师王老师':'Finance Guru Wang', avatar:'👨‍💼', title:lang==='zh'?'月入10万的投资秘诀！错过后悔一辈子':'100K Monthly! Investment Secrets', description:lang==='zh'?'保证收益，无风险投资，限时优惠！添加微信立即开始':'Guaranteed returns, risk-free!', likes:'2.3万', comments:'895', shares:'1.2k', music:lang==='zh'?'励志背景音乐 - 原声':'Motivational BGM', verified:false, tags:lang==='zh'?['投资理财','高收益','无风险']:['Investment','High Returns'], riskLevel:'danger' as const, content:'各位朋友大家好！我是你们的理财导师王老师。今天给大家分享一个独家投资秘诀，保证月收益30%以上！我的学员小李，上个月投入5万，这个月已经赚了15万！现在加入还有限时优惠！机会难得，仅限今天！扫描二维码立即加入！', duration:45, thumbnail:'📊' },
-    { id:2, username:lang==='zh'?'神医张大师':'Dr. Zhang Healer', avatar:'🧓', title:lang==='zh'?'祖传秘方三天治愈糖尿病！医院不想让你知道':'3-Day Diabetes Cure!', description:lang==='zh'?'五代祖传秘方，效果神奇！包治百病！':'Ancient recipe, cures everything!', likes:'5.6万', comments:'3.2k', shares:'892', music:lang==='zh'?'古筝养生音乐 - 原声':'Traditional Music', verified:false, tags:lang==='zh'?['中医养生','祖传秘方']:['Traditional Medicine'], riskLevel:'danger' as const, content:'我家祖传的秘方，专治各种疑难杂症！糖尿病、高血压、癌症，都能治好！医院治不好的，我这里三天见效，七天痊愈！纯中药制作，无任何副作用，已治愈上万患者！现在下单买三送一！', duration:60, thumbnail:'💊' },
-    { id:3, username:lang==='zh'?'央视新闻':'CCTV News', avatar:'📺', title:lang==='zh'?'今日要闻：国家发布养老金调整方案':'Breaking: Pension Adjustment', description:lang==='zh'?'权威发布，关注民生':'Official release', likes:'12.3万', comments:'8.5k', shares:'2.1万', music:lang==='zh'?'新闻联播片头曲 - 原声':'News Theme', verified:true, tags:lang==='zh'?['新闻','养老金','政策']:['News','Pension'], riskLevel:'safe' as const, content:'根据国家相关部门最新通知，2025年养老金将继续上调，预计涨幅3.5%。具体调整方案将于下月正式公布。请关注官方渠道获取准确信息。', duration:30, thumbnail:'📰' },
+    { id:1, username:lang==='zh'?'康健优选':'Health Select', avatar:'💊', title:lang==='zh'?'保健品微信私域推广':'Supplement WeChat Promotion', description:lang==='zh'?'声称调理慢病、限时优惠、引导加微信咨询':'Health supplement claims with WeChat contact', likes:'4.5万', comments:'6.7k', shares:'3.4k', music:lang==='zh'?'养生推广原声':'Wellness Promo Audio', verified:false, tags:lang==='zh'?['保健品','加微信','限时优惠']:['Supplement','WeChat','Limited Offer'], riskLevel:'danger' as const, content:'这个保健品专门适合中老年人，调理血糖血压，改善睡眠。名额有限，今天添加微信可以领取优惠，老师会一对一指导使用。不要再等医院排队，先加微信咨询，越早调理越好。', duration:35, thumbnail:'💊', videoUrl:'/demo-videos/health_supplement_wechat.mp4' },
+    { id:2, username:lang==='zh'?'退休理财导师':'Retirement Finance Coach', avatar:'👨‍💼', title:lang==='zh'?'老人高收益理财项目':'High-return Investment for Seniors', description:lang==='zh'?'承诺保本高收益，制造紧迫感并诱导私下联系':'Guaranteed returns and private contact pressure', likes:'2.3万', comments:'895', shares:'1.2k', music:lang==='zh'?'财富自由原声':'Wealth Freedom Audio', verified:false, tags:lang==='zh'?['投资理财','保证收益','无风险']:['Investment','Guaranteed','No Risk'], riskLevel:'danger' as const, content:'各位叔叔阿姨，这是专门给退休人士的稳健项目，保证收益，无风险，月收益可以达到百分之三十。现在名额有限，今天加入还有内部福利，添加微信马上开始，错过就没有了。', duration:45, thumbnail:'📊', videoUrl:'/demo-videos/finance_scam_elder.mp4' },
+    { id:3, username:lang==='zh'?'营养科普小站':'Nutrition Guide', avatar:'🥗', title:lang==='zh'?'正常营养科普视频':'Normal Nutrition Education', description:lang==='zh'?'均衡饮食、适量运动、建议咨询正规医生':'Balanced diet and evidence-based health advice', likes:'8.9万', comments:'2.1k', shares:'5.6k', music:lang==='zh'?'轻松科普原声':'Light Education Audio', verified:true, tags:lang==='zh'?['营养','科普','健康饮食']:['Nutrition','Education','Healthy Diet'], riskLevel:'safe' as const, content:'中老年朋友要注意饮食均衡，主食、蔬菜、蛋白质都要适量。保健品不能代替药物治疗，如果有糖尿病、高血压等慢性病，应该按医生建议定期复诊，不要轻信夸大宣传。', duration:40, thumbnail:'🥗', videoUrl:'/demo-videos/normal_nutrition.mp4' },
     { id:4, username:lang==='zh'?'李医生科普':'Dr. Li Health', avatar:'👩‍⚕️', title:lang==='zh'?'科学运动 健康生活 | 三甲医院医生教你':'Healthy Exercise Guide', description:lang==='zh'?'三甲医院主任医师，专业科普':'Chief physician advice', likes:'8.9万', comments:'2.1k', shares:'5.6k', music:lang==='zh'?'轻松背景音乐 - 原声':'Relaxing BGM', verified:true, tags:lang==='zh'?['健康科普','运动养生']:['Health Tips'], riskLevel:'safe' as const, content:'大家好，我是某三甲医院的李医生。今天给大家科普一下老年人运动注意事项。适量运动有益健康，但要注意运动强度。建议每天步行30分钟，循序渐进。如有不适，请及时就医。', duration:45, thumbnail:'🏥' },
     { id:5, username:lang==='zh'?'幸运大转盘':'Lucky Wheel', avatar:'🎁', title:lang==='zh'?'0元领取iPhone15！转发就有机会！':'Free iPhone15!', description:lang==='zh'?'点赞+关注即可参与抽奖，100%中奖！':'Like + Follow for 100% win!', likes:'18.5k', comments:'9.8k', shares:'3.2k', music:lang==='zh'?'动感音乐 - 原声':'Upbeat Music', verified:false, tags:lang==='zh'?['抽奖','免费领取']:['Giveaway','Free'], riskLevel:'warning' as const, content:'超级福利来啦！为庆祝粉丝突破100万，免费送出10台iPhone15！参与方式：1.关注 2.点赞 3.评论区留言 4.转发给好友。添加客服微信领取！', duration:20, thumbnail:'📱' },
     { id:6, username:lang==='zh'?'美食家小厨':'Chef Xiao', avatar:'👨‍🍳', title:lang==='zh'?'红烧肉的做法 入口即化 老人孩子都爱吃':'Perfect Braised Pork', description:lang==='zh'?'家常菜教程，简单易学':'Easy home cooking', likes:'6.7万', comments:'1.8k', shares:'4.3k', music:lang==='zh'?'轻快厨房音乐 - 原声':'Kitchen BGM', verified:true, tags:lang==='zh'?['美食','家常菜']:['Food','Cooking'], riskLevel:'safe' as const, content:'今天教大家做一道经典红烧肉。选用五花肉，先焯水去腥，再加入老抽、生抽、冰糖和八角慢炖一小时。肉质软烂入味，全家都爱吃。注意控制油盐摄入，适量食用。', duration:55, thumbnail:'🍖' },
@@ -149,7 +152,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
     setScanProgress(0);
 
     const subs = splitSubtitles(video.content);
-    const phases = lang === 'zh'
+    const phases = lang !== 'en'
       ? [
           { text: '📡 连接AI检测引擎...', delay: 400 },
           { text: '📝 提取视频语音字幕...', delay: 200 },
@@ -195,7 +198,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
         showPhases(),
       ]);
 
-      setAnalysisLog(prev => [...prev, lang === 'zh' ? '✅ 检测完成' : '✅ Detection complete']);
+      setAnalysisLog(prev => [...prev, lang !== 'en' ? '✅ 检测完成' : '✅ Detection complete']);
       setDetectionResult(result);
       onDetectionResult?.(result);
 
@@ -217,12 +220,12 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
 
       // ★ 异步 GPT 事实核查（后台进行，不阻塞 UI）
       if (fullText.trim().length > 10) {
-        setAnalysisLog(prev => [...prev, lang === 'zh' ? '🔍 GPT 深度事实核查中...' : '🔍 GPT deep fact-checking...']);
+        setAnalysisLog(prev => [...prev, lang !== 'en' ? '🔍 GPT 深度事实核查中...' : '🔍 GPT deep fact-checking...']);
         detectionService.current
           .factCheck(fullText, `视频: ${video.title}`, result)
           .then((gpt) => {
             if (gpt && !(gpt as any).fallback) {
-              const zh = lang === 'zh';
+              const zh = lang !== 'en';
               const gptVerdict = gpt.verdict;
               let fusedLevel = result.level;
               let fusedScore = result.score ?? 0;
@@ -274,7 +277,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
       }
     } catch (error) {
       console.error('Detection failed:', error);
-      setAnalysisLog(prev => [...prev, lang === 'zh' ? '❌ 检测异常' : '❌ Detection error']);
+      setAnalysisLog(prev => [...prev, lang !== 'en' ? '❌ 检测异常' : '❌ Detection error']);
     } finally {
       setIsDetecting(false);
     }
@@ -306,7 +309,25 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
   }, [currentIndex, mockVideos.length]);
 
   const handleLike = (id: number) => { setLikedVideos(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; }); };
-  const formatTime = (d: Date) => d.toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (d: Date) => d.toLocaleTimeString(lang !== 'en' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit' });
+  const ui = (zh: string, yue: string, en: string) => lang === 'en' ? en : lang === 'yue' ? yue : zh;
+
+  const stopWatchingAndNext = () => {
+    document.querySelectorAll<HTMLVideoElement>('.phone-frame video').forEach((video) => {
+      video.pause();
+      video.currentTime = 0;
+    });
+    setShowFullWarning(false);
+    setShowUploadWarning(false);
+    setUploadWarning(null);
+    setDetectionResult(null);
+    setActiveTab('phone');
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentIndex(prev => (prev + 1) % mockVideos.length);
+      setIsTransitioning(false);
+    }, 180);
+  };
 
   const gradients = [
     'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
@@ -348,7 +369,7 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                 </div>
 
                 <div className="video-bottom">
-                  <div className="vb-username">@{lang === 'zh' ? '上传视频' : 'Uploaded Video'}</div>
+                  <div className="vb-username">@{ui('上传视频', '上載短片', 'Uploaded Video')}</div>
                   <div className="vb-desc">{uploadedFileName}</div>
                 </div>
 
@@ -359,20 +380,35 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                       <div className="warning-icon-large">{uploadWarning.level === 'danger' ? '🚨' : '⚠️'}</div>
                       <div className="warning-title-large">
                         {uploadWarning.level === 'danger'
-                          ? (lang === 'zh' ? '⚠️ 检测到高风险内容！' : '⚠️ High Risk Detected!')
-                          : (lang === 'zh' ? '⚡ 内容存在可疑信息' : '⚡ Suspicious Content')}
+                          ? ui('检测到高风险短视频', '偵測到高風險短片', 'High-risk video detected')
+                          : ui('内容存在可疑信息', '內容存在可疑資訊', 'Suspicious content detected')}
+                      </div>
+                      <div className="warning-score-chip">
+                        {ui('风险评分', '風險評分', 'Risk score')} · {Math.round((uploadWarning.score || 0) * 100)}/100
+                      </div>
+                      <div className="warning-body-copy">
+                        {ui(
+                          'AI 守护已暂停当前内容，请先确认风险因素，再决定是否继续观看。',
+                          'AI 守護已暫停目前內容，請先睇清楚風險因素，再決定係咪繼續觀看。',
+                          'AI Guard paused this content. Review the risk factors before continuing.'
+                        )}
                       </div>
                       <div className="warning-reasons">
                         {(uploadWarning.reasons || []).slice(0, 4).map((r, i) => (
-                          <div key={i} className="warning-reason-item">• {translateReason(lang, r)}</div>
+                          <div key={i} className="warning-reason-item">{translateReason(lang, r)}</div>
                         ))}
                       </div>
                       <div className="warning-suggestion-main">
-                        {lang === 'zh' ? '💡 请勿轻信，谨防诈骗！' : '💡 Stay alert! Beware of scams!'}
+                        {ui('建议：不要转账、不要扫码、不要添加陌生联系人。', '建議：唔好轉賬、唔好掃碼、唔好加陌生人。', 'Advice: do not transfer money, scan QR codes, or add strangers.')}
                       </div>
-                      <button className="warning-dismiss-btn" onClick={() => setShowUploadWarning(false)}>
-                        {lang === 'zh' ? '我已知晓，继续观看' : 'I understand, continue'}
-                      </button>
+                      <div className="warning-action-row">
+                        <button className="warning-primary-btn" onClick={stopWatchingAndNext}>
+                          {ui('停止观看', '停止觀看', 'Stop watching')}
+                        </button>
+                        <button className="warning-dismiss-btn" onClick={() => setShowUploadWarning(false)}>
+                          {ui('继续观看', '繼續觀看', 'Continue')}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -381,13 +417,40 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
               <div className="video-slide" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'rgba(255,255,255,0.4)' }}>
                   <span style={{ fontSize: 48 }}>📤</span>
-                  <p style={{ fontSize: 14, marginTop: 12 }}>{lang === 'zh' ? '请在右侧上传视频' : 'Upload a video on the right'}</p>
+                  <p style={{ fontSize: 14, marginTop: 12 }}>{ui('请在右侧上传视频', '請喺右邊上載短片', 'Upload a video on the right')}</p>
                 </div>
               </div>
             ) : (
-            /* ===== 原有模拟视频播放模式 ===== */
+            /* ===== 原有模拟视频播放模式 / 真实视频 Demo ===== */
             <div className={`video-slide ${isTransitioning ? 'transitioning' : ''}`} style={{ background: gradients[currentIndex % gradients.length] }}>
-              <div className="video-center-icon">{currentVideo.thumbnail}</div>
+              {currentVideo.videoUrl ? (
+                <>
+                  <video
+                    key={currentVideo.id}
+                    className="demo-video-player"
+                    src={currentVideo.videoUrl}
+                    playsInline
+                    autoPlay
+                    muted
+                    loop
+                    preload="metadata"
+                  />
+                  <div className="demo-video-shade" />
+                  <button
+                    className="demo-sound-pill"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const video = (e.currentTarget.parentElement?.querySelector('video.demo-video-player') as HTMLVideoElement | null);
+                      if (video) video.muted = !video.muted;
+                      e.currentTarget.textContent = video?.muted ? ui('点击开启声音', '點擊開聲', 'Tap for sound') : ui('声音已开启', '聲音已開啟', 'Sound on');
+                    }}
+                  >
+                    {ui('点击开启声音', '點擊開聲', 'Tap for sound')}
+                  </button>
+                </>
+              ) : (
+                <div className="video-center-icon">{currentVideo.thumbnail}</div>
+              )}
 
               {/* ===== 动态字幕 ===== */}
               <div className="video-subtitle-area">
@@ -425,10 +488,15 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
               <div className="video-progress-bar"><div className="video-progress-fill" style={{ width: `${progress}%` }}></div></div>
 
               {isDetecting && (
-                <div className="ai-scanning">
-                  <div className="scan-line"></div>
-                  <div className="scan-corners"><div className="scan-corner tl"></div><div className="scan-corner tr"></div><div className="scan-corner bl"></div><div className="scan-corner br"></div></div>
-                  <div className="scan-text"><span className="scan-pulse-dot"></span>{t(lang, 'aiScanning')}</div>
+                <div className="ai-check-island" aria-live="polite">
+                  <div className="ai-check-dot" />
+                  <div className="ai-check-copy">
+                    <div className="ai-check-title">{ui('AI 正在检查', 'AI 檢查緊', 'AI checking')}</div>
+                    <div className="ai-check-stage">
+                      {analysisLog[analysisLog.length - 1]?.replace(/^[^\w\u4e00-\u9fff]+\s*/, '') || t(lang, 'aiScanning')}
+                    </div>
+                  </div>
+                  <div className="ai-check-percent">{scanProgress}%</div>
                 </div>
               )}
 
@@ -436,12 +504,14 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
                 <div className={`full-screen-warning ${detectionResult.level}`} onClick={() => detectionResult.level === 'warning' && setShowFullWarning(false)}>
                   <div className="warning-overlay-content">
                     <div className="warning-icon-large">{detectionResult.level === 'danger' ? '🚨' : '⚠️'}</div>
-                    <div className="warning-title-large">{detectionResult.level === 'danger' ? (lang==='zh'?'⚠️ 检测到高风险内容！':'⚠️ High Risk Detected!') : (lang==='zh'?'⚡ 内容存在可疑信息':'⚡ Suspicious Content')}</div>
-                    <div className="warning-reasons">{(detectionResult.reasons||[]).slice(0,3).map((r,i) => <div key={i} className="warning-reason-item">• {translateReason(lang, r)}</div>)}</div>
-                    <div className="warning-suggestion-main">{lang==='zh'?'💡 请勿轻信，谨防诈骗！':'💡 Stay alert! Beware of scams!'}</div>
-                    {alertSent === 'sent' && <div className="openclaw-status sent">✅ {lang==='zh'?'已通知家人（企业微信）':'Family notified'}</div>}
-                    {alertSent === 'sending' && <div className="openclaw-status sending">📡 {lang==='zh'?'正在通知家人...':'Notifying family...'}</div>}
-                    {detectionResult.level === 'danger' && <button className="warning-dismiss-btn" onClick={() => setShowFullWarning(false)}>{lang==='zh'?'我已知晓，继续观看':'I understand, continue'}</button>}
+                    <div className="warning-title-large">{detectionResult.level === 'danger' ? ui('检测到高风险短视频', '偵測到高風險短片', 'High-risk video detected') : ui('内容存在可疑信息', '內容存在可疑資訊', 'Suspicious content detected')}</div>
+                    <div className="warning-score-chip">{ui('风险评分', '風險評分', 'Risk score')} · {Math.round((detectionResult.score || 0) * 100)}/100</div>
+                    <div className="warning-body-copy">{ui('AI 守护已暂停当前内容，请先确认风险因素，再决定是否继续观看。', 'AI 守護已暫停目前內容，請先睇清楚風險因素，再決定係咪繼續觀看。', 'AI Guard paused this content. Review the risk factors before continuing.')}</div>
+                    <div className="warning-reasons">{(detectionResult.reasons||[]).slice(0,4).map((r,i) => <div key={i} className="warning-reason-item">{translateReason(lang, r)}</div>)}</div>
+                    <div className="warning-suggestion-main">{ui('建议：不要转账、不要扫码、不要添加陌生联系人。', '建議：唔好轉賬、唔好掃碼、唔好加陌生人。', 'Advice: do not transfer money, scan QR codes, or add strangers.')}</div>
+                    {alertSent === 'sent' && <div className="openclaw-status sent">✅ {ui('已通知家人（企业微信）', '已通知屋企人（企業微信）', 'Family notified')}</div>}
+                    {alertSent === 'sending' && <div className="openclaw-status sending">📡 {ui('正在通知家人...', '通知緊屋企人...', 'Notifying family...')}</div>}
+                    {detectionResult.level === 'danger' && <div className="warning-action-row"><button className="warning-primary-btn" onClick={stopWatchingAndNext}>{ui('停止观看', '停止觀看', 'Stop watching')}</button><button className="warning-dismiss-btn" onClick={() => setShowFullWarning(false)}>{ui('继续观看', '繼續觀看', 'Continue')}</button></div>}
                   </div>
                 </div>
               )}
@@ -470,6 +540,11 @@ const MobileSimulator: React.FC<MobileSimulatorProps> = ({ onDetectionResult, la
           </div>
         </div>
         <div className="swipe-hint">{t(lang, 'swipeHint')} ({currentIndex + 1}/{mockVideos.length})</div>
+        <div className="demo-video-switcher">
+          <button className={currentIndex === 0 ? 'active danger' : ''} onClick={() => setCurrentIndex(0)}>{lang==='zh'?'保健品':'Health'}</button>
+          <button className={currentIndex === 1 ? 'active danger' : ''} onClick={() => setCurrentIndex(1)}>{lang==='zh'?'金融诈骗':'Finance'}</button>
+          <button className={currentIndex === 2 ? 'active safe' : ''} onClick={() => setCurrentIndex(2)}>{lang==='zh'?'正常营养':'Safe'}</button>
+        </div>
       </div>
 
       {/* 右侧 AI 检测面板 */}

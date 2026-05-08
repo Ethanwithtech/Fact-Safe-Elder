@@ -23,7 +23,7 @@ function App() {
   const [highContrast, setHighContrast] = useState(savedSettings?.highContrast || false);
   const [totalDetections, setTotalDetections] = useState(0);
   const [riskyDetections, setRiskyDetections] = useState(0);
-  const [lang, setLang] = useState<Language>(savedSettings?.lang || 'en');
+  const [lang, setLang] = useState<Language>(savedSettings?.lang || 'yue');
   const [themeMode, setThemeMode] = useState<ThemeMode>(savedSettings?.themeMode || 'dark');
   const initialized = useRef(false);
 
@@ -94,8 +94,12 @@ function App() {
             <button className="theme-toggle-btn" onClick={() => handleThemeChange(themeMode === 'dark' ? 'light' : 'dark')} title={t(lang, 'themeMode')}>
               {themeMode === 'dark' ? '☀️' : '🌙'}
             </button>
-            <button className="lang-toggle-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')} title={t(lang, 'language')}>
-              {lang === 'zh' ? 'EN' : '中'}
+            <button
+              className="lang-toggle-btn"
+              onClick={() => setLang(lang === 'zh' ? 'yue' : lang === 'yue' ? 'en' : 'zh')}
+              title={t(lang, 'language')}
+            >
+              {lang === 'zh' ? '粵' : lang === 'yue' ? 'EN' : '中'}
             </button>
             <button className="settings-btn" onClick={() => setShowSettings(true)}>
               ⚙️

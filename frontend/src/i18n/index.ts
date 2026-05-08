@@ -1,4 +1,4 @@
-export type Language = 'zh' | 'en';
+export type Language = 'zh' | 'yue' | 'en';
 
 export const translations = {
   zh: {
@@ -132,6 +132,139 @@ export const translations = {
     settingsReset: '设置已重置为推荐配置',
     clearData: '清除所有本地数据',
     dataCleared: '本地数据已清除',
+  },
+
+  yue: {
+    // Header
+    appName: 'AI 守護',
+    appDesc: '長者短片虛假資訊偵測系統',
+    detected: '已檢查',
+    riskBlocked: '風險攔截',
+    aiOnline: 'AI 在線',
+    settings: '設定',
+
+    // Mobile Simulator
+    follow: '關注',
+    recommend: '推薦',
+    home: '首頁',
+    discover: '發現',
+    messages: '訊息',
+    me: '我',
+    swipeHint: '↕️ 上下滑動或按方向鍵切換短片',
+    aiScanning: '🤖 AI 檢查緊...',
+    detectFailed: '檢查失敗',
+
+    // Detection Panel
+    aiRealTimeDetection: '🛡️ AI 即時檢查',
+    highRisk: '🚨 高風險',
+    caution: '⚠️ 小心',
+    safe: '✅ 安全',
+    detecting: '🔍 正在檢查目前短片...',
+    waitingDetection: '等待短片檢查...',
+    detectionStats: '📊 檢查統計',
+    totalVideos: '短片總數',
+    highRiskCount: '高風險',
+    suspiciousCount: '可疑',
+    safeCount: '安全',
+    antiScamTips: '🛡️ 防騙提醒',
+    tip1: '💰 保證高回報通常都係騙局',
+    tip2: '💊 包醫百病嘅產品唔可信',
+    tip3: '📞 見到可疑內容請即刻聯絡屋企人',
+    tip4: '🚫 唔好輕易轉賬或者加陌生人',
+
+    // Detection Floater
+    dangerTitle: '高風險警告',
+    dangerDesc: '偵測到可能係騙局或虛假資訊',
+    dangerAction: '建議即刻停止觀看',
+    warningTitle: '注意風險',
+    warningDesc: '內容存在可疑資訊',
+    warningAction: '建議小心處理',
+    safeTitle: '內容安全',
+    safeDesc: '暫時未發現明顯風險',
+    safeAction: '可以繼續觀看',
+    riskScore: '風險評分',
+    riskFactors: '⚡ 風險因素',
+    safetySuggestions: '💡 安全建議',
+    safetyReminder: '🛡️ 遇到可疑內容請即刻聯絡屋企人或報警',
+    iKnow: '我知道',
+    details: '詳情',
+    close: '關閉',
+
+    // Upload
+    uploadTitle: '📁 上載檔案檢查',
+    uploadDesc: '上載短片或音訊檔案進行虛假資訊檢查',
+    uploadDragger: '點擊或拖放檔案到呢度上載',
+    uploadHint: '支援 MP4, AVI, MOV, MP3, WAV 等格式，單個檔案不超過 100MB',
+    uploadAnalyze: '開始分析',
+    uploadAnalyzing: '分析緊...',
+    uploadResult: '檢查結果',
+    uploadNoFile: '請先上載檔案',
+    uploadSuccess: '檔案上載成功',
+    uploadError: '檔案上載失敗',
+
+    // Settings
+    settingsTitle: '個人設定',
+    displaySettings: '📱 顯示設定',
+    fontSize: '字體大小',
+    fontSizeDesc: '選擇舒服易睇嘅字體大小',
+    fontNormal: '標準',
+    fontLarge: '大字體（推薦）',
+    fontExtraLarge: '特大字體',
+    highContrast: '高對比度',
+    highContrastDesc: '提高文字同背景對比度',
+    themeMode: '主題模式',
+    themeModeDesc: '切換明亮或深色主題',
+    themeDark: '深色',
+    themeLight: '明亮',
+    language: '語言',
+    languageDesc: '切換介面語言',
+    
+    detectionSettings: '🔍 檢查設定',
+    sensitivity: '檢查敏感度',
+    sensitivityDesc: '調整偵測虛假資訊嘅敏感程度',
+    sensitivityLow: '寬鬆',
+    sensitivityLowDesc: '只檢查明顯騙局',
+    sensitivityMedium: '適中（推薦）',
+    sensitivityMediumDesc: '平衡準確度同誤報率',
+    sensitivityHigh: '嚴格',
+    sensitivityHighDesc: '檢查所有可疑內容',
+    soundAlert: '聲音提醒',
+    soundAlertDesc: '偵測到風險時播放提示音',
+    testSound: '測試聲效',
+    on: '開啟',
+    off: '關閉',
+
+    familySettings: '👨‍👩‍👧‍👦 家人設定',
+    familyPhone: '家人電話',
+    familyPhoneDesc: '緊急情況下聯絡嘅家人電話',
+    familyPhonePlaceholder: '請輸入家人電話號碼',
+    riskNotify: '風險通知',
+    riskNotifyDesc: '偵測到高風險內容時通知家人',
+
+    openclawSettings: '🤖 OpenClaw 智能通知',
+    openclawDesc: '設定 OpenClaw Skill，將風險警報推送到企業微信或 QQ',
+    openclawEnable: '啟用 OpenClaw',
+    openclawEnableDesc: '開啟後，偵測到危險內容會自動發送警報',
+    openclawWebhook: 'Webhook 地址',
+    openclawWebhookPlaceholder: '輸入企業微信/QQ 機械人 Webhook URL',
+    openclawChannel: '通知渠道',
+    openclawWecom: '企業微信',
+    openclawQQ: 'QQ',
+    openclawBoth: '全部',
+    openclawThreshold: '警報門檻',
+    openclawThresholdDesc: '風險分數達到此值時觸發警報',
+    openclawTest: '發送測試通知',
+    openclawTestSuccess: '測試通知已發送',
+
+    helpTitle: '❓ 使用幫助',
+    privacyTitle: '🔒 私隱保護',
+    save: '儲存設定',
+    cancel: '取消',
+    resetDefault: '恢復預設',
+    settingsSaved: '設定已儲存',
+    settingsReset: '設定已重置為推薦配置',
+    clearData: '清除所有本地資料',
+    dataCleared: '本地資料已清除',
   },
 
   en: {
@@ -292,8 +425,40 @@ const reasonMap: Record<string, string> = {
   '遇到要求转账的情况请立即警惕': 'Be immediately alert to any money transfer requests',
 };
 
+const yueReasonMap: Record<string, string> = {
+  '建议谨慎对待该内容': '建議小心處理呢段內容',
+  '如遇可疑情况请拨打96110反诈热线': '遇到可疑情況請即刻聯絡屋企人或報警',
+  '投资需谨慎，高收益往往伴随高风险': '投資要小心，高回報通常伴隨高風險',
+  '不要轻易相信保证收益的投资项目': '唔好輕易相信保證回報嘅投資項目',
+  '有病请找正规医院，不要轻信偏方': '有病請搵正規醫院，唔好輕信偏方',
+  '保健品不能替代药物治疗': '保健品唔可以代替藥物治療',
+  '冷静思考，不要被紧急性语言误导': '冷靜諗清楚，唔好畀緊急話術誤導',
+  '不要轻易添加陌生人联系方式或转账': '唔好輕易加陌生人聯絡方式或者轉賬',
+  'AI模型和规则引擎均未发现风险': 'AI 模型同規則引擎暫時未發現風險',
+  '综合分析发现潜在风险': '綜合分析發現潛在風險',
+  '如有疑问，请咨询家人或专业人士': '有疑問請問屋企人或專業人士',
+  '遇到要求转账的情况请立即警惕': '遇到要求轉賬要即刻警惕',
+};
+
 export const translateReason = (lang: Language, text: string): string => {
   if (lang === 'zh') return text;
+  if (lang === 'yue') {
+    if (yueReasonMap[text]) return yueReasonMap[text];
+    for (const [zh, yue] of Object.entries(yueReasonMap)) {
+      if (text.includes(zh)) return text.replace(zh, yue);
+    }
+    return text
+      .replace(/检测到/g, '偵測到')
+      .replace(/风险/g, '風險')
+      .replace(/关键词/g, '關鍵詞')
+      .replace(/紧急性诱导词汇/g, '緊急性誘導詞')
+      .replace(/视频内容/g, '短片內容')
+      .replace(/内容摘要/g, '內容摘要')
+      .replace(/主要风险/g, '主要風險')
+      .replace(/识别来源/g, '識別來源')
+      .replace(/语音转写/g, '語音轉寫')
+      .replace(/画面文字/g, '畫面文字');
+  }
   // 精确匹配
   if (reasonMap[text]) return reasonMap[text];
   // 模式匹配

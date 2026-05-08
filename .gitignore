@@ -150,6 +150,8 @@ dump.rdb
 # Large video files in root (test videos should be in test_videos/)
 *.mov
 *.mp4
+!frontend/public/demo-videos/
+!frontend/public/demo-videos/*.mp4
 
 # Zip archives
 *.zip

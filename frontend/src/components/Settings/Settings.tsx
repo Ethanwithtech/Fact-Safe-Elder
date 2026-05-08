@@ -88,13 +88,13 @@ const Settings: React.FC<SettingsProps> = ({
         osc.start(); osc.stop(ctx.currentTime + 0.5);
       } catch {}
     }
-    showToast(lang === 'zh' ? '测试警报已播放' : 'Test alert played', 'success');
+    showToast(lang !== 'en' ? '测试警报已播放' : 'Test alert played', 'success');
   };
 
   const handleTestOpenClaw = async () => {
     // useQClaw 模式下 URL 在后端，不要求前端填
     if (!openClawConfig.useQClaw && !openClawConfig.qclawWebhookUrl && !openClawConfig.directWebhookUrl) {
-      showToast(lang === 'zh' ? '请先填写 Webhook 地址' : 'Please enter a Webhook URL first', 'warning');
+      showToast(lang !== 'en' ? '请先填写 Webhook 地址' : 'Please enter a Webhook URL first', 'warning');
       return;
     }
     setTestingSending(true);
@@ -103,10 +103,10 @@ const Settings: React.FC<SettingsProps> = ({
       if (success) {
         showToast(t(lang, 'openclawTestSuccess'), 'success');
       } else {
-        showToast(lang === 'zh' ? '发送失败，请检查配置' : 'Failed. Check config', 'error');
+        showToast(lang !== 'en' ? '发送失败，请检查配置' : 'Failed. Check config', 'error');
       }
     } catch {
-      showToast(lang === 'zh' ? '发送失败' : 'Send failed', 'error');
+      showToast(lang !== 'en' ? '发送失败' : 'Send failed', 'error');
     } finally {
       setTestingSending(false);
     }
@@ -115,19 +115,19 @@ const Settings: React.FC<SettingsProps> = ({
   const [feishuTesting, setFeishuTesting] = useState(false);
   const handleTestFeishu = async () => {
     if (!openClawConfig.feishuWebhookUrl) {
-      showToast(lang === 'zh' ? '请先填写飞书 Webhook URL' : 'Please enter Feishu Webhook URL first', 'warning');
+      showToast(lang !== 'en' ? '请先填写飞书 Webhook URL' : 'Please enter Feishu Webhook URL first', 'warning');
       return;
     }
     setFeishuTesting(true);
     try {
       const success = await openClawService.sendFeishuTestAlert();
       if (success) {
-        showToast(lang === 'zh' ? '飞书测试消息发送成功！' : 'Feishu test message sent!', 'success');
+        showToast(lang !== 'en' ? '飞书测试消息发送成功！' : 'Feishu test message sent!', 'success');
       } else {
-        showToast(lang === 'zh' ? '飞书发送失败，请检查 Webhook URL' : 'Feishu failed. Check URL', 'error');
+        showToast(lang !== 'en' ? '飞书发送失败，请检查 Webhook URL' : 'Feishu failed. Check URL', 'error');
       }
     } catch {
-      showToast(lang === 'zh' ? '飞书发送失败' : 'Feishu send failed', 'error');
+      showToast(lang !== 'en' ? '飞书发送失败' : 'Feishu send failed', 'error');
     } finally {
       setFeishuTesting(false);
     }
@@ -139,12 +139,12 @@ const Settings: React.FC<SettingsProps> = ({
     try {
       const success = await openClawService.sendWecomTestAlert();
       if (success) {
-        showToast(lang === 'zh' ? '企业微信测试消息发送成功！' : 'WeCom test message sent!', 'success');
+        showToast(lang !== 'en' ? '企业微信测试消息发送成功！' : 'WeCom test message sent!', 'success');
       } else {
-        showToast(lang === 'zh' ? '企业微信发送失败，请检查 Webhook URL' : 'WeCom failed. Check URL', 'error');
+        showToast(lang !== 'en' ? '企业微信发送失败，请检查 Webhook URL' : 'WeCom failed. Check URL', 'error');
       }
     } catch {
-      showToast(lang === 'zh' ? '企业微信发送失败' : 'WeCom send failed', 'error');
+      showToast(lang !== 'en' ? '企业微信发送失败' : 'WeCom send failed', 'error');
     } finally {
       setWecomTesting(false);
     }
@@ -172,6 +172,10 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className={`native-radio ${lang === 'zh' ? 'checked' : ''}`}>
                   <input type="radio" name="lang" checked={lang === 'zh'} onChange={() => onLanguageChange('zh')} />
                   <span className="radio-dot" /><span>🇨🇳 中文</span>
+                </label>
+                <label className={`native-radio ${lang === 'yue' ? 'checked' : ''}`}>
+                  <input type="radio" name="lang" checked={lang === 'yue'} onChange={() => onLanguageChange('yue')} />
+                  <span className="radio-dot" /><span>🇭🇰 粵語</span>
                 </label>
                 <label className={`native-radio ${lang === 'en' ? 'checked' : ''}`}>
                   <input type="radio" name="lang" checked={lang === 'en'} onChange={() => onLanguageChange('en')} />
@@ -308,13 +312,13 @@ const Settings: React.FC<SettingsProps> = ({
 
         {/* 企业微信推送配置（主推送通道） */}
         <div className="settings-section wecom-section">
-          <h3>💬 {lang === 'zh' ? '企业微信推送' : 'WeCom Push Notification'}</h3>
-          <p className="section-desc">{lang === 'zh' ? '将风险告警推送到企业微信群聊，及时通知家人' : 'Push risk alerts to WeCom group to notify family'}</p>
+          <h3>💬 {lang !== 'en' ? '企业微信推送' : 'WeCom Push Notification'}</h3>
+          <p className="section-desc">{lang !== 'en' ? '将风险告警推送到企业微信群聊，及时通知家人' : 'Push risk alerts to WeCom group to notify family'}</p>
 
           <div className="setting-item">
             <div className="setting-label">
-              <span>{lang === 'zh' ? '启用企业微信推送' : 'Enable WeCom Push'}</span>
-              <span className="setting-desc">{lang === 'zh' ? '检测到风险内容时自动推送到企业微信群' : 'Auto-push to WeCom group when risk detected'}</span>
+              <span>{lang !== 'en' ? '启用企业微信推送' : 'Enable WeCom Push'}</span>
+              <span className="setting-desc">{lang !== 'en' ? '检测到风险内容时自动推送到企业微信群' : 'Auto-push to WeCom group when risk detected'}</span>
             </div>
             <div className="setting-control">
               <button className={`native-switch ${openClawConfig.useWecom ? 'on' : ''}`} onClick={() => updateOpenClaw({ useWecom: !openClawConfig.useWecom, enabled: true })} role="switch" aria-checked={openClawConfig.useWecom}>
@@ -328,8 +332,8 @@ const Settings: React.FC<SettingsProps> = ({
             <>
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>{lang === 'zh' ? '企业微信 Webhook URL' : 'WeCom Webhook URL'}</span>
-                  <span className="setting-desc">{lang === 'zh' ? '企业微信群 → 群机器人 → 添加 → 复制 Webhook 地址' : 'WeCom group → Bot → Add → Copy Webhook URL'}</span>
+                  <span>{lang !== 'en' ? '企业微信 Webhook URL' : 'WeCom Webhook URL'}</span>
+                  <span className="setting-desc">{lang !== 'en' ? '企业微信群 → 群机器人 → 添加 → 复制 Webhook 地址' : 'WeCom group → Bot → Add → Copy Webhook URL'}</span>
                 </div>
                 <div className="setting-control" style={{ flex: 1 }}>
                   <input
@@ -349,8 +353,8 @@ const Settings: React.FC<SettingsProps> = ({
 
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>{lang === 'zh' ? '推送阈值' : 'Alert Threshold'}</span>
-                  <span className="setting-desc">{lang === 'zh' ? '风险分数超过此值时推送通知' : 'Push when risk score exceeds this value'}</span>
+                  <span>{lang !== 'en' ? '推送阈值' : 'Alert Threshold'}</span>
+                  <span className="setting-desc">{lang !== 'en' ? '风险分数超过此值时推送通知' : 'Push when risk score exceeds this value'}</span>
                 </div>
                 <div className="setting-control">
                   <div className="native-btn-group">
@@ -363,14 +367,14 @@ const Settings: React.FC<SettingsProps> = ({
 
               <div className="setting-item">
                 <button className="native-btn primary block" onClick={handleTestWecom} disabled={wecomTesting}>
-                  {wecomTesting ? '⏳' : '💬'} {lang === 'zh' ? '发送企业微信测试消息' : 'Send WeCom Test'}
+                  {wecomTesting ? '⏳' : '💬'} {lang !== 'en' ? '发送企业微信测试消息' : 'Send WeCom Test'}
                 </button>
               </div>
 
               <div className="openclaw-skill-info wecom-info">
-                <div className="skill-info-title">📋 {lang === 'zh' ? '企业微信机器人配置步骤' : 'WeCom Bot Setup'}</div>
+                <div className="skill-info-title">📋 {lang !== 'en' ? '企业微信机器人配置步骤' : 'WeCom Bot Setup'}</div>
                 <div className="skill-info-content">
-                  {lang === 'zh' ? (
+                  {lang !== 'en' ? (
                     <>
                       <p>1. 打开 <strong>企业微信</strong>，进入需要接收告警的 <strong>群聊</strong></p>
                       <p>2. 点击右上角 <strong>···</strong> → <strong>群机器人</strong> → <strong>添加群机器人</strong></p>
@@ -395,13 +399,13 @@ const Settings: React.FC<SettingsProps> = ({
 
         {/* 飞书推送配置（备选通道） */}
         <div className="settings-section feishu-section">
-          <h3>📮 {lang === 'zh' ? '飞书推送（备选）' : 'Feishu Push (Backup)'}</h3>
-          <p className="section-desc">{lang === 'zh' ? '企业微信不可用时，降级推送到飞书' : 'Fallback to Feishu when WeCom is unavailable'}</p>
+          <h3>📮 {lang !== 'en' ? '飞书推送（备选）' : 'Feishu Push (Backup)'}</h3>
+          <p className="section-desc">{lang !== 'en' ? '企业微信不可用时，降级推送到飞书' : 'Fallback to Feishu when WeCom is unavailable'}</p>
 
           <div className="setting-item">
             <div className="setting-label">
-              <span>{lang === 'zh' ? '启用飞书推送' : 'Enable Feishu Push'}</span>
-              <span className="setting-desc">{lang === 'zh' ? '作为备选推送通道' : 'Use as backup push channel'}</span>
+              <span>{lang !== 'en' ? '启用飞书推送' : 'Enable Feishu Push'}</span>
+              <span className="setting-desc">{lang !== 'en' ? '作为备选推送通道' : 'Use as backup push channel'}</span>
             </div>
             <div className="setting-control">
               <button className={`native-switch ${openClawConfig.useFeishu ? 'on' : ''}`} onClick={() => updateOpenClaw({ useFeishu: !openClawConfig.useFeishu, enabled: true })} role="switch" aria-checked={openClawConfig.useFeishu}>
@@ -415,7 +419,7 @@ const Settings: React.FC<SettingsProps> = ({
             <>
               <div className="setting-item">
                 <div className="setting-label">
-                  <span>{lang === 'zh' ? '飞书 Webhook URL' : 'Feishu Webhook URL'}</span>
+                  <span>{lang !== 'en' ? '飞书 Webhook URL' : 'Feishu Webhook URL'}</span>
                 </div>
                 <div className="setting-control" style={{ flex: 1 }}>
                   <input
@@ -435,7 +439,7 @@ const Settings: React.FC<SettingsProps> = ({
 
               <div className="setting-item">
                 <button className="native-btn primary block" onClick={handleTestFeishu} disabled={feishuTesting}>
-                  {feishuTesting ? '⏳' : '📮'} {lang === 'zh' ? '发送飞书测试消息' : 'Send Feishu Test'}
+                  {feishuTesting ? '⏳' : '📮'} {lang !== 'en' ? '发送飞书测试消息' : 'Send Feishu Test'}
                 </button>
               </div>
             </>
@@ -446,11 +450,11 @@ const Settings: React.FC<SettingsProps> = ({
         <div className="settings-section privacy-section">
           <h3>{t(lang, 'privacyTitle')}</h3>
           <div className="privacy-info">
-            <p>🛡️ {lang === 'zh' ? '我们严格保护您的隐私：' : 'We strictly protect your privacy:'}</p>
+            <p>🛡️ {lang !== 'en' ? '我们严格保护您的隐私：' : 'We strictly protect your privacy:'}</p>
             <ul>
-              <li>{lang === 'zh' ? '音频数据仅在本地处理，不会上传到服务器' : 'Audio data is processed locally only'}</li>
-              <li>{lang === 'zh' ? '检测结果和设置信息仅存储在您的设备上' : 'Results and settings are stored on your device only'}</li>
-              <li>{lang === 'zh' ? '您可以随时清除所有数据' : 'You can clear all data anytime'}</li>
+              <li>{lang !== 'en' ? '音频数据仅在本地处理，不会上传到服务器' : 'Audio data is processed locally only'}</li>
+              <li>{lang !== 'en' ? '检测结果和设置信息仅存储在您的设备上' : 'Results and settings are stored on your device only'}</li>
+              <li>{lang !== 'en' ? '您可以随时清除所有数据' : 'You can clear all data anytime'}</li>
             </ul>
             <button className="native-btn link" onClick={() => {
               localStorage.removeItem('elderSafetySettings');

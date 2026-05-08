@@ -62,7 +62,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
 
   const handleFileSelect = (selectedFile: File) => {
     if (selectedFile.size > 100 * 1024 * 1024) {
-      showToast(lang === 'zh' ? '文件大小不能超过100MB' : 'File size must be under 100MB', 'error');
+      showToast(lang !== 'en' ? '文件大小不能超过100MB' : 'File size must be under 100MB', 'error');
       return;
     }
     if (fileUrl) URL.revokeObjectURL(fileUrl);
@@ -102,7 +102,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
     setScanProgress(0);
     setAlertSent(null);
 
-    const zh = lang === 'zh';
+    const zh = lang !== 'en';
     setAnalysisLog([zh ? '📤 上传视频...' : '📤 Uploading video...']);
 
     // 保存最新的检测结果（用于 GPT 阶段引用）
@@ -297,7 +297,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
   };
 
   const getMethodLabel = (method?: string) => {
-    if (!method) return lang === 'zh' ? '未知' : 'Unknown';
+    if (!method) return lang !== 'en' ? '未知' : 'Unknown';
     const map: Record<string, [string, string]> = {
       ai_video_gpt_factcheck: ['🧠 AI全链路 (BERT+TF-IDF+GPT核查)', '🧠 Full AI Pipeline (BERT+TF-IDF+GPT)'],
       ai_video_upload: ['🤖 AI视频分析 (BERT+TF-IDF)', '🤖 AI Video (BERT+TF-IDF)'],
@@ -311,7 +311,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
       error_fallback: ['⚠️ 降级检测', '⚠️ Fallback'],
     };
     const pair = map[method];
-    return pair ? pair[lang === 'zh' ? 0 : 1] : method;
+    return pair ? pair[lang !== 'en' ? 0 : 1] : method;
   };
 
   const getVerdictLabel = (verdict?: string) => {
@@ -322,7 +322,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
       unverifiable: ['❓ 暂无法核实', '❓ Unverifiable'],
     };
     const pair = verdict ? map[verdict] : undefined;
-    return pair ? pair[lang === 'zh' ? 0 : 1] : (lang === 'zh' ? '未核查' : 'Not checked');
+    return pair ? pair[lang !== 'en' ? 0 : 1] : (lang !== 'en' ? '未核查' : 'Not checked');
   };
 
   const scorePct = Math.round((result?.score ?? 0) * 100);
@@ -393,10 +393,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               <div className="fu-live-header">
                 <span className={`fu-live-dot ${isAnalyzing ? 'scanning' : 'done'}`} />
                 <span>{isAnalyzing
-                  ? (lang === 'zh' ? '🛡️ AI 实时检测中' : '🛡️ AI Real-time Detection')
-                  : (lang === 'zh' ? '✅ 检测完成' : '✅ Detection Complete')
+                  ? (lang !== 'en' ? '🛡️ AI 实时检测中' : '🛡️ AI Real-time Detection')
+                  : (lang !== 'en' ? '✅ 检测完成' : '✅ Detection Complete')
                 }</span>
-                {isAnalyzing && <span className="fu-live-badge">{lang === 'zh' ? '分析中' : 'Analyzing'}</span>}
+                {isAnalyzing && <span className="fu-live-badge">{lang !== 'en' ? '分析中' : 'Analyzing'}</span>}
               </div>
 
               {/* 进度条 */}
@@ -421,7 +421,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* === 识别出的内容（ASR + OCR） === */}
               {result && (result.transcript || result.ocr_text) && (
                 <div className="fu-recognized-content">
-                  <div className="fu-recognized-title">📋 {lang === 'zh' ? '识别出的内容' : 'Recognized Content'}</div>
+                  <div className="fu-recognized-title">📋 {lang !== 'en' ? '识别出的内容' : 'Recognized Content'}</div>
                   {result.transcript && (
                     <div className="fu-recognized-block">
                       <span className="fu-recognized-label">🎙️ ASR</span>
@@ -456,9 +456,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                   {result.level === 'safe' && '✅'}
                 </span>
                 <span className="upload-result-title">
-                  {result.level === 'danger' && (lang === 'zh' ? '高风险内容' : 'High Risk Content')}
-                  {result.level === 'warning' && (lang === 'zh' ? '可疑内容' : 'Suspicious Content')}
-                  {result.level === 'safe' && (lang === 'zh' ? '内容安全' : 'Content Safe')}
+                  {result.level === 'danger' && (lang !== 'en' ? '高风险内容' : 'High Risk Content')}
+                  {result.level === 'warning' && (lang !== 'en' ? '可疑内容' : 'Suspicious Content')}
+                  {result.level === 'safe' && (lang !== 'en' ? '内容安全' : 'Content Safe')}
                 </span>
                 <span className="upload-result-score">{scorePct}/100</span>
               </div>
@@ -469,9 +469,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                   <div className={`result-score-fill ${result.level}`} style={{ width: `${scorePct}%` }} />
                 </div>
                 <div className="result-score-labels">
-                  <span>{lang === 'zh' ? '安全' : 'Safe'}</span>
-                  <span>{lang === 'zh' ? '注意' : 'Caution'}</span>
-                  <span>{lang === 'zh' ? '危险' : 'Danger'}</span>
+                  <span>{lang !== 'en' ? '安全' : 'Safe'}</span>
+                  <span>{lang !== 'en' ? '注意' : 'Caution'}</span>
+                  <span>{lang !== 'en' ? '危险' : 'Danger'}</span>
                 </div>
               </div>
 
@@ -482,16 +482,16 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 </span>
                 {result.confidence != null && (
                   <span className="result-meta-tag confidence">
-                    {lang === 'zh' ? '置信度' : 'Conf'}: {Math.round(result.confidence * 100)}%
+                    {lang !== 'en' ? '置信度' : 'Conf'}: {Math.round(result.confidence * 100)}%
                   </span>
                 )}
                 {result.frames_used != null && result.frames_used > 0 && (
                   <span className="result-meta-tag time">
-                    🎞️ {result.frames_used} {lang === 'zh' ? '帧' : 'frames'}
+                    🎞️ {result.frames_used} {lang !== 'en' ? '帧' : 'frames'}
                   </span>
                 )}
                 <span className="result-meta-tag time">
-                  ⏱️ {result.timestamp ? new Date(result.timestamp).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--'}
+                  ⏱️ {result.timestamp ? new Date(result.timestamp).toLocaleTimeString(lang !== 'en' ? 'zh-CN' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--'}
                 </span>
               </div>
 
@@ -503,8 +503,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                       <div className="fu-model-name">🤖 BERT</div>
                       <div className="fu-model-verdict">
                         {result.bert_score > 0.5
-                          ? (lang === 'zh' ? '⚠️ 风险' : '⚠️ Risky')
-                          : (lang === 'zh' ? '✅ 安全' : '✅ Safe')}
+                          ? (lang !== 'en' ? '⚠️ 风险' : '⚠️ Risky')
+                          : (lang !== 'en' ? '✅ 安全' : '✅ Safe')}
                       </div>
                       <div className="fu-model-bar">
                         <div className={`fu-model-fill ${result.bert_score > 0.5 ? 'risky' : 'safe'}`}
@@ -518,8 +518,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                       <div className="fu-model-name">📊 TF-IDF</div>
                       <div className="fu-model-verdict">
                         {result.tfidf_score > 0.5
-                          ? (lang === 'zh' ? '⚠️ 风险' : '⚠️ Risky')
-                          : (lang === 'zh' ? '✅ 安全' : '✅ Safe')}
+                          ? (lang !== 'en' ? '⚠️ 风险' : '⚠️ Risky')
+                          : (lang !== 'en' ? '✅ 安全' : '✅ Safe')}
                       </div>
                       <div className="fu-model-bar">
                         <div className={`fu-model-fill ${result.tfidf_score > 0.5 ? 'risky' : 'safe'}`}
@@ -534,7 +534,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* === 识别出的内容（在结果卡片内） === */}
               {(result.transcript || result.ocr_text || result.merged_text) && (
                 <div className="fu-result-recognized">
-                  <div className="result-section-title">📋 {lang === 'zh' ? '识别出的视频内容' : 'Recognized Video Content'}</div>
+                  <div className="result-section-title">📋 {lang !== 'en' ? '识别出的视频内容' : 'Recognized Video Content'}</div>
                   {result.ocr_text && (
                     <div className="fu-recog-row">
                       <span className="fu-recog-tag ocr">📝 OCR</span>
@@ -554,7 +554,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                     </div>
                   )}
                   {!result.transcript && !result.ocr_text && !result.merged_text && (
-                    <div className="fu-recog-empty">{lang === 'zh' ? '未识别到视频中的文字或语音内容' : 'No text or speech detected in this video'}</div>
+                    <div className="fu-recog-empty">{lang !== 'en' ? '未识别到视频中的文字或语音内容' : 'No text or speech detected in this video'}</div>
                   )}
                 </div>
               )}
@@ -562,7 +562,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* AI 结论 */}
               {result.message && (
                 <div className="result-conclusion">
-                  <div className="result-section-title">🧠 {lang === 'zh' ? 'AI 综合分析' : 'AI Analysis'}</div>
+                  <div className="result-section-title">🧠 {lang !== 'en' ? 'AI 综合分析' : 'AI Analysis'}</div>
                   <div className="result-conclusion-text">{
                     result.message.split('\n').map(line => translateReason(lang, line)).join('\n')
                   }</div>
@@ -572,7 +572,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* 风险因素 */}
               {(result.reasons || []).length > 0 && (
                 <div className="result-reasons-section">
-                  <div className="result-section-title">⚡ {lang === 'zh' ? '风险因素' : 'Risk Factors'}</div>
+                  <div className="result-section-title">⚡ {lang !== 'en' ? '风险因素' : 'Risk Factors'}</div>
                   <div className="upload-result-reasons">
                     {(result.reasons || []).map((r, i) => (
                       <div key={i} className="reason-item-row">
@@ -587,7 +587,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* 建议 */}
               {(result.suggestions || []).length > 0 && (
                 <div className="result-suggestions-section">
-                  <div className="result-section-title">💡 {lang === 'zh' ? '安全建议' : 'Safety Suggestions'}</div>
+                  <div className="result-section-title">💡 {lang !== 'en' ? '安全建议' : 'Safety Suggestions'}</div>
                   <div className="upload-result-suggestions">
                     {(result.suggestions || []).map((s, i) => (
                       <div key={i} className="suggestion-item-row">
@@ -602,19 +602,19 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* ============ GPT 事实核查（第二阶段，异步追加） ============ */}
               {gptLoading && (
                 <div className="result-gpt-section gpt-loading">
-                  <div className="result-section-title">🔍 {lang === 'zh' ? 'GPT 事实核查中...' : 'GPT Fact-Checking...'}</div>
+                  <div className="result-section-title">🔍 {lang !== 'en' ? 'GPT 事实核查中...' : 'GPT Fact-Checking...'}</div>
                   <div className="gpt-loading-bar">
                     <div className="gpt-loading-fill" />
                   </div>
                   <div className="gpt-loading-hint">
-                    {lang === 'zh' ? 'AI 正在深度分析内容真实性，请稍候...' : 'AI is analyzing content authenticity...'}
+                    {lang !== 'en' ? 'AI 正在深度分析内容真实性，请稍候...' : 'AI is analyzing content authenticity...'}
                   </div>
                 </div>
               )}
 
               {gptResult && (
                 <div className="result-gpt-section gpt-loaded">
-                  <div className="result-section-title">🔍 {lang === 'zh' ? 'GPT 事实核查' : 'GPT Fact Check'}</div>
+                  <div className="result-section-title">🔍 {lang !== 'en' ? 'GPT 事实核查' : 'GPT Fact Check'}</div>
                   <div className="gpt-verdict-row">
                     <span className={`gpt-verdict-badge ${gptResult.verdict}`}>
                       {getVerdictLabel(gptResult.verdict)}
@@ -636,16 +636,16 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                   {/* === 虚假信息 vs 正确信息 对比 === */}
                   {gptResult.false_claims && gptResult.false_claims.length > 0 && (
                     <div className="gpt-false-claims-section">
-                      <div className="result-section-title">🚨 {lang === 'zh' ? '虚假信息核查' : 'False Claims Identified'}</div>
+                      <div className="result-section-title">🚨 {lang !== 'en' ? '虚假信息核查' : 'False Claims Identified'}</div>
                       {gptResult.false_claims.map((claim, i) => (
                         <div key={i} className={`false-claim-card severity-${claim.severity || 'medium'}`}>
                           <div className="false-claim-original">
-                            <span className="claim-label claim-false">❌ {lang === 'zh' ? '虚假' : 'False'}</span>
+                            <span className="claim-label claim-false">❌ {lang !== 'en' ? '虚假' : 'False'}</span>
                             <span className="claim-text">{claim.original}</span>
                           </div>
                           <div className="false-claim-arrow">↓</div>
                           <div className="false-claim-correction">
-                            <span className="claim-label claim-correct">✅ {lang === 'zh' ? '正确' : 'Correct'}</span>
+                            <span className="claim-label claim-correct">✅ {lang !== 'en' ? '正确' : 'Correct'}</span>
                             <span className="claim-text">{claim.correction}</span>
                           </div>
                         </div>
@@ -679,14 +679,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
               {/* 推送状态 */}
               {alertSent && (
                 <div className={`fu-alert-badge ${alertSent}`}>
-                  {alertSent === 'sending' && (lang === 'zh' ? '📡 正在推送企业微信...' : '📡 Sending to WeCom...')}
-                  {alertSent === 'sent' && (lang === 'zh' ? '✅ 已推送企业微信告警' : '✅ Alert sent to WeCom')}
-                  {alertSent === 'failed' && (lang === 'zh' ? '❌ 推送失败' : '❌ Push failed')}
+                  {alertSent === 'sending' && (lang !== 'en' ? '📡 正在推送企业微信...' : '📡 Sending to WeCom...')}
+                  {alertSent === 'sent' && (lang !== 'en' ? '✅ 已推送企业微信告警' : '✅ Alert sent to WeCom')}
+                  {alertSent === 'failed' && (lang !== 'en' ? '❌ 推送失败' : '❌ Push failed')}
                 </div>
               )}
 
               <button className="reupload-btn" onClick={handleRemove}>
-                🔄 {lang === 'zh' ? '重新上传' : 'Upload Another'}
+                🔄 {lang !== 'en' ? '重新上传' : 'Upload Another'}
               </button>
             </div>
           )}

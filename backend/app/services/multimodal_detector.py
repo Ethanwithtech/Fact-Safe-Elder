@@ -621,6 +621,10 @@ class MultimodalDetector:
         "赌博", "挖矿", "博彩", "彩票预测", "赌场", "下注",
         "财务自由", "日赚千元", "月入十万", "躺赚", "被动收入",
         "保本保息", "年化收益", "翻倍", "百倍收益",
+        # 粤语 / 香港常见金融诈骗话术
+        "保證回報", "冇風險", "無風險", "高息", "穩賺", "包賺",
+        "轉數快", "FPS", "入數", "匯款", "加我WhatsApp", "加我微信",
+        "股票貼士", "內幕消息", "退休投資", "長者投資",
         # English
         "guaranteed return", "no risk", "free money", "get rich",
         "mining", "gambling", "casino", "bet", "cheat",
@@ -633,6 +637,9 @@ class MultimodalDetector:
         "包治百病", "神奇疗效", "祖传秘方", "一次根治", "永不复发",
         "药到病除", "100%治愈", "三天见效", "医院不告诉你", "特效药",
         "保健品", "偏方", "土方", "民间验方", "癌症克星", "延年益寿",
+        # 粤语 / 繁体健康误导话术
+        "包醫百病", "祖傳秘方", "神奇療效", "三日見效", "醫院唔會話你知",
+        "保健產品", "長壽秘方", "降血糖", "通血管", "冇副作用",
         # English
         "miracle cure", "cure all", "secret remedy", "guaranteed cure",
         "doctors hate", "big pharma", "anti-aging", "detox",
@@ -642,6 +649,9 @@ class MultimodalDetector:
         # 中文
         "赶紧", "立即", "马上", "紧急", "限时", "截止今晚",
         "最后一天", "错过后悔", "机不可失", "名额有限",
+        # 粤语紧迫性话术
+        "即刻", "而家", "快啲", "限時", "今晚截止", "最後機會",
+        "唔好錯過", "名額有限", "只限今日",
         # English
         "urgent", "hurry", "act now", "limited time", "don't miss",
         "last chance", "expires today", "click now",

@@ -69,10 +69,7 @@ body {
 .header-left h1 {
   font-size: 18px;
   font-weight: 700;
-  background: linear-gradient(135deg, var(--accent-blue, #60a5fa), var(--accent-purple, #a78bfa));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+    color: var(--text-primary, #fff);
   line-height: 1.2;
 }
 
@@ -130,8 +127,8 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--green-glow, #00ff88);
-  box-shadow: 0 0 8px var(--green-glow, #00ff88);
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255,255,255,0.5);
   animation: pulse 2s infinite;
 }
 
@@ -177,14 +174,29 @@ body {
 @media (max-width: 768px) {
   .header-inner {
     padding: 0 12px;
+    height: 54px;
   }
 
   .header-left h1 {
     font-size: 16px;
   }
 
-  .header-stat {
+  .header-left p,
+  .header-stat,
+  .header-status {
     display: none;
+  }
+
+  .header-right {
+    gap: 6px;
+  }
+
+  .settings-btn,
+  .theme-toggle-btn,
+  .lang-toggle-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 9px;
   }
 }
 
