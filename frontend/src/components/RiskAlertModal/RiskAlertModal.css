@@ -1,0 +1,120 @@
+.risk-alert-backdrop.elder-layer1 {
+  position: absolute;
+  inset: 0;
+  z-index: 960;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  background: rgba(120, 120, 120, 0.3);
+  animation: riskAlertFade 0.25s ease-out;
+}
+
+.elder-layer1-card {
+  width: 100%;
+  max-width: 320px;
+  padding: 24px 20px 20px;
+  border-radius: 24px;
+  text-align: center;
+  background: #ffffff;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  border: none;
+}
+
+.elder-warn-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 4px solid #ffeb3b;
+  background: #fff5f5;
+  filter: drop-shadow(0 2px 4px rgba(198, 40, 40, 0.2));
+}
+
+.risk-alert-kicker {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #555;
+}
+
+.risk-alert-headline {
+  margin: 0 0 22px;
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.45;
+  color: #c62828;
+}
+
+.elder-actions-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  justify-content: center;
+}
+
+.risk-alert-btn.elder-btn-stop,
+.risk-alert-btn.elder-btn-why {
+  flex: 1;
+  max-width: 120px;
+  min-height: 90px;
+  min-width: 90px;
+  padding: 12px 8px;
+  border-radius: 24px;
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.risk-alert-btn.elder-btn-stop {
+  background: #f57c00;
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(245, 124, 0, 0.4);
+}
+
+.risk-alert-btn.elder-btn-stop:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.risk-alert-btn.elder-btn-why {
+  background: #fff;
+  color: #666;
+  border: 2px solid #bbb;
+}
+
+.risk-alert-dismiss {
+  margin-top: 14px;
+  border: none;
+  background: transparent;
+  color: #888;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.risk-alert-hint {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: #999;
+  font-weight: 600;
+}
+
+@keyframes riskAlertFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

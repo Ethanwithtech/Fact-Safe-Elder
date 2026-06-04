@@ -12,6 +12,7 @@
 import os
 import sys
 import asyncio
+import json
 import tempfile
 import subprocess
 from typing import Dict, List, Any, Optional, Tuple
@@ -55,20 +56,113 @@ except ImportError:
 
 # 尝试导入家人通知服务
 try:
-    from services.family_notification import FamilyNotificationService
+    from app.services.family_notification import (
+        FamilyNotificationService,
+        MultiLevelAlertSystem,
+        AlertEvent,
+        FamilyContact,
+        NotificationType,
+        get_notification_service,
+        get_alert_system,
+    )
+    from app.services.family_notification import RiskLevel as NotifyRiskLevel
     NOTIFICATION_AVAILABLE = True
 except ImportError:
-    NOTIFICATION_AVAILABLE = False
+    try:
+        from services.family_notification import (
+            FamilyNotificationService,
+            MultiLevelAlertSystem,
+            AlertEvent,
+            FamilyContact,
+            NotificationType,
+            get_notification_service,
+            get_alert_system,
+        )
+        from services.family_notification import RiskLevel as NotifyRiskLevel
+        NOTIFICATION_AVAILABLE = True
+    except ImportError:
+        NOTIFICATION_AVAILABLE = False
+
+# 尝试导入 PII 脱敏模块（Section 5.5.1 - Privacy Protection）
+try:
+    from app.core.pii_redaction import redact_pii
+    PII_REDACTION_AVAILABLE = True
+except ImportError:
+    try:
+        from core.pii_redaction import redact_pii
+        PII_REDACTION_AVAILABLE = True
+    except ImportError:
+        PII_REDACTION_AVAILABLE = False
+
+        def redact_pii(text: str, aggressive: bool = False) -> str:
+            return text
+
+# 尝试导入诈骗案例库语义检索（突破点4: 证据链可解释）
+try:
+    from app.services.case_retriever import get_case_retriever
+    CASE_RETRIEVER_AVAILABLE = True
+except ImportError:
+    try:
+        from services.case_retriever import get_case_retriever
+        CASE_RETRIEVER_AVAILABLE = True
+    except ImportError:
+        CASE_RETRIEVER_AVAILABLE = False
+
+
+def _attach_evidence_chain(detection_result: Dict[str, Any], text: str) -> None:
+    """统一为检测结果挂载证据链(手法标注+关联真实案例)。突破点4。"""
+    if not CASE_RETRIEVER_AVAILABLE or not text:
+        return
+    try:
+        retriever = get_case_retriever()
+        ev = retriever.build_evidence_chain(
+            text, detection_result.get("manipulation_features") or []
+        )
+        detection_result["evidence_chain"] = ev
+        detection_result["related_cases"] = ev.get("cases", [])
+        if ev.get("summary"):
+            detection_result.setdefault("reasons", [])
+            if ev["summary"] not in detection_result["reasons"]:
+                detection_result["reasons"].append(f"📚 {ev['summary']}")
+    except Exception as e:
+        logger.debug(f"证据链构建跳过: {e}")
+
+
+def _normalize_detect_sensitivity(s: Optional[str]) -> str:
+    """将前端/设置中的敏感度映射为 detect() 的 precision/balanced/recall。"""
+    key = (s or "balanced").lower()
+    mapping = {
+        "low": "precision", "precision": "precision", "strict": "precision",
+        "normal": "balanced", "balanced": "balanced", "medium": "balanced",
+        "high": "recall", "recall": "recall", "sensitive": "recall",
+    }
+    return mapping.get(key, "balanced")
+
+
+FEEDBACK_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "raw", "user_feedback.jsonl")
 
 
 # === 数据模型 ===
 
 class DetectionRequest(BaseModel):
     """检测请求"""
-    text: str = Field(..., description="待检测文本内容", min_length=1)
-    audio_text: Optional[str] = Field(None, description="音频转写文本")
+    text: str = Field(..., description="待检测文本内容（通常为语音 ASR）", min_length=1)
+    audio_text: Optional[str] = Field(None, description="音频转写 ASR，与 text 二选一或互补")
+    ocr_text: Optional[str] = Field(None, description="画面字幕/OCR 文案")
+    title: Optional[str] = Field(None, description="视频标题，用于跨模态与摘要")
     source: Optional[str] = Field("api", description="请求来源")
     user_id: Optional[str] = Field(None, description="用户ID")
+    sensitivity: Optional[str] = Field("balanced", description="precision/balanced/recall 或 low/normal/high")
+
+
+class UserFeedbackRequest(BaseModel):
+    """用户误报/漏报反馈 — 用于迭代模型、控制误报率"""
+    content_snippet: str = Field(..., min_length=1, max_length=2000)
+    predicted_level: str = Field(..., description="safe|warning|danger")
+    predicted_score: float = Field(0.0, ge=0.0, le=1.0)
+    feedback_type: str = Field(..., description="false_positive|false_negative|correct")
+    user_id: Optional[str] = None
+    comment: Optional[str] = None
 
 class DetectionResponse(BaseModel):
     """检测响应"""
@@ -76,12 +170,31 @@ class DetectionResponse(BaseModel):
     message: str
     data: Optional[Dict[str, Any]] = None
 
+class FamilyContactPayload(BaseModel):
+    """家人联系方式（来自前端设置）"""
+    name: str = "家人"
+    relationship: str = "子女"
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    wechat_openid: Optional[str] = None
+    # IM 联系方式(可选，按联系人覆盖全局 webhook/号码)
+    wecom_webhook: Optional[str] = None
+    feishu_webhook: Optional[str] = None
+    whatsapp_phone: Optional[str] = None
+    channels: Optional[List[str]] = None  # ["wechat","wecom","feishu","whatsapp","sms","email","push"]
+
+
 class FamilyNotifyRequest(BaseModel):
     """家人通知请求"""
     elderly_user_id: str
     risk_level: str
     content_summary: str
     video_link: Optional[str] = None
+    platform: Optional[str] = "短视频"
+    reasons: Optional[List[str]] = None
+    suggestions: Optional[List[str]] = None
+    sensitivity: Optional[str] = "normal"  # low / normal / high
+    contacts: Optional[List[FamilyContactPayload]] = None
 
 class HealthResponse(BaseModel):
     """健康检查响应"""
@@ -90,6 +203,7 @@ class HealthResponse(BaseModel):
     ai_available: bool
     version: str
     timestamp: str
+    models: Optional[Dict[str, Any]] = None
 
 
 # === 规则引擎检测 ===
@@ -407,6 +521,7 @@ async def lifespan(app: FastAPI):
     
     bert_model_path = None
     simple_model_path = None
+    cognitive_model_path = None
     
     for root in possible_roots:
         p = root / "best_text_model.pt"
@@ -417,13 +532,19 @@ async def lifespan(app: FastAPI):
         if p2.exists() and simple_model_path is None:
             simple_model_path = str(p2)
             logger.info(f"发现简单AI模型: {simple_model_path} ({p2.stat().st_size / 1024:.0f}KB)")
+        for cog_name in ("elder_cognitive_model.pt", "models/elder_cognitive_model.pt"):
+            p3 = root / cog_name
+            if p3.exists() and cognitive_model_path is None:
+                cognitive_model_path = str(p3)
+                logger.info(f"发现认知特征模型: {cognitive_model_path} ({p3.stat().st_size / 1024 / 1024:.0f}MB)")
     
     # 尝试初始化AI检测器
     if AI_AVAILABLE:
         try:
             ai_detector = MultimodalDetector(
                 model_path=bert_model_path,
-                simple_model_path=simple_model_path
+                simple_model_path=simple_model_path,
+                cognitive_model_path=cognitive_model_path,
             )
             logger.info("✓ AI检测器初始化成功")
         except Exception as e:
@@ -501,15 +622,56 @@ async def root():
     )
 
 
+def _collect_model_status() -> Dict[str, Any]:
+    """汇总本地权重与运行时加载状态（供 /health 与答辩演示）。"""
+    import pathlib
+    roots = [
+        pathlib.Path(__file__).resolve().parent.parent.parent,
+        pathlib.Path.cwd(),
+    ]
+    files = {
+        "best_text_model.pt": False,
+        "simple_ai_model.joblib": False,
+        "elder_cognitive_model.pt": False,
+    }
+    sizes_mb: Dict[str, float] = {}
+    for root in roots:
+        for name in files:
+            p = root / name
+            if p.is_file():
+                files[name] = True
+                sizes_mb[name] = round(p.stat().st_size / 1024 / 1024, 1)
+
+    loaded = {
+        "bert_text": False,
+        "tfidf_ensemble": False,
+        "cognitive_multitask": False,
+    }
+    if ai_detector is not None:
+        loaded["bert_text"] = bool(getattr(ai_detector, "_text_model_loaded", False))
+        loaded["tfidf_ensemble"] = bool(getattr(ai_detector, "_simple_model_loaded", False))
+        loaded["cognitive_multitask"] = bool(getattr(ai_detector, "_cognitive_model_loaded", False))
+
+    all_ready = all(files.values()) and all(loaded.values())
+    return {
+        "files_present": files,
+        "files_size_mb": sizes_mb,
+        "runtime_loaded": loaded,
+        "all_models_ready": all_ready,
+    }
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """健康检查"""
+    model_status = _collect_model_status()
     return HealthResponse(
         status="healthy",
-        message="服务运行正常",
+        message="服务运行正常" if model_status.get("all_models_ready") else "服务运行中（部分模型未加载）",
         ai_available=ai_detector is not None,
         version="2.0.0",
-        timestamp=datetime.now().isoformat()
+        timestamp=datetime.now().isoformat(),
+        models=model_status,
     )
 
 
@@ -539,23 +701,30 @@ async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
     - 自动选择AI或规则引擎
     """
     try:
-        # 合并文本
-        text = request.text
-        if request.audio_text:
-            text = f"{text} {request.audio_text}"
-        
-        if not text.strip():
+        asr_text = (request.audio_text or request.text or "").strip()
+        ocr_text = (request.ocr_text or "").strip()
+        title = (request.title or "").strip()
+        # 语义模型主要看口播；标题+描述并入 OCR 侧做跨模态
+        if not asr_text and not ocr_text:
             raise HTTPException(status_code=400, detail="文本内容不能为空")
-        
-        # PII 脱敏 (Section 5.5.1 - Privacy Protection)
+
         if PII_REDACTION_AVAILABLE:
-            text = redact_pii(text, aggressive=False)
+            asr_text = redact_pii(asr_text, aggressive=False)
+            if ocr_text:
+                ocr_text = redact_pii(ocr_text, aggressive=False)
+
+        merged_for_detect = asr_text
+        if title and title not in asr_text:
+            merged_for_detect = f"{title} {asr_text}".strip()
         
         # 执行检测
         if ai_detector is not None:
             # 使用AI检测
             try:
-                result = await ai_detector.detect(text)
+                result = await ai_detector.detect(
+                    merged_for_detect,
+                    sensitivity=_normalize_detect_sensitivity(request.sensitivity),
+                )
                 detection_result = {
                     "level": result.risk_level.value,
                     "score": result.risk_score,
@@ -567,17 +736,63 @@ async def detect(request: DetectionRequest, background_tasks: BackgroundTasks):
                     "visual_risk": result.visual_risk,
                     "audio_risk": result.audio_risk,
                     "detection_method": getattr(result, 'detection_method', 'ai_multimodal'),
-                    "inference_time": result.inference_time
+                    "inference_time": result.inference_time,
+                    "manipulation_features": getattr(result, 'manipulation_features', None) or [],
+                    "manipulation_detail": getattr(result, 'manipulation_detail', None) or [],
+                    "manipulation_source": getattr(result, 'manipulation_source', None),
+                    "cognitive_risk": getattr(result, 'cognitive_risk', None),
                 }
             except Exception as e:
                 logger.warning(f"AI检测失败，回退到规则引擎: {e}")
-                detection_result = rule_detector.detect(text)
+                detection_result = rule_detector.detect(merged_for_detect)
         else:
             # 使用规则引擎
-            detection_result = rule_detector.detect(text)
+            detection_result = rule_detector.detect(merged_for_detect)
+
+        # ASR / OCR 跨模态错位（有双通道时才做）
+        if ocr_text and asr_text:
+            ocr_full = f"{title} {ocr_text}".strip() if title else ocr_text
+            _, conflict = await _crossmodal_analyze(asr_text, ocr_full, title)
+            if conflict:
+                detection_result["asr_ocr_conflict"] = conflict
+                if conflict.get("conflict"):
+                    sev = conflict.get("severity", "medium")
+                    boost = 0.22 if sev == "high" else 0.12
+                    detection_result["score"] = min(1.0, float(detection_result.get("score", 0)) + boost)
+                    if detection_result["score"] >= 0.75:
+                        detection_result["level"] = "danger"
+                    elif detection_result["score"] >= 0.52 and detection_result.get("level") == "safe":
+                        detection_result["level"] = "warning"
+                    reason_plain = conflict.get("reason") or "画面文字与语音内容不一致"
+                    if reason_plain not in (detection_result.get("reasons") or []):
+                        detection_result.setdefault("reasons", []).insert(
+                            0, f"跨模态：{reason_plain}"
+                        )
+
+        detection_result["merged_text"] = f"{ocr_text}\n{asr_text}".strip() if ocr_text else asr_text
+        if ocr_text:
+            detection_result.setdefault("reasons", [])
+            if not any("OCR" in r or "画面" in r for r in detection_result["reasons"][:3]):
+                detection_result["reasons"].append(f"画面文案：「{ocr_text[:36]}{'…' if len(ocr_text) > 36 else ''}」")
+        if asr_text:
+            detection_result.setdefault("reasons", [])
+            if not any("语音" in r or "口播" in r for r in detection_result["reasons"][:3]):
+                detection_result["reasons"].append(f"语音内容：「{asr_text[:36]}{'…' if len(asr_text) > 36 else ''}」")
+
+        detection_result["message"] = _build_content_summary(
+            detection_result.get("level", "safe"),
+            detection_result.get("merged_text", merged_for_detect),
+            asr_text,
+            ocr_text,
+            detection_result.get("message", ""),
+            detection_result.get("reasons") or [],
+        )
         
+        # 突破点4: 证据链 + 真实案例关联
+        _attach_evidence_chain(detection_result, merged_for_detect)
+
         # 生成检测ID
-        detection_result["detection_id"] = f"det_{hash(text) % 100000}_{int(datetime.now().timestamp())}"
+        detection_result["detection_id"] = f"det_{hash(merged_for_detect) % 100000}_{int(datetime.now().timestamp())}"
         
         return DetectionResponse(
             success=True,
@@ -680,6 +895,43 @@ def _detect_asr_ocr_conflict(
     return conflict
 
 
+async def _crossmodal_analyze(
+    transcript: str, ocr_text: str, title: str = ""
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    """
+    跨模态意图联合推理统一入口 (突破点1)
+
+    1. 优先用模型级联合推理 (ai_detector.cross_modal_reason)，得到 visual_risk/audio_risk/divergence 与错位判定
+    2. 模型不可用或未判定时，回退到关键词规则 (_detect_asr_ocr_conflict)
+    3. 若开启 ENABLE_CROSSMODAL_COT，附加 GPT 多模态思维链解释
+
+    返回: (reason_dict, conflict_dict)
+    """
+    reason = None
+    if ai_detector is not None and hasattr(ai_detector, "cross_modal_reason"):
+        try:
+            reason = await ai_detector.cross_modal_reason(ocr_text or "", transcript or "", title)
+        except Exception as e:
+            logger.warning(f"跨模态联合推理失败，回退规则: {e}")
+
+    conflict = (reason or {}).get("conflict")
+    if not conflict:
+        conflict = _detect_asr_ocr_conflict(transcript, ocr_text)
+
+    # 可选: GPT 多模态思维链解释（默认关闭以保证演示低延迟）
+    if conflict and os.environ.get("ENABLE_CROSSMODAL_COT", "0") == "1":
+        try:
+            from app.services.gpt_fact_checker import get_fact_checker
+            cot = await get_fact_checker().crossmodal_cot(ocr_text or "", transcript or "", title)
+            if cot.get("available") and cot.get("cot"):
+                conflict["cot_explanation"] = cot.get("cot")
+                conflict["method"] = "gpt_cot"
+        except Exception as e:
+            logger.debug(f"GPT 跨模态 CoT 跳过: {e}")
+
+    return reason, conflict
+
+
 def _build_content_summary(
     level: str,
     merged_text: str,
@@ -727,6 +979,7 @@ async def detect_video(
     video: UploadFile = File(..., description="待检测视频文件"),
     text: str = Form("", description="可选：视频标题/简介/字幕等文本"),
     user_id: Optional[str] = Form(None, description="可选：用户ID"),
+    sensitivity: Optional[str] = Form("balanced", description="precision/balanced/recall"),
 ):
     """
     上传视频验证（模拟短视频虚假识别）：
@@ -794,7 +1047,7 @@ async def detect_video(
                 image = best_img
 
             # 用合并后的全部文本（OCR + ASR）跑 AI 模型
-            result = await ai_detector.detect({"text": merged_text or " ", "image": image})
+            result = await ai_detector.detect({"text": merged_text or " ", "image": image}, sensitivity=_normalize_detect_sensitivity(sensitivity))
 
             ai_message = _build_content_summary(
                 result.risk_level.value, merged_text, transcript, ocr_text,
@@ -818,6 +1071,10 @@ async def detect_video(
                 "frames_used": len(frames),
                 "bert_score": round(result.bert_score, 4) if result.bert_score is not None else None,
                 "tfidf_score": round(result.tfidf_score, 4) if result.tfidf_score is not None else None,
+                "manipulation_features": getattr(result, 'manipulation_features', None) or [],
+                "manipulation_detail": getattr(result, 'manipulation_detail', None) or [],
+                "manipulation_source": getattr(result, 'manipulation_source', None),
+                "cognitive_risk": getattr(result, 'cognitive_risk', None),
                 # 各阶段耗时（前端可展示）
                 "timing": {
                     "ocr_asr_seconds": t_total,
@@ -837,8 +1094,16 @@ async def detect_video(
         # 这里只返回 merged_text 供前端二次请求
         detection_result["merged_text"] = merged_text[:2000] if merged_text else ""
 
-        # ★ ASR vs OCR 冲突检测
-        conflict = _detect_asr_ocr_conflict(transcript, ocr_text)
+        # ★ 跨模态意图联合推理（突破点1）
+        cm_reason, conflict = await _crossmodal_analyze(transcript, ocr_text, text)
+        if cm_reason:
+            # 让 visual_risk / audio_risk 反映真实的逐通道风险（不再恒为 0）
+            detection_result["visual_risk"] = cm_reason.get("visual_risk", detection_result.get("visual_risk", 0.0))
+            detection_result["audio_risk"] = cm_reason.get("audio_risk", detection_result.get("audio_risk", 0.0))
+            detection_result["crossmodal"] = {
+                k: cm_reason.get(k)
+                for k in ("visual_risk", "audio_risk", "joint_risk", "divergence", "coupling", "mismatch", "method")
+            }
         if conflict and conflict.get("conflict"):
             detection_result["asr_ocr_conflict"] = conflict
             # 冲突 = 高危信号，提升风险等级
@@ -850,9 +1115,12 @@ async def detect_video(
                     detection_result["level"] = "danger"
                     detection_result["score"] = max(detection_result.get("score", 0), 0.75)
             detection_result.setdefault("reasons", []).insert(0,
-                f"⚠️ ASR/OCR 冲突: {conflict['reason']}"
+                f"⚠️ 跨模态错位: {conflict['reason']}"
             )
-            logger.info(f"ASR/OCR 冲突已标记: severity={conflict['severity']}, level→{detection_result['level']}")
+            logger.info(f"跨模态错位已标记: severity={conflict['severity']}, method={conflict.get('method')}, level→{detection_result['level']}")
+
+        # 突破点4: 证据链 + 真实案例关联
+        _attach_evidence_chain(detection_result, merged_text)
 
         detection_result["detection_id"] = f"vid_{hash(video.filename) % 100000}_{int(datetime.now().timestamp())}"
 
@@ -875,6 +1143,7 @@ async def detect_video(
 async def detect_video_stream(
     video: UploadFile = File(...),
     text: str = Form(""),
+    sensitivity: str = Form("balanced"),
 ):
     """
     SSE 流式视频检测 — 每完成一个阶段立即推送给前端
@@ -913,6 +1182,15 @@ async def detect_video_stream(
             all_ocr_texts: List[str] = []
             accumulated_text = (text or "").strip()
 
+            # 突破点3: 消费端实时流式防护 —— 风险随"观看进度"累计升级
+            risk_trajectory: List[Dict[str, Any]] = []
+            cumulative_score = 0.0
+            prev_level = "safe"
+            seg_idx = 0
+
+            def _level_of(score: float) -> str:
+                return "danger" if score > 0.65 else ("warning" if score > 0.35 else "safe")
+
             for i, frame in enumerate(frames):
                 t1 = _time.time()
                 frame_ocr = _try_ocr_frames([frame], max_chars=500)
@@ -931,7 +1209,7 @@ async def detect_video_stream(
 
                     # ★ 有新 OCR 文本就立即跑一次 AI 分析
                     if ai_detector is not None and len(accumulated_text) > 5:
-                        quick_result = await ai_detector.detect({"text": accumulated_text, "image": frame})
+                        quick_result = await ai_detector.detect({"text": accumulated_text, "image": frame}, sensitivity=_normalize_detect_sensitivity(sensitivity))
                         yield sse("ai", {
                             "stage": f"ocr_frame_{i}",
                             "level": quick_result.risk_level.value,
@@ -941,8 +1219,25 @@ async def detect_video_stream(
                             "tfidf_score": round(quick_result.tfidf_score, 4) if quick_result.tfidf_score is not None else None,
                             "reasons": list(quick_result.reasons),
                             "suggestions": list(quick_result.suggestions),
+                            "manipulation_features": list(getattr(quick_result, 'manipulation_features', None) or []),
                             "text_analyzed": accumulated_text[:200],
                         })
+
+                        # 累计风险轨迹（单调升级，模拟观看越久暴露越多）
+                        seg_idx += 1
+                        cumulative_score = max(cumulative_score, float(quick_result.risk_score))
+                        cur_level = _level_of(cumulative_score)
+                        escalated = cur_level != prev_level
+                        risk_trajectory.append({
+                            "t": seg_idx, "score": round(cumulative_score, 3),
+                            "level": cur_level, "note": f"画面第{i+1}帧",
+                        })
+                        yield sse("progress_risk", {
+                            "stage": f"ocr_frame_{i}", "t": seg_idx,
+                            "score": round(cumulative_score, 3), "level": cur_level,
+                            "escalated": escalated, "source": "ocr",
+                        })
+                        prev_level = cur_level
                 else:
                     yield sse("ocr", {"frame_idx": i, "text": "", "time": ocr_time, "duplicate": True})
 
@@ -954,6 +1249,32 @@ async def detect_video_stream(
             transcript = await loop.run_in_executor(None, _try_transcribe_whisper, tmp_path)
             yield sse("asr", {"status": "done", "text": transcript[:500] if transcript else ""})
 
+            # === 第 3.5 步：ASR 时间窗滑动增量推理（逐句累计上下文）===
+            if transcript and ai_detector is not None:
+                import re as _re_seg
+                segments = [c for c in _re_seg.split(r"[。！？!?,，;；\n]", transcript) if c.strip()]
+                window_text = accumulated_text  # 以 OCR + 标题为上下文基底
+                for ch in segments:
+                    ch = ch.strip()
+                    if len(ch) < 2:
+                        continue
+                    window_text = f"{window_text}\n{ch}".strip()
+                    seg_idx += 1
+                    wr = await ai_detector.detect({"text": window_text}, sensitivity=_normalize_detect_sensitivity(sensitivity))
+                    cumulative_score = max(cumulative_score, float(wr.risk_score))
+                    cur_level = _level_of(cumulative_score)
+                    escalated = cur_level != prev_level
+                    risk_trajectory.append({
+                        "t": seg_idx, "score": round(cumulative_score, 3),
+                        "level": cur_level, "note": f"语音片段：{ch[:18]}",
+                    })
+                    yield sse("progress_risk", {
+                        "stage": f"asr_seg_{seg_idx}", "t": seg_idx,
+                        "score": round(cumulative_score, 3), "level": cur_level,
+                        "escalated": escalated, "source": "asr", "segment": ch[:40],
+                    })
+                    prev_level = cur_level
+
             # ASR 完成后更新 accumulated_text
             if transcript:
                 accumulated_text = f"{accumulated_text}\n{transcript}".strip()
@@ -962,7 +1283,7 @@ async def detect_video_stream(
             merged_text = accumulated_text
             if ai_detector is not None:
                 image = frames[0] if frames else None
-                result = await ai_detector.detect({"text": merged_text or " ", "image": image})
+                result = await ai_detector.detect({"text": merged_text or " ", "image": image}, sensitivity=_normalize_detect_sensitivity(sensitivity))
                 ai_message = _build_content_summary(
                     result.risk_level.value, merged_text, transcript, ocr_text,
                     result.explanation or "", list(result.reasons),
@@ -980,6 +1301,10 @@ async def detect_video_stream(
                     "frames_used": len(frames),
                     "bert_score": round(result.bert_score, 4) if result.bert_score is not None else None,
                     "tfidf_score": round(result.tfidf_score, 4) if result.tfidf_score is not None else None,
+                    "manipulation_features": getattr(result, 'manipulation_features', None) or [],
+                    "manipulation_detail": getattr(result, 'manipulation_detail', None) or [],
+                    "manipulation_source": getattr(result, 'manipulation_source', None),
+                    "cognitive_risk": getattr(result, 'cognitive_risk', None),
                     "merged_text": merged_text[:2000] if merged_text else "",
                 }
             else:
@@ -992,8 +1317,15 @@ async def detect_video_stream(
                     "merged_text": merged_text[:2000] if merged_text else "",
                 })
 
-            # ASR/OCR 冲突检测
-            conflict = _detect_asr_ocr_conflict(transcript, ocr_text)
+            # 跨模态意图联合推理（突破点1）
+            cm_reason, conflict = await _crossmodal_analyze(transcript, ocr_text, text)
+            if cm_reason:
+                detection_result["visual_risk"] = cm_reason.get("visual_risk", 0.0)
+                detection_result["audio_risk"] = cm_reason.get("audio_risk", 0.0)
+                detection_result["crossmodal"] = {
+                    k: cm_reason.get(k)
+                    for k in ("visual_risk", "audio_risk", "joint_risk", "divergence", "coupling", "mismatch", "method")
+                }
             if conflict and conflict.get("conflict"):
                 detection_result["asr_ocr_conflict"] = conflict
                 if conflict["severity"] == "high":
@@ -1003,8 +1335,17 @@ async def detect_video_stream(
                     elif detection_result["level"] == "warning":
                         detection_result["level"] = "danger"
                         detection_result["score"] = max(detection_result.get("score", 0), 0.75)
-                detection_result.setdefault("reasons", []).insert(0, f"⚠️ ASR/OCR 冲突: {conflict['reason']}")
+                detection_result.setdefault("reasons", []).insert(0, f"⚠️ 跨模态错位: {conflict['reason']}")
                 yield sse("conflict", conflict)
+
+            # 突破点4: 证据链 + 真实案例关联
+            _attach_evidence_chain(detection_result, merged_text)
+            if detection_result.get("evidence_chain"):
+                yield sse("evidence", detection_result["evidence_chain"])
+
+            # 突破点3: 把整段观看过程的风险升级轨迹附在结果里
+            detection_result["risk_trajectory"] = risk_trajectory
+            detection_result["peak_risk"] = round(cumulative_score, 3)
 
             yield sse("ai", {"stage": "final", **detection_result})
             yield sse("done", detection_result)
@@ -1026,6 +1367,33 @@ async def detect_video_stream(
     )
 
 
+@app.post("/feedback")
+async def submit_user_feedback(request: UserFeedbackRequest):
+    """
+    用户反馈接口 — 标记误报/漏报/正确，用于控制误报率并迭代模型。
+    数据写入 data/raw/user_feedback.jsonl（不含完整视频，仅文本摘要）。
+    """
+    allowed = {"false_positive", "false_negative", "correct"}
+    fb = (request.feedback_type or "").lower()
+    if fb not in allowed:
+        raise HTTPException(status_code=400, detail=f"feedback_type 必须是 {allowed}")
+
+    record = {
+        "timestamp": datetime.now().isoformat(),
+        "user_id": request.user_id,
+        "content_snippet": (request.content_snippet or "")[:500],
+        "predicted_level": request.predicted_level,
+        "predicted_score": round(float(request.predicted_score), 4),
+        "feedback_type": fb,
+        "comment": (request.comment or "")[:300],
+    }
+    os.makedirs(os.path.dirname(FEEDBACK_PATH), exist_ok=True)
+    with open(FEEDBACK_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    logger.info(f"用户反馈已记录: {fb} level={request.predicted_level}")
+    return {"success": True, "message": "感谢您的反馈，将用于降低误报并改进模型", "data": record}
+
+
 @app.post("/notify-family")
 async def notify_family(request: FamilyNotifyRequest):
     """
@@ -1039,21 +1407,101 @@ async def notify_family(request: FamilyNotifyRequest):
                 "success": False,
                 "message": "通知服务暂不可用"
             }
-        
-        # TODO: 实现实际的通知逻辑
-        logger.info(f"发送家人通知: 用户={request.elderly_user_id}, 风险={request.risk_level}")
-        
+
+        # 风险等级映射到通知服务枚举
+        level_map = {
+            "safe": NotifyRiskLevel.SAFE,
+            "warning": NotifyRiskLevel.WARNING,
+            "danger": NotifyRiskLevel.DANGER,
+        }
+        notify_level = level_map.get((request.risk_level or "").lower(), NotifyRiskLevel.DANGER)
+
+        # 构建预警事件
+        event = AlertEvent(
+            event_id=f"evt_{request.elderly_user_id}_{int(datetime.now().timestamp())}",
+            user_id=request.elderly_user_id,
+            risk_level=notify_level,
+            content_summary=request.content_summary or "",
+            detection_time=datetime.now(),
+            reasons=request.reasons or [],
+            suggestions=request.suggestions or [],
+            platform=request.platform or "短视频",
+            content_url=request.video_link,
+        )
+
+        # 解析前端传来的家人联系人
+        contacts: List[FamilyContact] = []
+        channel_map = {
+            "wechat": NotificationType.WECHAT,
+            "wecom": NotificationType.WECOM,
+            "feishu": NotificationType.FEISHU,
+            "whatsapp": NotificationType.WHATSAPP,
+            "sms": NotificationType.SMS,
+            "email": NotificationType.EMAIL,
+            "push": NotificationType.PUSH,
+        }
+        for c in (request.contacts or []):
+            prefs = [channel_map[ch] for ch in (c.channels or []) if ch in channel_map] or None
+            contacts.append(FamilyContact(
+                name=c.name,
+                relationship=c.relationship,
+                phone=c.phone,
+                email=c.email,
+                wechat_openid=c.wechat_openid,
+                wecom_webhook=c.wecom_webhook,
+                feishu_webhook=c.feishu_webhook,
+                whatsapp_phone=c.whatsapp_phone,
+                notification_preferences=prefs,
+            ))
+
+        # 复用已通过 /api/wecom/config 与 /api/feishu/config 配置的 webhook 作为全局默认
+        notif_service = get_notification_service()
+        try:
+            if _wecom_config.get("enabled") and _wecom_config.get("webhook_url"):
+                notif_service.config.wecom_webhook = _wecom_config["webhook_url"]
+            if _feishu_config.get("enabled") and _feishu_config.get("webhook_url"):
+                notif_service.config.feishu_webhook = _feishu_config["webhook_url"]
+        except Exception:
+            pass
+
+        # 通过多级预警系统决策并执行（根据敏感度决定 WARNING 是否通知）
+        alert_system = get_alert_system()
+        alert_system.update_user_settings(
+            request.elderly_user_id,
+            {"sensitivity": request.sensitivity or "normal"},
+        )
+        alert_result = await alert_system.execute_alert(
+            risk_level=notify_level,
+            event=event,
+            family_contacts=contacts,
+            user_id=request.elderly_user_id,
+        )
+
+        notifications = alert_result.get("notifications_sent", {})
+        any_sent = any(notifications.values()) if notifications else False
+        logger.info(
+            f"家人通知: 用户={request.elderly_user_id} 风险={request.risk_level} "
+            f"动作={alert_result.get('actions_taken')} 通道结果={notifications}"
+        )
+
         return {
             "success": True,
-            "message": "通知已发送",
+            "message": "通知已发送" if any_sent else "已按预警策略处理（无可达联系人或无需通知家人）",
             "data": {
                 "notified_at": datetime.now().isoformat(),
-                "risk_level": request.risk_level
+                "risk_level": request.risk_level,
+                "actions_taken": alert_result.get("actions_taken", []),
+                "notifications_sent": notifications,
+                "alert_config": {
+                    "notify_family": alert_result.get("config", {}).get("notify_family"),
+                    "block_content": alert_result.get("config", {}).get("block_content"),
+                    "play_sound": alert_result.get("config", {}).get("play_sound"),
+                },
             }
         }
-        
+
     except Exception as e:
-        logger.error(f"通知失败: {e}")
+        logger.error(f"通知失败: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="通知服务异常")
 
 
@@ -1150,10 +1598,14 @@ _qclaw_webhook: Dict[str, Any] = {
     "enabled": True,
 }
 
-# 全局配置：飞书 Webhook
+# 全局配置：飞书 Webhook（竞赛演示默认群；可用环境变量 FEISHU_WEBHOOK_URL 覆盖）
+_DEFAULT_FEISHU_WEBHOOK = os.environ.get(
+    "FEISHU_WEBHOOK_URL",
+    "https://open.feishu.cn/open-apis/bot/v2/hook/952f27b2-c29d-47dd-b4d3-d77b2598f592",
+)
 _feishu_config: Dict[str, Any] = {
-    "webhook_url": os.environ.get("FEISHU_WEBHOOK_URL", ""),
-    "enabled": False,
+    "webhook_url": _DEFAULT_FEISHU_WEBHOOK,
+    "enabled": bool(_DEFAULT_FEISHU_WEBHOOK),
 }
 
 

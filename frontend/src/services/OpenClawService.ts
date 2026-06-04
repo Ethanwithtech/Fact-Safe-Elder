@@ -30,8 +30,15 @@ export interface OpenClawConfig {
  * 降级:
  *   QClaw 不可用时 → 直接 POST 到企业微信/QQ webhook
  */
+/** 竞赛演示默认飞书群（可在设置中修改） */
+export const DEFAULT_FEISHU_WEBHOOK =
+  'https://open.feishu.cn/open-apis/bot/v2/hook/952f27b2-c29d-47dd-b4d3-d77b2598f592';
+
+const OPENCLAW_CONFIG_VERSION = 2;
+
 export default class OpenClawService {
   private config: OpenClawConfig;
+  private feishuSynced = false;
 
   constructor(config?: Partial<OpenClawConfig>) {
     const defaults: OpenClawConfig = {
@@ -39,25 +46,32 @@ export default class OpenClawService {
       qclawWebhookUrl: '',
       directWebhookUrl: '',
       channel: 'wecom',
-      threshold: 70,
-      useQClaw: true,
-      useWecom: true,
+      threshold: 50,
+      useQClaw: false,
+      useWecom: false,
       wecomWebhookUrl: '',
-      useFeishu: false,
-      feishuWebhookUrl: '',
+      useFeishu: true,
+      feishuWebhookUrl: DEFAULT_FEISHU_WEBHOOK,
     };
 
     const saved = localStorage.getItem('openclawConfig');
-    let savedConfig: Partial<OpenClawConfig> = {};
+    let savedConfig: Partial<OpenClawConfig> & { _v?: number } = {};
     if (saved) {
       try {
         savedConfig = JSON.parse(saved);
       } catch {
         // 解析失败则忽略
       }
-      // 迁移：如果旧配置中不存在 useWecom 字段，强制使用默认值 true
-      if (!('useWecom' in savedConfig)) {
-        savedConfig.useWecom = defaults.useWecom;
+      // v2：默认启用飞书推送（竞赛演示）
+      if (savedConfig._v !== OPENCLAW_CONFIG_VERSION) {
+        savedConfig.useFeishu = true;
+        savedConfig.useWecom = false;
+        savedConfig.useQClaw = false;
+        savedConfig.threshold = 50;
+        if (!savedConfig.feishuWebhookUrl) {
+          savedConfig.feishuWebhookUrl = DEFAULT_FEISHU_WEBHOOK;
+        }
+        savedConfig._v = OPENCLAW_CONFIG_VERSION;
       }
     }
 
@@ -67,8 +81,16 @@ export default class OpenClawService {
       ...config,
     };
 
+    // 未配置过时启用飞书默认通道
+    if (!this.config.feishuWebhookUrl) {
+      this.config.feishuWebhookUrl = DEFAULT_FEISHU_WEBHOOK;
+    }
+    if (this.config.feishuWebhookUrl) {
+      this.config.useFeishu = true;
+    }
+
     // 确保配置持久化（含新字段）
-    localStorage.setItem('openclawConfig', JSON.stringify(this.config));
+    localStorage.setItem('openclawConfig', JSON.stringify({ ...this.config, _v: OPENCLAW_CONFIG_VERSION }));
 
     console.log('[OpenClaw] 初始化配置:', {
       enabled: this.config.enabled,
@@ -77,6 +99,15 @@ export default class OpenClawService {
       useQClaw: this.config.useQClaw,
       threshold: this.config.threshold,
     });
+
+    void this._ensureFeishuOnBackend();
+  }
+
+  /** 将飞书 Webhook 同步到后端并启用推送 */
+  private async _ensureFeishuOnBackend(): Promise<void> {
+    if (this.feishuSynced || !this.config.useFeishu || !this.config.feishuWebhookUrl) return;
+    this.feishuSynced = true;
+    await this.saveFeishuWebhookToBackend(this.config.feishuWebhookUrl);
   }
 
   getConfig(): OpenClawConfig {
@@ -101,7 +132,7 @@ export default class OpenClawService {
 
   updateConfig(config: Partial<OpenClawConfig>) {
     this.config = { ...this.config, ...config };
-    localStorage.setItem('openclawConfig', JSON.stringify(this.config));
+    localStorage.setItem('openclawConfig', JSON.stringify({ ...this.config, _v: OPENCLAW_CONFIG_VERSION }));
   }
 
   /**
@@ -111,7 +142,8 @@ export default class OpenClawService {
     const enabled = this.config.enabled;
     const hasChannel = this.config.useWecom || this.config.useFeishu || this.config.useQClaw || !!this.config.qclawWebhookUrl || !!this.config.directWebhookUrl;
     const score = Math.round((result.score ?? 0) * 100);
-    const meetsThreshold = score >= this.config.threshold;
+    const meetsThreshold =
+      result.level === 'danger' || score >= this.config.threshold;
     const notSafe = result.level !== 'safe';
     const shouldSend = enabled && hasChannel && meetsThreshold && notSafe;
 
@@ -139,19 +171,19 @@ export default class OpenClawService {
     if (!this.shouldAlert(result)) return false;
 
     console.log('[OpenClaw] 开始发送告警, 视频:', videoTitle);
+    await this._ensureFeishuOnBackend();
 
-    // 优先走企业微信
-    if (this.config.useWecom) {
-      const success = await this._sendViaWecom(result, videoTitle);
-      if (success) return true;
-      console.log('[OpenClaw] 企业微信推送失败，降级到飞书');
-    }
-
-    // 走飞书
+    // 优先走飞书（竞赛演示主通道）
     if (this.config.useFeishu) {
       const success = await this._sendViaFeishu(result, videoTitle);
       if (success) return true;
-      console.log('[OpenClaw] 飞书推送失败，降级到 QClaw');
+      console.log('[OpenClaw] 飞书推送失败，尝试企业微信');
+    }
+
+    if (this.config.useWecom) {
+      const success = await this._sendViaWecom(result, videoTitle);
+      if (success) return true;
+      console.log('[OpenClaw] 企业微信推送失败，降级到 QClaw');
     }
 
     // 走 QClaw

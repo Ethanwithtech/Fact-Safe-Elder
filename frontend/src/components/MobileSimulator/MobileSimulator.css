@@ -18,11 +18,19 @@
   flex-shrink: 0;
 }
 
+.phone-model-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.08em;
+}
+
 .phone-frame {
-  width: 360px;
-  height: 780px;
+  /* iPhone 17 Pro 逻辑分辨率 402×874 pt */
+  width: 402px;
+  height: 874px;
   background: #000;
-  border-radius: 44px;
+  border-radius: 55px;
   padding: 0;
   box-shadow:
     0 0 0 3px #333,
@@ -60,8 +68,8 @@
 }
 
 .sb-island {
-  width: 120px;
-  height: 32px;
+  width: 126px;
+  height: 37px;
   background: #000;
   border-radius: 20px;
   position: absolute;
@@ -128,22 +136,225 @@
     linear-gradient(to right, transparent 0%, rgba(0,0,0,0.28) 100%);
 }
 
-.demo-sound-pill {
+.competition-demo .sound-btn-mini {
+  top: 96px;
+  right: 52px;
+}
+
+.video-play-pause-btn {
   position: absolute;
-  top: 42px;
+  top: 96px;
+  right: 14px;
+  z-index: 11;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-play-pause-btn.paused {
+  border-color: rgba(149, 212, 117, 0.5);
+  background: rgba(20, 60, 30, 0.55);
+}
+
+.competition-scan-hud {
+  top: 118px;
+  z-index: 20;
+}
+
+.competition-result-chip {
+  position: absolute;
+  top: 118px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 8;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(0,0,0,0.46);
-  color: rgba(255,255,255,0.82);
+  z-index: 20;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  backdrop-filter: blur(12px);
+}
+
+.competition-result-chip.danger {
+  border-color: rgba(255, 80, 80, 0.5);
+  color: #ffb4b4;
+}
+
+.competition-result-chip.warning {
+  border-color: rgba(255, 193, 7, 0.45);
+  color: #ffe08a;
+}
+
+.competition-result-chip.safe {
+  border-color: rgba(149, 212, 117, 0.45);
+  color: #b8f0a0;
+}
+
+.competition-result-chip .chip-method {
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.video-slide .uploaded-video-player + .video-play-pause-btn {
+  top: 56px;
+}
+
+.video-slide .uploaded-video-player + .video-play-pause-btn + .sound-btn-mini {
+  top: 56px;
+  right: 52px;
+}
+
+.sound-btn-mini {
+  position: absolute;
+  top: 56px;
+  right: 14px;
+  z-index: 9;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+.sound-btn-mini:active { transform: scale(0.92); }
+.sound-btn-mini.on {
+  border-color: rgba(149, 212, 117, 0.45);
+  background: rgba(20, 60, 30, 0.55);
+}
+
+/* iPhone 钛金属外框 */
+.iphone-chassis {
+  position: relative;
+  padding: 11px;
+  border-radius: 64px;
+  background: linear-gradient(
+    155deg,
+    #c8c8cc 0%,
+    #6e6e73 18%,
+    #3a3a3e 42%,
+    #52525a 58%,
+    #8e8e93 82%,
+    #d1d1d6 100%
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.15) inset,
+    0 28px 80px rgba(0, 0, 0, 0.65),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.iphone-chassis .phone-frame {
+  box-shadow: none;
+  border-radius: 48px;
+}
+
+/* Android 手机外框 */
+.android-chassis {
+  position: relative;
+  padding: 8px 6px 10px;
+  border-radius: 36px;
+  background: linear-gradient(160deg, #2a2a2e 0%, #121214 50%, #1e1e22 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+    0 24px 70px rgba(0, 0, 0, 0.6);
+}
+
+.android-chassis .phone-frame.android-inner {
+  border-radius: 28px;
+  box-shadow: none;
+}
+
+.android-chassis::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #0a0a0c;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.sb-island-android {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+  visibility: hidden;
+}
+
+.iphone-side-btn {
+  position: absolute;
+  background: linear-gradient(180deg, #5a5a60, #2c2c30);
+  border-radius: 2px;
+  z-index: 2;
+  pointer-events: none;
+}
+.iphone-side-l1 {
+  left: -2px;
+  top: 108px;
+  width: 3px;
+  height: 28px;
+}
+.iphone-side-l2 {
+  left: -2px;
+  top: 156px;
+  width: 3px;
+  height: 52px;
+}
+.iphone-side-r {
+  right: -2px;
+  top: 132px;
+  width: 3px;
+  height: 72px;
+}
+
+.feishu-toast-inphone {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  padding: 6px 12px;
+  border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  cursor: pointer;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  white-space: nowrap;
+  animation: toastIn 0.3s ease-out;
+}
+.feishu-toast-inphone.sent { color: #95d475; }
+.feishu-toast-inphone.failed { color: #f87171; }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* ===== 顶部标签 ===== */
@@ -469,7 +680,51 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ===== 风险警告弹窗（真实手机拦截卡片） ===== */
+/* ===== 适老化贴心提醒（替代全屏惊吓弹窗） ===== */
+.elder-care-sheet {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 88px;
+  z-index: 900;
+  pointer-events: auto;
+  animation: elderCareSlide 0.4s cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+.elder-care-sheet-inner {
+  background: linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(255, 248, 235, 0.96));
+  border-radius: 20px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(232, 168, 124, 0.35);
+  color: #4a3728;
+  text-align: center;
+}
+.elder-care-sheet.danger .elder-care-sheet-inner { border-color: rgba(232, 140, 90, 0.45); }
+.elder-care-icon { font-size: 36px; line-height: 1; margin-bottom: 6px; }
+.elder-care-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+.elder-care-sub { font-size: 14px; line-height: 1.5; opacity: 0.88; margin-bottom: 10px; }
+.elder-care-reasons { text-align: left; font-size: 13px; margin-bottom: 12px; }
+.elder-care-reason {
+  padding: 6px 10px; margin: 4px 0; background: rgba(255, 255, 255, 0.7);
+  border-radius: 10px; border-left: 3px solid #e8a87c;
+}
+.elder-care-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.elder-care-btn {
+  flex: 1; min-width: 42%; padding: 12px 8px; border-radius: 14px; font-size: 15px; font-weight: 700;
+  border: none; cursor: pointer;
+}
+.elder-care-btn.primary { background: #e8a87c; color: #fff; }
+.elder-care-btn.skip { background: #fff; color: #b85c38; border: 2px solid #e8a87c; }
+.elder-care-link {
+  margin-top: 8px; background: none; border: none; color: #8c6b4a;
+  font-size: 14px; text-decoration: underline; cursor: pointer; padding: 4px;
+}
+@keyframes elderCareSlide {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== 风险警告弹窗（保留样式供兼容，默认不再使用全屏模式） ===== */
 .full-screen-warning {
   position: absolute;
   inset: 0;
@@ -1267,8 +1522,235 @@
   border-radius: 2px;
 }
 
+/* ===== 竞赛演示模式：全屏仅 iPhone ===== */
+.competition-demo.simulator-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  padding: 12px 16px 20px;
+  gap: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.competition-demo .iphone-chassis.black-frame,
+.competition-demo .android-chassis.black-frame {
+  background: linear-gradient(
+    165deg,
+    #3d3d41 0%,
+    #1c1c1e 22%,
+    #0a0a0b 48%,
+    #1a1a1c 72%,
+    #48484a 100%
+  );
+  padding: 12px;
+  border-radius: 58px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(0, 0, 0, 0.85),
+    0 0 0 3px #2c2c2e,
+    0 40px 100px rgba(0, 0, 0, 0.88),
+    0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.competition-demo .iphone-chassis.black-frame .phone-frame.douyin-screen {
+  border-radius: 44px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 0 24px rgba(0, 0, 0, 0.35);
+}
+
+.douyin-feed-viewport {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  height: 100%;
+}
+
+/* 竞赛模式 Android：视口直接挂在 phone-frame 下 */
+.competition-demo .phone-frame.douyin-screen > .video-viewport {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.competition-demo .douyin-phone-root {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+
+.competition-demo .douyin-tabbar-android-wrap {
+  flex-shrink: 0;
+}
+
+.competition-demo .phone-model-label {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 11px;
+}
+
+.competition-demo .phone-stage {
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.competition-demo .phone-wrapper.competition-phone-only {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.competition-demo .competition-chassis {
+  transform-origin: center center;
+  max-height: calc(100vh - 48px);
+}
+
+.competition-demo .competition-chassis {
+  width: min(393px, calc(100vw - 32px));
+  height: min(calc(100vh - 24px), 852px);
+  aspect-ratio: 393 / 852;
+}
+
+.competition-demo .competition-chassis .phone-frame {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  aspect-ratio: unset;
+}
+
+.competition-demo .status-bar {
+  height: 54px;
+}
+
+.competition-demo .side-actions {
+  bottom: 88px;
+  z-index: 9;
+}
+
+.competition-demo .sound-btn-mini {
+  top: 108px;
+  z-index: 11;
+}
+
+.competition-demo .video-subtitle {
+  top: 46%;
+  z-index: 7;
+}
+
+.douyin-key-hint {
+  position: absolute;
+  bottom: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+.same-style-label {
+  display: block;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+  margin-top: 2px;
+}
+
+
+.demo-quick-bar {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.demo-quick-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+}
+
+.demo-quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.demo-quick-btn {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.demo-quick-btn.danger { border-color: rgba(232, 140, 90, 0.5); }
+.demo-quick-btn.safe { border-color: rgba(149, 212, 117, 0.45); }
+.demo-quick-btn.active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+}
+
+.panel-demo-badge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(232, 168, 124, 0.2), rgba(212, 146, 106, 0.08));
+  border: 1px solid rgba(232, 168, 124, 0.35);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.panel-demo-badge .sensitivity-lock {
+  font-size: 11px;
+  font-weight: 600;
+  color: #e8a87c;
+}
+
 /* ===== 响应式 / 手机网页 Demo ===== */
 @media (max-width: 900px) {
+  .competition-demo .competition-chassis .phone-frame {
+    height: min(calc(100vh - 64px), 780px);
+    max-width: calc(100vw - 32px);
+  }
+
   .simulator-page {
     flex-direction: column;
     align-items: center;
@@ -1281,8 +1763,8 @@
   }
 
   .phone-frame {
-    width: min(360px, calc(100vw - 32px));
-    height: min(720px, calc(100dvh - 120px));
+    width: min(402px, calc(100vw - 32px));
+    height: min(874px, calc(100dvh - 120px));
   }
 }
 

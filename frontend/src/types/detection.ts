@@ -23,10 +23,74 @@ export interface DetectionResult {
   // 各模型独立分数
   bert_score?: number | null;
   tfidf_score?: number | null;
+  // 突破点2: 老年人认知操控手法（多标签）
+  manipulation_features?: string[];                 // 命中的特征 key
+  manipulation_detail?: ManipulationFeature[];      // 含中文名+说明，供证据链展示
+  manipulation_source?: 'cognitive_model' | 'weak_rule' | null;
+  cognitive_risk?: number | null;
+  // 突破点1: 跨模态错位
+  asr_ocr_conflict?: CrossModalConflict;
+  crossmodal?: {
+    visual_risk?: number;
+    audio_risk?: number;
+    divergence?: number;
+    joint_risk?: number;
+    mismatch?: boolean;
+    method?: string;
+  };
+  // 突破点3: 流式增量风险轨迹
+  risk_trajectory?: RiskTrajectoryPoint[];
+  // 突破点4: 证据链 / 案例关联
+  evidence_chain?: EvidenceChain;
+  related_cases?: RelatedCase[];
   // 各阶段耗时
   timing?: { ocr_seconds?: number; asr_seconds?: number; ai_seconds?: number };
   // GPT 事实核查
   gpt_fact_check?: GPTFactCheckResult;
+}
+
+// 老年人认知操控手法
+export interface ManipulationFeature {
+  key: string;
+  name: string;
+  desc: string;
+}
+
+// 跨模态错位冲突
+export interface CrossModalConflict {
+  conflict: boolean;
+  reason: string;
+  reason_en?: string;
+  severity: 'high' | 'medium' | 'low';
+  method?: string;          // rule | model | gpt_cot
+  cot_explanation?: string; // GPT 多模态思维链解释
+}
+
+// 流式增量风险轨迹点（突破点3）
+export interface RiskTrajectoryPoint {
+  t: number;            // 视频时间(秒)或片段序号
+  score: number;        // 该时刻累计风险分
+  level: 'safe' | 'warning' | 'danger';
+  note?: string;        // 触发说明
+}
+
+// 证据链（突破点4）
+export interface EvidenceChain {
+  claims?: FalseClaim[];                 // 声明提取与纠正
+  techniques?: ManipulationFeature[];    // 诈骗手法标注
+  cases?: RelatedCase[];                 // 关联真实案例
+  summary?: string;
+}
+
+// 关联的真实诈骗案例
+export interface RelatedCase {
+  case_id: string;
+  title: string;
+  category: string;
+  similarity: number;
+  victims?: number;       // 已知受害人数
+  avg_loss?: number;      // 平均损失(元)
+  source?: string;
 }
 
 // GPT 事实核查结果

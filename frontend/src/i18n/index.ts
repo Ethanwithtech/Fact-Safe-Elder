@@ -1,4 +1,10 @@
-export type Language = 'zh' | 'yue' | 'en';
+export type Language = 'zh' | 'en';
+
+/** 兼容旧版 localStorage 中的 yue */
+export function normalizeLanguage(lang: string | undefined): Language {
+  if (lang === 'en') return 'en';
+  return 'zh';
+}
 
 export const translations = {
   zh: {
@@ -89,12 +95,12 @@ export const translations = {
     detectionSettings: '🔍 检测设置',
     sensitivity: '检测敏感度',
     sensitivityDesc: '调整虚假信息检测的敏感程度',
-    sensitivityLow: '宽松',
-    sensitivityLowDesc: '只检测明显的诈骗信息',
-    sensitivityMedium: '适中 (推荐)',
-    sensitivityMediumDesc: '平衡检测准确性和误报率',
-    sensitivityHigh: '严格',
-    sensitivityHighDesc: '检测所有可疑内容',
+    sensitivityLow: '宁漏勿误 (推荐)',
+    sensitivityLowDesc: '提高告警门槛，优先减少误报，适合日常使用',
+    sensitivityMedium: '平衡',
+    sensitivityMediumDesc: '在漏报与误报之间取平衡',
+    sensitivityHigh: '高敏感',
+    sensitivityHighDesc: '宁可多报也不漏报，适合高风险人群',
     soundAlert: '声音提醒',
     soundAlertDesc: '检测到风险时播放提示音',
     testSound: '测试音效',
@@ -122,6 +128,47 @@ export const translations = {
     openclawThresholdDesc: '风险分数达到此值时触发告警',
     openclawTest: '发送测试通知',
     openclawTestSuccess: '测试通知已发送',
+
+    elderCareTitle: '家人贴心提醒',
+    elderCareSub: '这条内容可能不太靠谱，不必紧张，先看看下面说明。',
+    elderCareGotIt: '我知道了',
+    elderCareSkipVideo: '跳过，不看这条',
+    elderCareAskFamily: '问问家人',
+    riskAlertShort: '这条视频可能存在诈骗风险，建议不要继续观看。',
+    riskStopWatching: '停止观看',
+    riskViewDetails: '查看详细原因',
+    elderAlertKicker: '孩子提醒你：',
+    elderAlertHeadline: '这个视频可能是骗子！',
+    elderBtnStop: '不看了',
+    elderBtnWhy: '为什么？',
+    elderStopHint: '请先看清楚再点按钮',
+    elderTellFamily: '告诉子女',
+    islandScan: '检测中',
+    islandCareful: '小心',
+    islandScam: '可能骗子',
+    islandScamHigh: '骗子!',
+    alertSentFeishu: '已推送到飞书',
+    alertSending: '正在通知家人…',
+    alertFailed: '通知发送失败',
+    competitionDemo: '竞赛演示模式',
+    competitionDemoDesc: '一屏展示 · 宁漏勿误 · 预加载演示视频',
+    competitionDemoOn: '演示模式已开启',
+    competitionDemoPreload: '正在预加载模型与视频…',
+    competitionDemoReady: '演示资源就绪',
+    demoQuickPlay: '一键播放演示',
+    elderCarePillDanger: '多留心',
+    elderCarePillWarning: '留意一下',
+    crossmodalTitle: '画面和语音不太一致',
+    visualRisk: '画面文字',
+    audioRisk: '语音内容',
+    semanticDivergence: '内容差异',
+    panelLiveDetection: '实时检测',
+    panelUpload: '上传检测',
+    demoHealth: '保健品',
+    demoFinance: '金融诈骗',
+    demoSafe: '正常营养',
+    methodAi: '智能分析',
+    methodRule: '规则',
 
     helpTitle: '❓ 使用帮助',
     privacyTitle: '🔒 隐私保护',
@@ -256,6 +303,25 @@ export const translations = {
     openclawTest: '發送測試通知',
     openclawTestSuccess: '測試通知已發送',
 
+    elderCareTitle: '家人貼心提醒',
+    elderCareSub: '呢條內容可能唔太可靠，唔使驚，先睇下面說明。',
+    elderCareGotIt: '我知啦',
+    elderCareSkipVideo: '跳過，唔睇呢條',
+    elderCareAskFamily: '問問屋企人',
+    elderCarePillDanger: '要多留心',
+    elderCarePillWarning: '留意下',
+    crossmodalTitle: '畫面同語音唔太一致',
+    visualRisk: '畫面文字',
+    audioRisk: '語音內容',
+    semanticDivergence: '內容差異',
+    panelLiveDetection: '即時檢查',
+    panelUpload: '上載檢查',
+    demoHealth: '保健品',
+    demoFinance: '金融騙局',
+    demoSafe: '正常營養',
+    methodAi: '智能分析',
+    methodRule: '規則',
+
     helpTitle: '❓ 使用幫助',
     privacyTitle: '🔒 私隱保護',
     save: '儲存設定',
@@ -389,6 +455,47 @@ export const translations = {
     openclawTest: 'Send Test Notification',
     openclawTestSuccess: 'Test notification sent',
 
+    elderCareTitle: 'A caring reminder',
+    elderCareSub: 'This content may not be trustworthy. No need to worry — read the note below.',
+    elderCareGotIt: 'Got it',
+    elderCareSkipVideo: 'Skip this video',
+    elderCareAskFamily: 'Ask family',
+    riskAlertShort: 'This video may be a scam. We suggest you stop watching.',
+    riskStopWatching: 'Stop watching',
+    riskViewDetails: 'View details',
+    elderAlertKicker: 'Your family reminds you:',
+    elderAlertHeadline: 'This video may be a scam!',
+    elderBtnStop: 'Stop',
+    elderBtnWhy: 'Why?',
+    elderStopHint: 'Please read first',
+    elderTellFamily: 'Tell family',
+    islandScan: 'Scan',
+    islandCareful: 'Care',
+    islandScam: 'Risky',
+    islandScamHigh: 'Scam!',
+    alertSentFeishu: 'Sent to Feishu',
+    alertSending: 'Notifying family…',
+    alertFailed: 'Notification failed',
+    competitionDemo: 'Competition demo',
+    competitionDemoDesc: 'One-screen layout · precision mode · preloaded clips',
+    competitionDemoOn: 'Demo mode on',
+    competitionDemoPreload: 'Preloading models & videos…',
+    competitionDemoReady: 'Demo assets ready',
+    demoQuickPlay: 'Quick demo clips',
+    elderCarePillDanger: 'Be careful',
+    elderCarePillWarning: 'Take note',
+    crossmodalTitle: 'Video and voice do not match',
+    visualRisk: 'On-screen text',
+    audioRisk: 'Spoken words',
+    semanticDivergence: 'Difference',
+    panelLiveDetection: 'Live check',
+    panelUpload: 'Upload check',
+    demoHealth: 'Health scam',
+    demoFinance: 'Finance scam',
+    demoSafe: 'Safe content',
+    methodAi: 'AI analysis',
+    methodRule: 'Rules',
+
     helpTitle: '❓ Help',
     privacyTitle: '🔒 Privacy',
     save: 'Save',
@@ -403,8 +510,9 @@ export const translations = {
 
 export type TranslationKey = keyof typeof translations.zh;
 
-export const t = (lang: Language, key: TranslationKey): string => {
-  return translations[lang]?.[key] || translations.zh[key] || key;
+export const t = (lang: Language | string, key: TranslationKey): string => {
+  const L = normalizeLanguage(lang);
+  return translations[L]?.[key] || translations.zh[key] || key;
 };
 
 /**
@@ -440,25 +548,9 @@ const yueReasonMap: Record<string, string> = {
   '遇到要求转账的情况请立即警惕': '遇到要求轉賬要即刻警惕',
 };
 
-export const translateReason = (lang: Language, text: string): string => {
-  if (lang === 'zh') return text;
-  if (lang === 'yue') {
-    if (yueReasonMap[text]) return yueReasonMap[text];
-    for (const [zh, yue] of Object.entries(yueReasonMap)) {
-      if (text.includes(zh)) return text.replace(zh, yue);
-    }
-    return text
-      .replace(/检测到/g, '偵測到')
-      .replace(/风险/g, '風險')
-      .replace(/关键词/g, '關鍵詞')
-      .replace(/紧急性诱导词汇/g, '緊急性誘導詞')
-      .replace(/视频内容/g, '短片內容')
-      .replace(/内容摘要/g, '內容摘要')
-      .replace(/主要风险/g, '主要風險')
-      .replace(/识别来源/g, '識別來源')
-      .replace(/语音转写/g, '語音轉寫')
-      .replace(/画面文字/g, '畫面文字');
-  }
+export const translateReason = (lang: Language | string, text: string): string => {
+  const L = normalizeLanguage(lang);
+  if (L === 'zh') return text;
   // 精确匹配
   if (reasonMap[text]) return reasonMap[text];
   // 模式匹配

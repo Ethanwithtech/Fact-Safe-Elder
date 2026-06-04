@@ -955,3 +955,147 @@
 .gpt-advice-icon {
   flex-shrink: 0;
 }
+
+/* ================================================================
+   四大技术突破 · 结果面板视觉系统（统一卡片语言 / 适老化）
+   统一规范：14px 圆角卡片、4px 左侧强调条、渐入动画、可读字号
+   ================================================================ */
+.fu-panel {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-left: 4px solid var(--accent, #60a5fa);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  animation: fuPanelIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fuPanelIn { from { opacity: 0; transform: translateY(8px); } }
+.fu-panel .result-section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 14px; margin-bottom: 10px;
+}
+.fu-tag {
+  margin-left: auto; font-size: 11px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px; letter-spacing: .3px;
+  background: rgba(255, 255, 255, 0.12); color: var(--text-secondary);
+}
+.fu-tag.ai { background: linear-gradient(135deg, #7c3aed, #db2777); color: #fff; }
+
+/* ===== 突破点3: 消费端实时风险升级轨迹 ===== */
+.fu-risk-trajectory {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+}
+.fu-traj-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; font-weight: 700; margin-bottom: 10px;
+  color: var(--text-primary);
+}
+.fu-traj-peak {
+  padding: 3px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.fu-traj-peak.safe { background: linear-gradient(135deg, #52c41a, #389e0d); }
+.fu-traj-peak.warning { background: linear-gradient(135deg, #faad14, #d48806); }
+.fu-traj-peak.danger { background: linear-gradient(135deg, #ff4d4f, #cf1322); }
+.fu-traj-track {
+  display: flex; align-items: flex-end; gap: 3px;
+  height: 64px; padding: 6px;
+  background: linear-gradient(to top, rgba(255, 77, 79, 0.08), transparent 70%);
+  border-radius: 10px;
+}
+.fu-traj-seg {
+  flex: 1 1 auto; min-width: 6px;
+  border-radius: 4px 4px 0 0;
+  transition: height 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: trajRise 0.45s ease;
+}
+.fu-traj-seg.safe { background: linear-gradient(to top, #389e0d, #73d13d); }
+.fu-traj-seg.warning { background: linear-gradient(to top, #d48806, #ffc53d); }
+.fu-traj-seg.danger { background: linear-gradient(to top, #cf1322, #ff7875); box-shadow: 0 0 8px rgba(255, 77, 79, 0.5); }
+@keyframes trajRise { from { height: 4px; opacity: 0.3; } }
+
+/* ===== 突破点1: 跨模态错位面板 ===== */
+.fu-crossmodal-panel { --accent: #ff7a45; }
+.fu-crossmodal-panel.severity-high { --accent: #ff4d4f; }
+.fu-cm-method {
+  font-size: 11px; font-weight: 600;
+  padding: 2px 9px; border-radius: 999px;
+  background: rgba(255, 122, 69, 0.18); color: #ffa775;
+}
+.fu-cm-reason { font-size: 14px; line-height: 1.6; margin: 4px 0 10px; color: var(--text-primary); }
+.fu-cm-bars { display: flex; flex-wrap: wrap; gap: 8px; }
+.fu-cm-bars > span {
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  padding: 4px 10px; border-radius: 8px; background: rgba(255, 255, 255, 0.06);
+}
+.fu-cm-cot {
+  margin-top: 10px; font-size: 13px; line-height: 1.6;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(124, 58, 237, 0.1); border-left: 3px solid #7c3aed;
+  color: var(--text-secondary);
+}
+
+/* ===== 突破点2: 操控手法标注 ===== */
+.fu-manip-panel { --accent: #9254de; }
+.fu-manip-chips { display: flex; flex-wrap: wrap; gap: 9px; }
+.fu-manip-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 700;
+  color: #fff; background: linear-gradient(135deg, #9254de, #f759ab);
+  box-shadow: 0 2px 10px rgba(146, 84, 222, 0.35); cursor: help;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.fu-manip-chip::before { content: "🎯"; font-size: 12px; }
+.fu-manip-chip:hover { transform: translateY(-2px); box-shadow: 0 5px 16px rgba(146, 84, 222, 0.5); }
+
+/* ===== 突破点4: 关联真实案例 ===== */
+.fu-cases-panel { --accent: #1890ff; }
+.fu-case-card {
+  margin-top: 10px; padding: 12px 14px;
+  border-radius: 12px; background: rgba(24, 144, 255, 0.08);
+  border: 1px solid rgba(24, 144, 255, 0.18);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.fu-case-card:hover { transform: translateX(3px); background: rgba(24, 144, 255, 0.13); }
+.fu-case-title {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
+}
+.fu-case-sim {
+  flex-shrink: 0; font-size: 12px; font-weight: 700; color: #fff;
+  padding: 2px 10px; border-radius: 999px;
+  background: linear-gradient(135deg, #1890ff, #096dd9);
+}
+.fu-case-meta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; font-size: 12.5px; color: var(--text-secondary); }
+
+/* ===== 用户反馈（误报控制） ===== */
+.fu-feedback-bar {
+  margin: 16px 0 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(24,144,255,0.08), rgba(114,46,209,0.06));
+  border: 1px solid rgba(24,144,255,0.15);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fu-feedback-label { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.fu-feedback-actions { display: flex; gap: 10px; }
+.fu-feedback-btn {
+  padding: 8px 16px; border-radius: 20px; border: none; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+}
+.fu-feedback-btn:active { transform: scale(0.96); }
+.fu-feedback-btn.correct { background: #f6ffed; color: #389e0d; box-shadow: 0 2px 8px rgba(82,196,26,0.2); }
+.fu-feedback-btn.false-pos { background: #fff7e6; color: #d48806; box-shadow: 0 2px 8px rgba(250,173,20,0.2); }
+.fu-feedback-done {
+  margin: 12px 0; padding: 10px; text-align: center; font-size: 13px; color: #52c41a;
+  background: rgba(82,196,26,0.08); border-radius: 10px;
+}

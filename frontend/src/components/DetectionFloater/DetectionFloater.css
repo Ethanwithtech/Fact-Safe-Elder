@@ -187,23 +187,38 @@
   line-height: 1.4;
 }
 
-.island-detail-close-btn {
-  display: block;
-  width: 100%;
+.island-detail-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 12px;
-  padding: 10px 0;
+}
+
+.island-detail-close-btn {
+  flex: 1;
+  padding: 10px 6px;
   border: none;
   border-radius: 10px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.07));
   color: #fff;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s;
 }
 
+.island-detail-close-btn.primary {
+  background: linear-gradient(135deg, #e8a87c, #d4926a);
+  color: #fff;
+}
+
+.island-detail-close-btn.skip {
+  background: rgba(255, 255, 255, 0.92);
+  color: #b85c38;
+  border: 1px solid rgba(232, 168, 124, 0.55);
+}
+
 .island-detail-close-btn:hover {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1));
+  filter: brightness(1.05);
 }
 
 .island-detail-sheet::-webkit-scrollbar { width: 3px; }

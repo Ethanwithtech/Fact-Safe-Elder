@@ -1,17 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { DetectionResult } from '../../types/detection';
-import { Language, t } from '../../i18n';
+import { Language, t, translateReason } from '../../i18n';
 import './DetectionFloater.css';
 
 interface DetectionFloaterProps {
   result: DetectionResult;
   onClose: () => void;
+  /** 跳过当前视频，切到下一条（模拟刷视频场景） */
+  onSkipVideo?: () => void;
   embedded?: boolean;
   lang?: Language;
+  /** 检测到风险时自动展开详情（适老化，替代全屏弹窗） */
+  autoExpand?: boolean;
 }
 
-const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, embedded = false, lang = 'zh' }) => {
-  const [expanded, setExpanded] = useState(false);
+const DetectionFloater: React.FC<DetectionFloaterProps> = ({
+  result,
+  onClose,
+  onSkipVideo,
+  embedded = false,
+  lang = 'zh',
+  autoExpand = false,
+}) => {
+  const [expanded, setExpanded] = useState(autoExpand && result.level !== 'safe');
   const [visible, setVisible] = useState(true);
 
   const reasons = result?.reasons || [];
@@ -23,11 +34,11 @@ const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, em
   const riskInfo = (() => {
     switch (level) {
       case 'danger':
-        return { color: '#ff4d4f', icon: '🚨', label: lang !== 'en' ? '高风险' : 'HIGH RISK' };
+        return { color: '#e8a87c', icon: '🛡️', label: t(lang, 'elderCarePillDanger') };
       case 'warning':
-        return { color: '#faad14', icon: '⚠️', label: lang !== 'en' ? '注意' : 'CAUTION' };
+        return { color: '#f5d78e', icon: '💛', label: t(lang, 'elderCarePillWarning') };
       case 'safe': default:
-        return { color: '#52c41a', icon: '✅', label: lang !== 'en' ? '安全' : 'SAFE' };
+        return { color: '#95d475', icon: '✅', label: t(lang, 'safe') };
     }
   })();
 
@@ -70,7 +81,7 @@ const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, em
                 <div className="island-detail-sec">
                   <div className="island-detail-label">⚡ {lang !== 'en' ? '风险因素' : 'Risk Factors'}</div>
                   {reasons.map((r, i) => (
-                    <div key={i} className="island-detail-reason" style={{ borderLeftColor: riskInfo.color }}>• {r}</div>
+                    <div key={i} className="island-detail-reason" style={{ borderLeftColor: riskInfo.color }}>• {translateReason(lang, r)}</div>
                   ))}
                 </div>
               )}
@@ -78,13 +89,27 @@ const DetectionFloater: React.FC<DetectionFloaterProps> = ({ result, onClose, em
                 <div className="island-detail-sec">
                   <div className="island-detail-label">💡 {lang !== 'en' ? '安全建议' : 'Suggestions'}</div>
                   {suggestions.map((s, i) => (
-                    <div key={i} className="island-detail-suggestion">💡 {s}</div>
+                    <div key={i} className="island-detail-suggestion">💡 {translateReason(lang, s)}</div>
                   ))}
                 </div>
               )}
-              <button className="island-detail-close-btn" onClick={() => setExpanded(false)}>
-                {t(lang!, 'iKnow')}
-              </button>
+              <div className="island-detail-actions">
+                <button type="button" className="island-detail-close-btn primary" onClick={() => setExpanded(false)}>
+                  {t(lang, 'elderCareGotIt')}
+                </button>
+                {onSkipVideo && (
+                  <button
+                    type="button"
+                    className="island-detail-close-btn skip"
+                    onClick={() => {
+                      setExpanded(false);
+                      onSkipVideo();
+                    }}
+                  >
+                    {t(lang, 'elderCareSkipVideo')}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

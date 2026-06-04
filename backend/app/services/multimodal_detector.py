@@ -5,6 +5,7 @@
 """
 
 import os
+import re
 import asyncio
 import time
 from typing import Dict, List, Any, Optional, Tuple, Union
@@ -54,6 +55,31 @@ except ImportError:
     logger.warning("Whisper未安装，音频转写功能不可用")
     WHISPER_AVAILABLE = False
 
+# 老年人认知操控特征分类法（突破点2/4 共用）
+try:
+    from app.core.manipulation_taxonomy import (
+        weak_label, FEATURE_KEYS, multihot_to_features, describe_features,
+    )
+    TAXONOMY_AVAILABLE = True
+except ImportError:
+    try:
+        from core.manipulation_taxonomy import (
+            weak_label, FEATURE_KEYS, multihot_to_features, describe_features,
+        )
+        TAXONOMY_AVAILABLE = True
+    except ImportError:
+        TAXONOMY_AVAILABLE = False
+        FEATURE_KEYS = []
+
+        def weak_label(text):
+            return []
+
+        def multihot_to_features(vec, threshold=0.5):
+            return []
+
+        def describe_features(keys, lang="zh"):
+            return []
+
 
 # === 训练好的文本分类模型（与 train_multimodal_model.py 中的 TextClassifier 对齐） ===
 if TORCH_AVAILABLE:
@@ -79,6 +105,39 @@ if TORCH_AVAILABLE:
             out = self.encoder(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
             cls_emb = self.dropout(out.last_hidden_state[:, 0])  # [CLS] token
             return self.head(cls_emb)
+
+
+    class ElderCognitiveClassifier(nn.Module):
+        """
+        老年人认知特征多任务模型 (突破点2)
+
+        与大厂"通用反诈模型"的关键区别：在判断风险等级的同时，显式输出
+        诈骗分子使用的"认知操控手法"多标签（情感操控/权威伪造/利益诱导/
+        紧迫感/AI合成），为证据链可解释提供"手法标注"。
+
+        - encoder: MacBERT (hfl/chinese-macbert-base)
+        - risk_head:  Linear -> 3 (safe / warning / danger)  —— 多分类
+        - manip_head: Linear -> num_features                 —— 多标签 (sigmoid)
+        """
+        def __init__(self, model_name: str = "hfl/chinese-macbert-base",
+                     num_risk: int = 3, num_features: int = 5, dropout: float = 0.3):
+            super().__init__()
+            self.encoder = AutoModel.from_pretrained(model_name)
+            hidden = self.encoder.config.hidden_size
+            self.dropout = nn.Dropout(dropout)
+            self.shared = nn.Sequential(
+                nn.Linear(hidden, hidden // 2),
+                nn.GELU(),
+                nn.Dropout(dropout),
+            )
+            self.risk_head = nn.Linear(hidden // 2, num_risk)
+            self.manip_head = nn.Linear(hidden // 2, num_features)
+
+        def forward(self, input_ids, attention_mask=None, token_type_ids=None):
+            out = self.encoder(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
+            cls_emb = self.dropout(out.last_hidden_state[:, 0])
+            shared = self.shared(cls_emb)
+            return self.risk_head(shared), self.manip_head(shared)
 
 
 class RiskLevel(Enum):
@@ -115,6 +174,11 @@ class DetectionOutput:
     detection_method: str = "rule_engine"
     bert_score: Optional[float] = None
     tfidf_score: Optional[float] = None
+    # 突破点2: 老年人认知操控手法（多标签）
+    manipulation_features: Optional[List[str]] = None  # 命中的特征 key 列表
+    manipulation_detail: Optional[List[Dict]] = None   # [{key,name,desc}] 供证据链展示
+    manipulation_source: Optional[str] = None          # "cognitive_model" | "weak_rule"
+    cognitive_risk: Optional[float] = None             # 认知模型给出的风险分
 
 
 class CrossModalAttention(nn.Module):
@@ -632,11 +696,12 @@ class MultimodalDetector:
         "cryptocurrency", "bitcoin", "forex", "mlm", "pyramid",
     ]
     
+    # 单独出现「保健品」等词可能是科普，仅匹配明确虚假宣传短语
     MEDICAL_KEYWORDS = [
         # 中文
         "包治百病", "神奇疗效", "祖传秘方", "一次根治", "永不复发",
         "药到病除", "100%治愈", "三天见效", "医院不告诉你", "特效药",
-        "保健品", "偏方", "土方", "民间验方", "癌症克星", "延年益寿",
+        "偏方", "土方", "民间验方", "癌症克星", "延年益寿",
         # 粤语 / 繁体健康误导话术
         "包醫百病", "祖傳秘方", "神奇療效", "三日見效", "醫院唔會話你知",
         "保健產品", "長壽秘方", "降血糖", "通血管", "冇副作用",
@@ -645,6 +710,20 @@ class MultimodalDetector:
         "doctors hate", "big pharma", "anti-aging", "detox",
     ]
     
+    # 平台内正常带货（单独出现不应判诈骗）
+    LEGIT_COMMERCE_MARKERS = [
+        "官方旗舰店", "小黄车", "购物车", "点击链接", "直播间",
+        "抖音商城", "包邮", "7天无理由", "现货", "正品", "官旗",
+        "小黄车下单", "商品链接", "店铺主页",
+    ]
+
+    HIGH_RISK_SCAM_MARKERS = [
+        "加微信", "加微", "私信买", "私下", "转账", "汇款", "银行卡",
+        "包治百病", "保证收益", "无风险", "月入万元", "稳赚", "祖传秘方",
+        "央视推荐", "包治", "根治", "治愈", "订购热线", "验证码",
+        "身份证", "传销", "挖矿躺赚",
+    ]
+
     URGENCY_KEYWORDS = [
         # 中文
         "赶紧", "立即", "马上", "紧急", "限时", "截止今晚",
@@ -661,6 +740,7 @@ class MultimodalDetector:
         self,
         model_path: Optional[str] = None,
         simple_model_path: Optional[str] = None,
+        cognitive_model_path: Optional[str] = None,
         device: str = "auto",
         fusion_strategy: str = "attention"
     ):
@@ -670,6 +750,7 @@ class MultimodalDetector:
         Args:
             model_path: BERT文本分类模型路径 (best_text_model.pt)
             simple_model_path: 简单AI模型路径 (simple_ai_model.joblib)
+            cognitive_model_path: 老年人认知特征多任务模型 (elder_cognitive_model.pt)
             device: 运行设备
             fusion_strategy: 融合策略
         """
@@ -696,7 +777,16 @@ class MultimodalDetector:
         
         if JOBLIB_AVAILABLE and simple_model_path and os.path.exists(simple_model_path):
             self._load_simple_model(simple_model_path)
-        
+
+        # === 老年人认知特征多任务模型 (突破点2) ===
+        self.cognitive_model = None
+        self.cognitive_tokenizer = None
+        self._cognitive_model_loaded = False
+        self._cognitive_feature_keys = list(FEATURE_KEYS)
+
+        if TORCH_AVAILABLE and cognitive_model_path and os.path.exists(cognitive_model_path):
+            self._load_cognitive_model(cognitive_model_path)
+
         # === 原始多模态融合模型（保留向后兼容，但无训练权重） ===
         self.model = None
         if TORCH_AVAILABLE:
@@ -720,6 +810,8 @@ class MultimodalDetector:
             ai_status.append("BERT文本分类器✅")
         if self._simple_model_loaded:
             ai_status.append("TF-IDF集成模型✅")
+        if self._cognitive_model_loaded:
+            ai_status.append("认知特征多任务模型✅")
         if not ai_status:
             ai_status.append("仅规则引擎（无AI模型）")
         logger.info(f"多模态检测器初始化完成 | AI模型: {', '.join(ai_status)}")
@@ -768,16 +860,217 @@ class MultimodalDetector:
             data = joblib.load(model_path)
             self.simple_model = data['model']
             self.simple_vectorizer = data['vectorizer']
-            self._simple_needs_jieba = data.get('needs_jieba_tokenize', False)
+            self._simple_needs_jieba = data.get('needs_jieba_tokenize', data.get('tokenizer') == 'jieba')
             metrics = data.get('metrics', {})
             version = data.get('version', 'unknown')
-            logger.info(f"✅ 简单AI模型加载成功 v{version} | Accuracy: {metrics.get('accuracy', 'N/A'):.4f}, F1: {metrics.get('f1_score', 'N/A'):.4f}, jieba={self._simple_needs_jieba}")
+            acc = metrics.get('accuracy')
+            f1 = metrics.get('f1_score')
+            acc_s = f"{acc:.4f}" if isinstance(acc, (int, float)) else "N/A"
+            f1_s = f"{f1:.4f}" if isinstance(f1, (int, float)) else "N/A"
+            logger.info(f"✅ 简单AI模型加载成功 v{version} | Accuracy: {acc_s}, F1: {f1_s}, jieba={self._simple_needs_jieba}")
             self._simple_model_loaded = True
         except Exception as e:
             logger.error(f"❌ 加载简单AI模型失败: {e}")
             self.simple_model = None
             self.simple_vectorizer = None
     
+    def _load_cognitive_model(self, model_path: str):
+        """加载老年人认知特征多任务模型 (elder_cognitive_model.pt)"""
+        try:
+            logger.info(f"正在加载老年人认知特征模型: {model_path}")
+            checkpoint = torch.load(model_path, map_location=self.device, weights_only=False)
+            state_dict = checkpoint.get('model_state_dict', checkpoint)
+            feature_keys = checkpoint.get('feature_keys', list(FEATURE_KEYS))
+            num_risk = int(checkpoint.get('num_risk', 3))
+            num_features = int(checkpoint.get('num_features', len(feature_keys) or 5))
+            model_name = checkpoint.get('model_name', 'hfl/chinese-macbert-base')
+
+            self.cognitive_model = ElderCognitiveClassifier(
+                model_name=model_name,
+                num_risk=num_risk,
+                num_features=num_features,
+                dropout=0.3,
+            )
+            self.cognitive_model.load_state_dict(state_dict)
+            self.cognitive_model.to(self.device)
+            self.cognitive_model.eval()
+            self.cognitive_tokenizer = AutoTokenizer.from_pretrained(model_name)
+            self._cognitive_feature_keys = feature_keys
+            self._cognitive_threshold = float(checkpoint.get('manip_threshold', 0.5))
+            self._cognitive_model_loaded = True
+            metrics = checkpoint.get('metrics', {})
+            logger.info(
+                f"✅ 认知特征模型加载成功 | 风险类={num_risk} 手法标签={num_features} "
+                f"| 指标={metrics}"
+            )
+        except Exception as e:
+            logger.error(f"❌ 加载认知特征模型失败: {e}")
+            self.cognitive_model = None
+            self.cognitive_tokenizer = None
+            self._cognitive_model_loaded = False
+
+    def _infer_cognitive(self, text: str) -> Optional[Dict[str, Any]]:
+        """运行认知特征多任务模型，返回 {risk_score, features, scores} 或 None。"""
+        if not (self._cognitive_model_loaded and text and self.cognitive_model and self.cognitive_tokenizer):
+            return None
+        try:
+            inputs = self.cognitive_tokenizer(
+                text, return_tensors="pt", max_length=512, truncation=True, padding=True
+            )
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            with torch.no_grad():
+                risk_logits, manip_logits = self.cognitive_model(**inputs)
+                risk_probs = F.softmax(risk_logits, dim=-1)[0]
+                manip_probs = torch.sigmoid(manip_logits)[0]
+            # 风险分: warning*0.5 + danger
+            risk_score = float(risk_probs[1].item() * 0.5 + risk_probs[2].item()) if len(risk_probs) >= 3 else float(risk_probs[-1].item())
+            thr = getattr(self, '_cognitive_threshold', 0.5)
+            manip_vec = manip_probs.tolist()
+            keys = self._cognitive_feature_keys
+            features = [keys[i] for i, p in enumerate(manip_vec) if i < len(keys) and p >= thr]
+            scores = {keys[i]: round(float(p), 4) for i, p in enumerate(manip_vec) if i < len(keys)}
+            return {"risk_score": min(risk_score, 1.0), "features": features, "scores": scores}
+        except Exception as e:
+            logger.warning(f"认知特征模型推理异常: {e}")
+            return None
+
+    def _get_encoder_and_tokenizer(self):
+        """返回可用的 BERT encoder + tokenizer（优先认知模型，其次文本分类器）。"""
+        if self._cognitive_model_loaded and self.cognitive_model is not None:
+            return self.cognitive_model.encoder, self.cognitive_tokenizer
+        if self._text_model_loaded and self.text_classifier is not None:
+            return self.text_classifier.encoder, self.text_tokenizer
+        return None, None
+
+    def _encode_tokens(self, text: str):
+        """提取 BERT token 级隐状态 [1, seq, hidden]，供跨模态注意力使用。无模型时返回 None。"""
+        if not TORCH_AVAILABLE or not text or not text.strip():
+            return None
+        encoder, tokenizer = self._get_encoder_and_tokenizer()
+        if encoder is None or tokenizer is None:
+            return None
+        try:
+            inputs = tokenizer(text, return_tensors="pt", max_length=128, truncation=True, padding=True)
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+            with torch.no_grad():
+                out = encoder(**inputs)
+            return out.last_hidden_state  # [1, seq, hidden]
+        except Exception as e:
+            logger.warning(f"token 编码失败: {e}")
+            return None
+
+    @staticmethod
+    def _char_jaccard(a: str, b: str) -> float:
+        sa, sb = set(a or ""), set(b or "")
+        if not (sa | sb):
+            return 0.0
+        return len(sa & sb) / len(sa | sb)
+
+    async def cross_modal_reason(
+        self, ocr_text: str, asr_text: str, title: str = ""
+    ) -> Dict[str, Any]:
+        """
+        跨模态意图联合推理 (突破点1)
+
+        平台的审核本质是"单模态独立分析 + 结果简单融合"，对"字幕合规/语音诈骗"
+        这类跨模态错位伪装识别滞后。这里做真正的联合推理：
+
+        1. 分别评估 画面文字(OCR=视觉通道) 与 语音(ASR=音频通道) 的风险
+           -> visual_risk / audio_risk 不再恒为 0
+        2. 用 BERT [CLS] 句向量计算两通道语义散度 divergence (1 - cosine)
+        3. 用 CrossModalAttention 对两通道 token 表征做联合对齐，得到耦合度(可解释)
+        4. 识别"一通道合规、另一通道诈骗"的错位伪装并给出联合风险与解释
+        """
+        ocr_text = (ocr_text or "").strip()
+        asr_text = (asr_text or "").strip()
+        result: Dict[str, Any] = {
+            "visual_risk": 0.0,
+            "audio_risk": 0.0,
+            "joint_risk": 0.0,
+            "divergence": 0.0,
+            "coupling": None,
+            "mismatch": False,
+            "method": "rule",
+            "conflict": None,
+        }
+        if not ocr_text and not asr_text:
+            return result
+
+        # 1) 各通道独立风险（复用全部已加载模型）
+        visual_risk = 0.0
+        audio_risk = 0.0
+        if ocr_text:
+            v = await self.detect({"text": ocr_text})
+            visual_risk = float(v.risk_score)
+        if asr_text:
+            a = await self.detect({"text": asr_text})
+            audio_risk = float(a.risk_score)
+        result["visual_risk"] = round(visual_risk, 4)
+        result["audio_risk"] = round(audio_risk, 4)
+
+        # 2) 语义散度（优先 BERT 句向量，无模型时退化为字符 Jaccard）
+        divergence = None
+        emb_o = self._encode_tokens(ocr_text) if ocr_text else None
+        emb_a = self._encode_tokens(asr_text) if asr_text else None
+        if emb_o is not None and emb_a is not None:
+            try:
+                cls_o = emb_o[:, 0]
+                cls_a = emb_a[:, 0]
+                cos = F.cosine_similarity(cls_o, cls_a, dim=-1).item()
+                divergence = max(0.0, min(1.0, 1.0 - cos))
+                result["method"] = "model"
+                # 3) 用闲置的 CrossModalAttention 做联合对齐，计算跨模态耦合度
+                if self.model is not None and hasattr(self.model, "text_visual_attention"):
+                    try:
+                        with torch.no_grad():
+                            _, attn = self.model.text_visual_attention(emb_o, emb_a, emb_a)
+                        # attn: [batch, ocr_seq, asr_seq] -> 每个OCR token对ASR的最大注意力均值
+                        coupling = float(attn.max(dim=-1).values.mean().item())
+                        result["coupling"] = round(coupling, 4)
+                    except Exception as e:
+                        logger.debug(f"CrossModalAttention 计算跳过: {e}")
+            except Exception as e:
+                logger.warning(f"语义散度计算失败: {e}")
+        if divergence is None and ocr_text and asr_text:
+            divergence = max(0.0, min(1.0, 1.0 - self._char_jaccard(ocr_text.lower(), asr_text.lower())))
+        result["divergence"] = round(divergence or 0.0, 4)
+
+        # 4) 联合推理决策
+        hi, lo = max(visual_risk, audio_risk), min(visual_risk, audio_risk)
+        mismatch = False
+        conflict = None
+        # 错位伪装：一通道明显诈骗，另一通道明显合规，且语义高度发散
+        if hi >= 0.5 and lo <= 0.3 and (divergence or 0) >= 0.4:
+            mismatch = True
+            risky_channel = "画面字幕" if visual_risk >= audio_risk else "语音"
+            safe_channel = "语音" if visual_risk >= audio_risk else "画面字幕"
+            conflict = {
+                "conflict": True,
+                "reason": f"{safe_channel}内容看似正规，但{risky_channel}中包含诈骗/诱导信息，"
+                          f"疑似用合规{safe_channel}伪装掩盖真实诈骗意图（跨模态错位）",
+                "reason_en": "One modality looks legitimate while the other carries scam intent — cross-modal disguise",
+                "severity": "high",
+                "method": result["method"],
+            }
+        elif hi >= 0.5 and (divergence or 0) >= 0.6:
+            mismatch = True
+            conflict = {
+                "conflict": True,
+                "reason": "画面文字与语音表达的意图存在明显矛盾，存在信息误导嫌疑",
+                "reason_en": "On-screen text and speech convey conflicting intent — possible misdirection",
+                "severity": "medium",
+                "method": result["method"],
+            }
+
+        # 联合风险：错位时取高通道并按散度上调
+        joint = hi
+        if mismatch:
+            joint = min(1.0, max(hi, 0.6) + 0.2 * (divergence or 0))
+        result["joint_risk"] = round(joint, 4)
+        result["mismatch"] = mismatch
+        result["conflict"] = conflict
+        return result
+
     def _load_model(self, model_path: str):
         """加载模型权重（向后兼容）"""
         try:
@@ -789,10 +1082,16 @@ class MultimodalDetector:
     
     async def detect(
         self,
-        input_data: Union[MultimodalInput, str, Dict]
+        input_data: Union[MultimodalInput, str, Dict],
+        sensitivity: str = "balanced",
     ) -> DetectionOutput:
         """
         执行多模态检测（优先使用真实 AI 模型）
+        
+        sensitivity 误报控制策略:
+          - precision / low  : 宁漏勿误，提高 danger 阈值(0.75)，优先精确率
+          - balanced / normal: 默认平衡 (danger 0.65)
+          - recall / high    : 高召回，降低阈值(danger 0.50)，宁可多报
         
         检测优先级:
         1. BERT TextClassifier (best_text_model.pt) — F1=0.93
@@ -801,6 +1100,13 @@ class MultimodalDetector:
         结果通过加权融合策略合并
         """
         start_time = time.time()
+        sens = (sensitivity or "balanced").lower()
+        if sens in ("low", "precision", "strict"):
+            danger_th, warning_th, valve_mult = 0.75, 0.52, 0.92
+        elif sens in ("high", "recall", "sensitive"):
+            danger_th, warning_th, valve_mult = 0.50, 0.30, 1.0
+        else:
+            danger_th, warning_th, valve_mult = 0.65, 0.35, 1.0
         
         # 解析输入
         if isinstance(input_data, str):
@@ -900,7 +1206,25 @@ class MultimodalDetector:
             
             # === 3. 规则引擎检测 ===
             rule_result = self._rule_based_detection(text)
-            
+
+            # === 3.5 老年人认知特征多任务模型 (突破点2) ===
+            cognitive_out = self._infer_cognitive(text)
+            cognitive_risk_score = cognitive_out["risk_score"] if cognitive_out else None
+            if cognitive_out is not None:
+                manipulation_features = cognitive_out["features"]
+                manipulation_source = "cognitive_model"
+                manipulation_scores = cognitive_out["scores"]
+                if detection_method == "rule_engine":
+                    detection_method = "ai_cognitive"
+                elif detection_method.startswith("ai"):
+                    detection_method = "ai_multimodal"
+                logger.info(f"认知模型: risk={cognitive_risk_score:.4f}, 手法={manipulation_features}")
+            else:
+                # 模型不可用时用弱监督规则兜底，保证该能力始终可演示
+                manipulation_features = weak_label(text)
+                manipulation_source = "weak_rule" if manipulation_features else None
+                manipulation_scores = {}
+
             # === 4. 融合策略：多模型投票 + 规则增强 ===
             # BERT: 语义理解最强; TF-IDF v3: 94.7% 准确率 (jieba + 3.7万真实样本); Rules: 关键词匹配
             risk_score = 0.0
@@ -912,6 +1236,8 @@ class MultimodalDetector:
                 risk_contributions.append(("BERT", bert_risk_score, 0.500))  # 50.0%（语义理解）
             if simple_risk_score is not None:
                 risk_contributions.append(("TF-IDF", simple_risk_score, 0.167))  # 16.7%（词频统计）
+            if cognitive_risk_score is not None:
+                risk_contributions.append(("Cognitive", cognitive_risk_score, 0.300))  # 老年人认知特征专用模型
             if rule_result['risk_score'] > 0:
                 risk_contributions.append(("Rules", rule_result['risk_score'], 0.333))  # 33.3%（关键词规则）
             
@@ -920,25 +1246,41 @@ class MultimodalDetector:
                 risk_score = sum(s * w for _, s, w in risk_contributions) / total_weight
             
             # 安全阀：如果任一 AI 模型高置信度判断为风险，直接提升分数
+            # precision 模式下降低安全阀激进度，减少误报
             if bert_risk_score is not None and bert_risk_score > 0.8:
-                risk_score = max(risk_score, bert_risk_score * 0.9)
+                risk_score = max(risk_score, bert_risk_score * (0.9 * valve_mult))
             # TF-IDF 安全阀（v3 模型准确率 94.7%，可以更信任）
             if simple_risk_score is not None and simple_risk_score > 0.8:
                 if bert_risk_score is not None and bert_risk_score > 0.3:
-                    risk_score = max(risk_score, simple_risk_score * 0.8)
+                    risk_score = max(risk_score, simple_risk_score * (0.8 * valve_mult))
                 elif bert_risk_score is None:
                     # BERT 未加载时 TF-IDF 仍作为兜底
-                    risk_score = max(risk_score, simple_risk_score * 0.75)
-            # 规则引擎兜底：关键词明确命中时强制提升
-            if rule_result['risk_score'] > 0.3:
-                risk_score = max(risk_score, rule_result['risk_score'])
+                    risk_score = max(risk_score, simple_risk_score * (0.75 * valve_mult))
+            # 规则引擎兜底：关键词明确命中时强制提升（precision 模式需更高规则分才触发）
+            rule_valve_th = 0.5 if sens in ("low", "precision", "strict") else 0.3
+            if rule_result['risk_score'] > rule_valve_th:
+                risk_score = max(risk_score, rule_result['risk_score'] * valve_mult)
+            # 认知特征模型安全阀：高置信度风险时提升
+            if cognitive_risk_score is not None and cognitive_risk_score > 0.8:
+                risk_score = max(risk_score, cognitive_risk_score * (0.85 * valve_mult))
+            # 命中多个操控手法 = 强信号，轻度提升
+            if len(manipulation_features) >= 2:
+                risk_score = max(risk_score, 0.55 * valve_mult)
             
             risk_score = min(risk_score, 1.0)
-            
-            # 确定风险等级
-            if risk_score > 0.65:
+
+            # 正常直播带货/官旗推广：无高危词时限制融合分，避免误报
+            rule_legit = rule_result.get("commerce_legit")
+            scam_m = rule_result.get("scam_markers") or []
+            if rule_legit and len(scam_m) == 0:
+                risk_score = min(risk_score, max(0.12, warning_th - 0.06))
+            elif rule_legit and len(scam_m) <= 1:
+                risk_score = min(risk_score, danger_th - 0.08)
+
+            # 确定风险等级（阈值随 sensitivity 变化）
+            if risk_score > danger_th:
                 risk_level = RiskLevel.DANGER
-            elif risk_score > 0.35:
+            elif risk_score > warning_th:
                 risk_level = RiskLevel.WARNING
             else:
                 risk_level = RiskLevel.SAFE
@@ -958,6 +1300,13 @@ class MultimodalDetector:
                 reasons.insert(0, f"BERT AI模型判定为风险内容（置信度 {bert_risk_score:.0%}）")
             if simple_is_risky and simple_risk_score is not None:
                 reasons.insert(0 if not bert_is_risky else 1, f"TF-IDF AI模型判定为风险内容（置信度 {simple_risk_score:.0%}）")
+
+            # 老年人认知操控手法（突破点2）—— 写入可解释理由
+            manipulation_detail = describe_features(manipulation_features, lang="zh")
+            if manipulation_detail:
+                names = "、".join(d["name"] for d in manipulation_detail)
+                tag = "AI模型" if manipulation_source == "cognitive_model" else "规则"
+                reasons.insert(0, f"识别到针对老人的诈骗操控手法（{tag}）：{names}")
             
             if not reasons:
                 if risk_level == RiskLevel.SAFE:
@@ -990,15 +1339,36 @@ class MultimodalDetector:
                 detection_method=detection_method,
                 bert_score=bert_risk_score,
                 tfidf_score=simple_risk_score,
+                manipulation_features=manipulation_features,
+                manipulation_detail=manipulation_detail,
+                manipulation_source=manipulation_source,
+                cognitive_risk=cognitive_risk_score,
             )
             
         except Exception as e:
             logger.error(f"检测失败: {e}", exc_info=True)
             return self._fallback_detection(input_data)
     
+    def _effective_scam_markers(self, text: str) -> List[str]:
+        """排除辟谣/提醒语境中的高危词（如「不要转账」）。"""
+        text_lower = text.lower()
+        hits = [m for m in self.HIGH_RISK_SCAM_MARKERS if m in text_lower]
+        filtered: List[str] = []
+        for marker in hits:
+            if marker == "转账" and re.search(
+                r"(不要|勿|别|切勿|请勿).{0,12}转账|不要.{0,8}私信.{0,8}转账", text
+            ):
+                continue
+            if marker in ("加微信", "加微") and re.search(
+                r"(不要|勿|别).{0,10}(加微信|加微|私信)", text
+            ):
+                continue
+            filtered.append(marker)
+        return filtered
+
     def _rule_based_detection(self, text: str) -> Dict:
         """
-        基于规则的检测（增强AI检测）
+        基于规则的检测（增强AI detection）
         
         Args:
             text: 输入文本
@@ -1011,9 +1381,38 @@ class MultimodalDetector:
         suggestions = []
         
         text_lower = text.lower()  # 大小写不敏感匹配
+        legit_hits_early = [m for m in self.LEGIT_COMMERCE_MARKERS if m in text_lower]
+
+        # 科普/辟谣语境：单独提到保健品不等于诈骗
+        edu_safe = [
+            "不能代替", "不能替代", "不要轻信", "建议咨询", "正规医院",
+            "遵医嘱", "反对虚假宣传", "警惕夸大", "理性看待", "科学科普",
+        ]
+        if any(p in text for p in edu_safe):
+            return {
+                'risk_score': min(0.12, 0.0),
+                'reasons': [],
+                'suggestions': ["如有疑问可咨询家人或社区医生"],
+            }
+
+        # 保健品/营养品仅在与推销话术共现时计分
+        weak_medical = ["保健品", "营养品", "保健产品"]
+        scam_combo = [
+            "加微信", "加微", "私信", "转账", "汇款", "包治", "根治",
+            "特效", "央视推荐", "订购热线", "保证治愈", "祖传", "包治百病",
+        ]
+        for wm in weak_medical:
+            if wm in text_lower and any(c in text_lower for c in scam_combo):
+                risk_score += 0.35
+                reasons.append(f"推销话术：提到「{wm}」并诱导私下联系或夸大疗效")
+                suggestions.append("正规科普不会要求加微信买产品")
+                break
         
-        # 金融诈骗检测
+        # 金融诈骗检测（直播带货常见「限时优惠」等促销词单独出现时不加重）
         financial_matches = [kw for kw in self.FINANCIAL_KEYWORDS if kw.lower() in text_lower]
+        if len(legit_hits_early) >= 2:
+            soft_promo = {"限时优惠", "包邮", "现货", "正品", "官方旗舰店"}
+            financial_matches = [m for m in financial_matches if m not in soft_promo]
         if financial_matches:
             risk_score += min(len(financial_matches) * 0.15, 0.5)
             reasons.append(f"检测到{len(financial_matches)}个金融风险关键词: {', '.join(financial_matches[:3])}")
@@ -1044,11 +1443,27 @@ class MultimodalDetector:
             suggestions.append("不要轻易添加陌生人联系方式或转账")
         
         risk_score = min(risk_score, 1.0)
+
+        legit_hits = legit_hits_early or [m for m in self.LEGIT_COMMERCE_MARKERS if m in text_lower]
+        scam_hits = self._effective_scam_markers(text)
+        # 正常推销：平台内购买 + 无高危话术 → 压低规则分，交给 BERT 语义
+        if len(legit_hits) >= 2 and not scam_hits:
+            risk_score = min(risk_score, 0.22)
+            reasons = [
+                r for r in reasons
+                if "医疗风险" not in r and "诈骗常用" not in r and "金融风险" not in r
+            ]
+            if not reasons:
+                reasons.append("内容为平台内商品介绍，未发现典型诈骗话术")
+        elif len(legit_hits) >= 2 and len(scam_hits) <= 1:
+            risk_score = min(risk_score, 0.38)
         
         return {
             'risk_score': risk_score,
             'reasons': reasons,
-            'suggestions': suggestions
+            'suggestions': suggestions,
+            'commerce_legit': len(legit_hits) > 0,
+            'scam_markers': scam_hits[:5],
         }
     
     def _generate_explanation(
@@ -1099,6 +1514,7 @@ class MultimodalDetector:
         else:
             risk_level = RiskLevel.SAFE
         
+        feats = weak_label(text)
         return DetectionOutput(
             risk_level=risk_level,
             confidence=0.6,
@@ -1109,7 +1525,10 @@ class MultimodalDetector:
             reasons=rule_result['reasons'] or ["使用规则引擎检测"],
             suggestions=rule_result['suggestions'] or ["建议谨慎对待内容"],
             explanation="注：AI模型暂时不可用，使用规则引擎检测",
-            inference_time=0.0
+            inference_time=0.0,
+            manipulation_features=feats,
+            manipulation_detail=describe_features(feats, lang="zh"),
+            manipulation_source="weak_rule" if feats else None,
         )
     
     async def detect_batch(
@@ -1128,13 +1547,18 @@ class MultimodalDetector:
 _detector: Optional[MultimodalDetector] = None
 
 
-def get_detector(model_path: Optional[str] = None, simple_model_path: Optional[str] = None) -> MultimodalDetector:
+def get_detector(
+    model_path: Optional[str] = None,
+    simple_model_path: Optional[str] = None,
+    cognitive_model_path: Optional[str] = None,
+) -> MultimodalDetector:
     """获取检测器实例（单例模式）"""
     global _detector
     if _detector is None:
         _detector = MultimodalDetector(
             model_path=model_path,
-            simple_model_path=simple_model_path
+            simple_model_path=simple_model_path,
+            cognitive_model_path=cognitive_model_path,
         )
     return _detector
 

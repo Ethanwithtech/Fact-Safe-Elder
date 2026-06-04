@@ -149,7 +149,93 @@ def draw_sse_sequence():
     print(f'Saved {p}')
 
 
+def draw_breakthrough_architecture():
+    """Four-breakthrough consumer-side pipeline filling platform blind spots."""
+    fig, ax = plt.subplots(figsize=(13, 9.5))
+    ax.set_xlim(0, 13)
+    ax.set_ylim(0, 10)
+    ax.axis('off')
+
+    bd = '#37474F'
+
+    def box(x, y, w, h, txt, col, fs=9, sub=None):
+        r = mpatches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.12",
+                                     facecolor=col, edgecolor=bd, linewidth=1.6)
+        ax.add_patch(r)
+        dy = 0.16 if sub else 0
+        ax.text(x + w / 2, y + h / 2 + dy, txt, ha='center', va='center',
+                fontsize=fs, fontweight='bold')
+        if sub:
+            ax.text(x + w / 2, y + h / 2 - 0.20, sub, ha='center', va='center',
+                    fontsize=7, style='italic', color='#555')
+
+    def group(x, y, w, h, title, col):
+        r = mpatches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.12",
+                                     facecolor=col, edgecolor='#90A4AE',
+                                     linewidth=1.2, linestyle='--', alpha=0.5)
+        ax.add_patch(r)
+        ax.text(x + 0.15, y + h - 0.22, title, ha='left', va='center',
+                fontsize=8, fontweight='bold', color='#37474F')
+
+    def arr(x1, y1, x2, y2, lbl=None, c='#455A64'):
+        ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
+                    arrowprops=dict(arrowstyle='->', color=c, lw=1.6))
+        if lbl:
+            ax.text((x1 + x2) / 2 + 0.05, (y1 + y2) / 2 + 0.14, lbl,
+                    fontsize=7, color=c, ha='center')
+
+    # Input
+    box(4.7, 9.0, 3.6, 0.8, 'Video / Live Clip', '#E3F2FD', 11, 'consumer-side, while watching')
+
+    # Breakthrough 3: streaming pipeline
+    group(0.4, 7.0, 12.2, 1.6, 'Breakthrough 3 — Consumer-side Streaming (SSE, sliding window)', '#E1F5FE')
+    box(0.9, 7.2, 2.6, 0.9, 'Time-window Slicer', '#FFF3E0', 9, 'progress_risk events')
+    box(5.2, 7.2, 2.6, 0.9, 'EasyOCR', '#FFF3E0', 9, 'subtitle / on-screen')
+    box(9.0, 7.2, 2.6, 0.9, 'Whisper ASR', '#FFF3E0', 9, 'spoken script')
+    arr(6.5, 9.0, 2.2, 8.1)
+    arr(6.5, 9.0, 6.5, 8.1)
+    arr(6.5, 9.0, 10.3, 8.1)
+
+    # Breakthrough 1: cross-modal joint reasoning
+    group(0.4, 5.0, 12.2, 1.6, 'Breakthrough 1 — Cross-modal Intent Joint Reasoning', '#F3E5F5')
+    box(1.5, 5.2, 3.2, 0.9, 'OCR/ASR Dual Embedding', '#EDE7F6', 9, 'shared encoder')
+    box(5.3, 5.2, 3.2, 0.9, 'CrossModalAttention', '#EDE7F6', 9, 'fusion')
+    box(9.1, 5.2, 3.0, 0.9, 'Mismatch / Intent', '#FFCCBC', 9, 'divergence + coupling')
+    arr(6.5, 7.2, 3.1, 6.1, 'OCR')
+    arr(10.3, 7.2, 4.0, 6.1, 'ASR')
+    arr(4.7, 5.65, 5.3, 5.65)
+    arr(8.5, 5.65, 9.1, 5.65)
+
+    # Breakthrough 2: cognitive multi-task model
+    group(0.4, 3.0, 12.2, 1.6, 'Breakthrough 2 — Elderly Cognitive Multi-task Model', '#E8F5E9')
+    box(1.5, 3.2, 4.4, 0.9, 'ElderCognitiveClassifier', '#C8E6C9', 9, 'risk grade (3-class)')
+    box(6.6, 3.2, 5.5, 0.9, 'Manipulation Tactics (multi-label)', '#C8E6C9', 8.5,
+        'emotion / authority / luring / urgency / AI-synthetic')
+    arr(6.6, 5.2, 3.7, 4.1, 'joint signal')
+    arr(5.9, 3.65, 6.6, 3.65)
+
+    # Breakthrough 4: evidence chain
+    group(0.4, 1.0, 12.2, 1.6, 'Breakthrough 4 — Evidence-chain Explainability + Case RAG', '#FFF8E1')
+    box(0.9, 1.2, 3.3, 0.9, 'GPT Claim Extract/Correct', '#E0F7FA', 8.5, 'fact-check')
+    box(4.6, 1.2, 3.3, 0.9, 'Case Retriever (TF-IDF)', '#FFE0B2', 8.5, 'scam_case_library')
+    box(8.3, 1.2, 3.8, 0.9, 'Evidence Chain', '#FFCDD2', 9, 'tags + claims + cases')
+    arr(3.7, 3.2, 2.5, 2.1, 'tags')
+    arr(4.2, 1.65, 4.6, 1.65)
+    arr(7.9, 1.65, 8.3, 1.65)
+
+    # Output
+    box(4.3, 0.0, 4.4, 0.7, 'Elder Alert + Evidence Panel + Family Notify', '#F1F8E9', 9.5)
+    arr(10.2, 1.2, 7.0, 0.7, 'verdict', '#D32F2F')
+
+    plt.tight_layout()
+    p = os.path.join(OUTPUT_DIR, 'fig5_breakthrough_architecture.png')
+    plt.savefig(p, dpi=200, bbox_inches='tight', facecolor='white')
+    plt.close()
+    print(f'Saved {p}')
+
+
 if __name__ == '__main__':
     draw_architecture()
     draw_sse_sequence()
+    draw_breakthrough_architecture()
     print('Done.')

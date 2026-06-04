@@ -21,6 +21,7 @@
 
 import os
 import sys
+import json
 import textwrap
 
 # ========== 测试案例文案 ==========
@@ -61,6 +62,18 @@ TEST_CASES = [
         "subtitle": "紧急！您的社保卡即将失效！请立即点击链接更新！",
         "speech": "紧急通知！您的社保卡即将于本月底失效！请立即输入身份证号和银行卡信息进行验证更新！限时48小时！",
         "desc": "🚨 紧急通知诈骗 — 冒充官方紧急通知，诱导提供个人信息",
+    },
+    {
+        "name": "conflict_health_sub_scam_speech",
+        "subtitle": "健康养生知识科普 正规医院专家讲座",
+        "speech": "这个祖传秘方包治百病，三天见效，加我微信私下买，医院不会告诉你的特效药",
+        "desc": "⚠️ ASR/OCR冲突 — 字幕是正规养生科普，语音却在推销三无特效药并诱导加微信",
+    },
+    {
+        "name": "conflict_finance_speech_scam_sub",
+        "subtitle": "原始股内部认购 保本年化60% 扫码进群最后名额",
+        "speech": "大家投资一定要选正规持牌机构，不要相信保本高息，天上不会掉馅饼",
+        "desc": "⚠️ ASR/OCR冲突 — 语音是正确反诈提醒，字幕却在推销保本高息原始股骗局",
     },
 ]
 
@@ -226,13 +239,85 @@ def try_generate_synthetic():
     return True
 
 
+# ========== 跨模态错位 OOD 评测集（突破点1：联合推理对照实验用）==========
+
+# 额外的"纯文本对"错位评测样本（无需生成视频即可评估 OCR/ASR 联合推理）
+# label: "mismatch" = 跨模态错位(危险), "consistent_scam" = 双模态都诈骗, "consistent_safe" = 双模态都安全
+MISMATCH_EVAL_EXTRA = [
+    {"ocr_text": "国家认证安全产品 官方推荐 正规渠道", "asr_text": "加我微信私下转账三千块我帮你免费拿到不用走正规渠道", "label": "mismatch", "expected_risk": "danger"},
+    {"ocr_text": "扫码领取免费特效药 限时优惠 加微信购买", "asr_text": "我是三甲医院李医生科普健康知识有病要去正规医院不要轻信偏方", "label": "mismatch", "expected_risk": "danger"},
+    {"ocr_text": "健康养生知识科普 正规医院专家讲座", "asr_text": "这个祖传秘方包治百病三天见效加我微信私下买", "label": "mismatch", "expected_risk": "danger"},
+    {"ocr_text": "原始股内部认购 保本年化60% 扫码进群最后名额", "asr_text": "投资要选正规持牌机构不要相信保本高息天上不会掉馅饼", "label": "mismatch", "expected_risk": "danger"},
+    {"ocr_text": "公安反诈宣传 切勿向陌生人转账", "asr_text": "赶紧把验证码发给我不然你的账户马上就冻结了", "label": "mismatch", "expected_risk": "danger"},
+    {"ocr_text": "央视权威报道 老年健康讲座", "asr_text": "充值五千返三万原始股稳赚不赔名额有限今天截止", "label": "mismatch", "expected_risk": "danger"},
+    # 双模态一致的诈骗（联合推理也应判危险，但非"错位"）
+    {"ocr_text": "月入十万保证收益无风险投资加微信", "asr_text": "保证月收益百分之三十只要998加入VIP群扫码立即加入", "label": "consistent_scam", "expected_risk": "danger"},
+    {"ocr_text": "祖传秘方三天治愈糖尿病医院不想让你知道", "asr_text": "我家祖传秘方专治疑难杂症糖尿病高血压都能治好下单买三送一", "label": "consistent_scam", "expected_risk": "danger"},
+    # 双模态一致的安全内容（联合推理应判安全）
+    {"ocr_text": "今天教大家做红烧肉 五花肉焯水去腥", "asr_text": "大家好今天教大家做一道经典红烧肉选用五花肉先焯水去腥", "label": "consistent_safe", "expected_risk": "safe"},
+    {"ocr_text": "社区老年大学书法班招生 免费报名", "asr_text": "欢迎各位老年朋友报名书法班每周三上午在社区活动中心免费教学", "label": "consistent_safe", "expected_risk": "safe"},
+]
+
+
+def write_mismatch_eval_set():
+    """
+    生成跨模态错位 OOD 评测集 -> data/raw/crossmodal_mismatch_eval.json
+    供 scripts/run_evaluation.py 做"单模态独立分析 vs 联合推理"对照实验。
+    """
+    out_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "raw")
+    os.makedirs(out_dir, exist_ok=True)
+    out_path = os.path.join(out_dir, "crossmodal_mismatch_eval.json")
+
+    samples = []
+    # 来自合成视频文案（重点是 conflict_* 错位案例）
+    for case in TEST_CASES:
+        name = case["name"]
+        if name.startswith("conflict_"):
+            label = "mismatch"
+            expected = "danger"
+        elif name.startswith("scam_") or name.startswith("urgency_"):
+            label = "consistent_scam"
+            expected = "danger"
+        else:
+            label = "consistent_safe"
+            expected = "safe"
+        samples.append({
+            "ocr_text": case["subtitle"],
+            "asr_text": case["speech"],
+            "label": label,
+            "expected_risk": expected,
+            "source": f"gen_test_videos:{name}",
+        })
+    # 额外纯文本对
+    for s in MISMATCH_EVAL_EXTRA:
+        s = dict(s)
+        s.setdefault("source", "mismatch_eval_extra")
+        samples.append(s)
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(samples, f, ensure_ascii=False, indent=2)
+
+    from collections import Counter
+    dist = Counter(s["label"] for s in samples)
+    print(f"✅ 跨模态错位评测集已生成: {out_path}")
+    print(f"   样本数: {len(samples)} | 分布: {dict(dist)}")
+    return out_path
+
+
 if __name__ == "__main__":
+    if "--eval-set" in sys.argv:
+        write_mismatch_eval_set()
+        sys.exit(0)
+
     print_test_cases()
 
     if "--generate" in sys.argv:
         print("\n正在生成合成测试视频...\n")
         try_generate_synthetic()
+        write_mismatch_eval_set()
     else:
         print("\n💡 如需自动生成合成视频，运行:")
         print("   python3 scripts/gen_test_videos.py --generate")
+        print("\n💡 仅生成跨模态错位评测集(无需 opencv):")
+        print("   python3 scripts/gen_test_videos.py --eval-set")
         print("\n💡 推荐：用手机按照上面的文案自行录制，效果更真实。")

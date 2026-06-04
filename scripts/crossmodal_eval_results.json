@@ -1,0 +1,355 @@
+{
+  "summary": {
+    "n_samples": 18,
+    "baseline_accuracy": 1.0,
+    "joint_accuracy": 0.9444,
+    "mismatch_total": 10,
+    "baseline_mismatch_recall": 1.0,
+    "joint_mismatch_recall": 1.0,
+    "method": "model"
+  },
+  "rows": [
+    {
+      "ocr": "今天教大家做红烧肉，选用五花肉，先焯水去腥",
+      "asr": "大家好，今天教大家做一道经典红烧肉。选用五花肉，先焯水去腥，加入老抽生抽冰糖慢炖",
+      "label": "consistent_safe",
+      "expected_danger": false,
+      "baseline": {
+        "risk": 0.282,
+        "danger": false
+      },
+      "joint": {
+        "visual_risk": 0.3345,
+        "audio_risk": 0.0961,
+        "divergence": 0.121,
+        "joint_risk": 0.3345,
+        "mismatch": false,
+        "method": "model",
+        "danger": false
+      }
+    },
+    {
+      "ocr": "月入10万！保证收益！无风险投资！加微信立即开始",
+      "asr": "各位朋友大家好，我是理财导师王老师。保证月收益百分之三十以上，只要998就能加入",
+      "label": "consistent_scam",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.897,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8995,
+        "audio_risk": 0.8296,
+        "divergence": 0.1326,
+        "joint_risk": 0.8995,
+        "mismatch": false,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "祖传秘方！三天治愈糖尿病！医院不想让你知道！",
+      "asr": "我家祖传的秘方，专治各种疑难杂症。糖尿病高血压癌症都能治好。三天见效七天痊愈。现",
+      "label": "consistent_scam",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.9,
+        "audio_risk": 0.8998,
+        "divergence": 0.7418,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "国家认证安全产品 正规渠道 官方推荐",
+      "asr": "加我微信，私下转账三千块，我帮你免费拿到这个产品。不需要走正规渠道，直接给我打钱",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8968,
+        "audio_risk": 0.8167,
+        "divergence": 0.841,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "扫码领取免费特效药！限时优惠！加微信立即购买",
+      "asr": "大家好，我是某三甲医院的李医生。今天给大家科普一下健康知识。有病要去正规医院看，",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.917,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8968,
+        "audio_risk": 0.7815,
+        "divergence": 0.8002,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "紧急！您的社保卡即将失效！请立即点击链接更新！",
+      "asr": "紧急通知！您的社保卡即将于本月底失效！请立即输入身份证号和银行卡信息进行验证更新",
+      "label": "consistent_scam",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8999,
+        "audio_risk": 0.8999,
+        "divergence": 0.0648,
+        "joint_risk": 0.8999,
+        "mismatch": false,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "健康养生知识科普 正规医院专家讲座",
+      "asr": "这个祖传秘方包治百病，三天见效，加我微信私下买，医院不会告诉你的特效药",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.1568,
+        "audio_risk": 0.9,
+        "divergence": 1.0,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "原始股内部认购 保本年化60% 扫码进群最后名额",
+      "asr": "大家投资一定要选正规持牌机构，不要相信保本高息，天上不会掉馅饼",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.898,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8178,
+        "audio_risk": 0.8885,
+        "divergence": 0.9509,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "国家认证安全产品 官方推荐 正规渠道",
+      "asr": "加我微信私下转账三千块我帮你免费拿到不用走正规渠道",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.899,
+        "audio_risk": 0.8997,
+        "divergence": 0.7609,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "扫码领取免费特效药 限时优惠 加微信购买",
+      "asr": "我是三甲医院李医生科普健康知识有病要去正规医院不要轻信偏方",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.895,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8263,
+        "audio_risk": 0.8968,
+        "divergence": 0.6399,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "健康养生知识科普 正规医院专家讲座",
+      "asr": "这个祖传秘方包治百病三天见效加我微信私下买",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.899,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.1568,
+        "audio_risk": 0.8998,
+        "divergence": 1.0,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "原始股内部认购 保本年化60% 扫码进群最后名额",
+      "asr": "投资要选正规持牌机构不要相信保本高息天上不会掉馅饼",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.745,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8178,
+        "audio_risk": 0.1072,
+        "divergence": 1.0,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "公安反诈宣传 切勿向陌生人转账",
+      "asr": "赶紧把验证码发给我不然你的账户马上就冻结了",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.332,
+        "audio_risk": 0.8996,
+        "divergence": 0.8337,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "央视权威报道 老年健康讲座",
+      "asr": "充值五千返三万原始股稳赚不赔名额有限今天截止",
+      "label": "mismatch",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.898,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.2833,
+        "audio_risk": 0.8845,
+        "divergence": 1.0,
+        "joint_risk": 1.0,
+        "mismatch": true,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "月入十万保证收益无风险投资加微信",
+      "asr": "保证月收益百分之三十只要998加入VIP群扫码立即加入",
+      "label": "consistent_scam",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.891,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8926,
+        "audio_risk": 0.8926,
+        "divergence": 0.2052,
+        "joint_risk": 0.8926,
+        "mismatch": false,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "祖传秘方三天治愈糖尿病医院不想让你知道",
+      "asr": "我家祖传秘方专治疑难杂症糖尿病高血压都能治好下单买三送一",
+      "label": "consistent_scam",
+      "expected_danger": true,
+      "baseline": {
+        "risk": 0.9,
+        "danger": true
+      },
+      "joint": {
+        "visual_risk": 0.8998,
+        "audio_risk": 0.8996,
+        "divergence": 0.488,
+        "joint_risk": 0.8998,
+        "mismatch": false,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "今天教大家做红烧肉 五花肉焯水去腥",
+      "asr": "大家好今天教大家做一道经典红烧肉选用五花肉先焯水去腥",
+      "label": "consistent_safe",
+      "expected_danger": false,
+      "baseline": {
+        "risk": 0.125,
+        "danger": false
+      },
+      "joint": {
+        "visual_risk": 0.7652,
+        "audio_risk": 0.1914,
+        "divergence": 0.0121,
+        "joint_risk": 0.7652,
+        "mismatch": false,
+        "method": "model",
+        "danger": true
+      }
+    },
+    {
+      "ocr": "社区老年大学书法班招生 免费报名",
+      "asr": "欢迎各位老年朋友报名书法班每周三上午在社区活动中心免费教学",
+      "label": "consistent_safe",
+      "expected_danger": false,
+      "baseline": {
+        "risk": 0.079,
+        "danger": false
+      },
+      "joint": {
+        "visual_risk": 0.2029,
+        "audio_risk": 0.1034,
+        "divergence": 0.0252,
+        "joint_risk": 0.2029,
+        "mismatch": false,
+        "method": "model",
+        "danger": false
+      }
+    }
+  ]
+}

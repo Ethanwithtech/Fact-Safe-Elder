@@ -1,0 +1,287 @@
+/* 标准 iPhone 外框 + 抖音叠层 UI */
+.douyin-phone-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.douyin-viewport {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+/* 视频层铺满视口（children 在 overlay 之下） */
+.douyin-viewport > .video-viewport {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  flex: none;
+}
+
+.douyin-viewport > .video-viewport .video-slide {
+  width: 100%;
+  height: 100%;
+}
+
+.douyin-overlay-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 12;
+  pointer-events: none;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.42) 0%, rgba(0, 0, 0, 0.12) 70%, transparent 100%);
+}
+
+.douyin-status-row {
+  display: grid;
+  grid-template-columns: 72px 1fr 88px;
+  align-items: center;
+  height: 44px;
+  padding: 10px 16px 0;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dy-time {
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.dy-island-slot {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  pointer-events: auto;
+}
+
+.dy-island-slot .ai-guardian-island {
+  position: relative;
+  top: 0;
+  left: auto;
+  transform: none;
+}
+
+.dy-status-icons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dy-signal {
+  width: 16px;
+  height: 10px;
+  background: linear-gradient(to right, #fff 0 25%, #fff 26% 50%, #fff 51% 75%, #fff 76%);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Cpath fill='white' d='M1 11h2V8H1v3zm4 0h2V5H5v6zm4 0h2V2H9v9zm4 0h2V0h-2v11z'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 12'%3E%3Cpath fill='white' d='M1 11h2V8H1v3zm4 0h2V5H5v6zm4 0h2V2H9v9zm4 0h2V0h-2v11z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.dy-wifi {
+  width: 14px;
+  height: 10px;
+  opacity: 0.95;
+  background: #fff;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath fill='white' d='M8 12l-8-8 2-2 6 6 6-6 2 2z'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 12'%3E%3Cpath fill='white' d='M8 12l-8-8 2-2 6 6 6-6 2 2z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.dy-battery {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #8ee04e;
+  font-size: 11px;
+}
+
+.dy-battery-fill {
+  width: 22px;
+  height: 10px;
+  border: 1.5px solid #8ee04e;
+  border-radius: 3px;
+  position: relative;
+}
+.dy-battery-fill::after {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 72%;
+  background: #8ee04e;
+  border-radius: 1px;
+}
+
+.douyin-nav-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 8px;
+  pointer-events: auto;
+}
+
+.dy-menu-btn,
+.dy-search-btn {
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 17px;
+  padding: 4px;
+  cursor: default;
+  flex-shrink: 0;
+  position: relative;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.dy-menu-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  font-style: normal;
+  font-size: 9px;
+  background: #fe2c55;
+  color: #fff;
+  border-radius: 8px;
+  min-width: 14px;
+  height: 14px;
+  line-height: 14px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.dy-tabs-scroll {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+.dy-tabs-scroll::-webkit-scrollbar { display: none; }
+
+.dy-tab {
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  padding-bottom: 4px;
+  white-space: nowrap;
+}
+
+.dy-tab.active {
+  color: #fff;
+  font-weight: 800;
+  border-bottom: 2.5px solid #fff;
+}
+
+/* 底栏 */
+.douyin-tabbar {
+  flex-shrink: 0;
+  height: 52px;
+  padding: 4px 6px 10px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  background: #000;
+  border-top: 0.5px solid rgba(255, 255, 255, 0.08);
+}
+
+.douyin-tabbar .tb-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.5);
+  position: relative;
+  min-width: 44px;
+}
+.douyin-tabbar .tb-item.active { color: #fff; font-weight: 600; }
+.douyin-tabbar .tb-icon { font-size: 22px; line-height: 1; }
+.douyin-tabbar .tb-badge {
+  position: absolute;
+  top: -2px;
+  right: 4px;
+  font-size: 9px;
+  background: #fe2c55;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 4px;
+  font-weight: 700;
+  font-style: normal;
+}
+.douyin-tabbar .tb-add {
+  width: 46px;
+  height: 30px;
+  border-radius: 8px;
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 22px;
+  font-weight: 300;
+  margin-bottom: 2px;
+}
+
+/* 视频区底部文案（抖音风格） */
+.douyin-meta-bottom {
+  position: absolute;
+  left: 12px;
+  right: 76px;
+  bottom: 8px;
+  z-index: 8;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+  pointer-events: none;
+}
+
+.douyin-meta-bottom .dm-user {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.douyin-meta-bottom .dm-desc {
+  font-size: 14px;
+  line-height: 1.45;
+  opacity: 0.95;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.douyin-meta-bottom .dm-expand {
+  font-weight: 600;
+}
+
+.douyin-danmu {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(80, 80, 80, 0.75);
+  font-size: 11px;
+  margin-right: 6px;
+  vertical-align: middle;
+}

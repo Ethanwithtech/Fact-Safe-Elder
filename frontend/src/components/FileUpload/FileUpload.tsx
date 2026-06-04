@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import DetectionService from '../../services/DetectionService';
 import OpenClawService from '../../services/OpenClawService';
-import { DetectionResult, GPTFactCheckResult } from '../../types/detection';
+import { DetectionResult, GPTFactCheckResult, RiskTrajectoryPoint } from '../../types/detection';
 import { Language, t, translateReason } from '../../i18n';
 import './FileUpload.css';
 
@@ -9,6 +9,8 @@ interface FileUploadProps {
   onDetectionResult?: (result: DetectionResult) => void;
   onVideoUpload?: (fileUrl: string | null, fileName: string) => void;
   onUploadWarning?: (result: DetectionResult) => void;
+  onAnalyzingChange?: (analyzing: boolean) => void;
+  onScanProgressChange?: (progress: number) => void;
   lang: Language;
 }
 
@@ -25,7 +27,14 @@ function showToast(text: string, type: 'success' | 'warning' | 'error' = 'succes
   setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 300); }, 2500);
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUpload, onUploadWarning, lang }) => {
+const FileUpload: React.FC<FileUploadProps> = ({
+  onDetectionResult,
+  onVideoUpload,
+  onUploadWarning,
+  onAnalyzingChange,
+  onScanProgressChange,
+  lang,
+}) => {
   const [file, setFile] = useState<File | null>(null);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -39,6 +48,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
   // 实时分析日志
   const [analysisLog, setAnalysisLog] = useState<string[]>([]);
   const [scanProgress, setScanProgress] = useState(0);
+  // 突破点3: 消费端实时风险升级轨迹
+  const [riskTrajectory, setRiskTrajectory] = useState<RiskTrajectoryPoint[]>([]);
+  const [peakRisk, setPeakRisk] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logBoxRef = useRef<HTMLDivElement>(null);
   const detectionService = useRef(new DetectionService());
@@ -54,6 +66,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
   useEffect(() => {
     if (logBoxRef.current) logBoxRef.current.scrollTop = logBoxRef.current.scrollHeight;
   }, [analysisLog]);
+
+  useEffect(() => {
+    onAnalyzingChange?.(isAnalyzing);
+  }, [isAnalyzing, onAnalyzingChange]);
+
+  useEffect(() => {
+    onScanProgressChange?.(scanProgress);
+  }, [scanProgress, onScanProgressChange]);
 
   const acceptedTypes = [
     'video/mp4', 'video/avi', 'video/quicktime', 'video/x-msvideo', 'video/webm',
@@ -91,6 +111,24 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setDragOver(true); };
   const handleDragLeave = () => setDragOver(false);
 
+  const [feedbackSent, setFeedbackSent] = useState<'none' | 'false_positive' | 'correct'>('none');
+
+  const handleFeedback = async (type: 'false_positive' | 'correct') => {
+    if (!result) return;
+    const ok = await detectionService.current.submitFeedback({
+      content_snippet: (result.message || file?.name || 'video').slice(0, 300),
+      predicted_level: result.level,
+      predicted_score: result.score ?? 0,
+      feedback_type: type,
+    });
+    if (ok) {
+      setFeedbackSent(type);
+      showToast(lang !== 'en' ? '感谢反馈，将用于降低误报' : 'Thanks! Feedback recorded.', 'success');
+    } else {
+      showToast(lang !== 'en' ? '反馈提交失败，请稍后重试' : 'Feedback failed', 'error');
+    }
+  };
+
   const handleAnalyze = async () => {
     if (!file) { showToast(t(lang, 'uploadNoFile'), 'warning'); return; }
 
@@ -101,6 +139,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
     setAnalysisLog([]);
     setScanProgress(0);
     setAlertSent(null);
+    setRiskTrajectory([]);
+    setPeakRisk(0);
+    setFeedbackSent('none');
 
     const zh = lang !== 'en';
     setAnalysisLog([zh ? '📤 上传视频...' : '📤 Uploading video...']);
@@ -171,6 +212,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 bert_score: data.bert_score,
                 tfidf_score: data.tfidf_score,
                 ocr_text: data.text_analyzed || '',
+                manipulation_features: data.manipulation_features || [],
               };
               setResult(partialResult);
               latest.result = partialResult;
@@ -195,6 +237,14 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 merged_text: data.merged_text || '',
                 bert_score: data.bert_score,
                 tfidf_score: data.tfidf_score,
+                manipulation_features: data.manipulation_features || [],
+                manipulation_detail: data.manipulation_detail || [],
+                manipulation_source: data.manipulation_source,
+                cognitive_risk: data.cognitive_risk,
+                asr_ocr_conflict: data.asr_ocr_conflict,
+                evidence_chain: data.evidence_chain,
+                related_cases: data.related_cases,
+                risk_trajectory: data.risk_trajectory || [],
               };
               setResult(finalResult);
               latest.result = finalResult;
@@ -206,9 +256,25 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
             break;
           }
 
+          case 'progress_risk': {
+            // 突破点3: 观看进度中的累计风险升级
+            const pt: RiskTrajectoryPoint = {
+              t: data.t, score: data.score, level: data.level, note: data.segment || data.stage,
+            };
+            setRiskTrajectory(prev => [...prev, pt]);
+            setPeakRisk(data.score || 0);
+            if (data.escalated) {
+              const icon = data.level === 'danger' ? '🚨' : data.level === 'warning' ? '⚠️' : '✅';
+              setAnalysisLog(prev => [...prev,
+                `${icon} ${zh ? '风险升级' : 'Risk escalated'} → ${Math.round((data.score || 0) * 100)}/100 (${data.source})`,
+              ]);
+            }
+            break;
+          }
+
           case 'conflict':
             setAnalysisLog(prev => [...prev,
-              `⚠️ ${zh ? 'ASR/OCR 冲突' : 'ASR/OCR conflict'}: ${data.reason || data.reason_en || ''}`,
+              `⚠️ ${zh ? '跨模态错位' : 'Cross-modal mismatch'}: ${data.reason || data.reason_en || ''}`,
             ]);
             break;
 
@@ -286,6 +352,8 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
     setAnalysisLog([]);
     setScanProgress(0);
     setAlertSent(null);
+    setRiskTrajectory([]);
+    setPeakRisk(0);
     onVideoUpload?.(null, '');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -406,6 +474,28 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 </div>
                 <span className="fu-scan-pct">{scanProgress}%</span>
               </div>
+
+              {/* 突破点3: 消费端实时风险升级轨迹 */}
+              {riskTrajectory.length > 0 && (
+                <div className="fu-risk-trajectory">
+                  <div className="fu-traj-head">
+                    <span>{lang !== 'en' ? '⏱️ 观看进度风险轨迹' : '⏱️ Watch-time Risk Trajectory'}</span>
+                    <span className={`fu-traj-peak ${peakRisk > 0.65 ? 'danger' : peakRisk > 0.35 ? 'warning' : 'safe'}`}>
+                      {lang !== 'en' ? '峰值' : 'Peak'} {Math.round(peakRisk * 100)}/100
+                    </span>
+                  </div>
+                  <div className="fu-traj-track">
+                    {riskTrajectory.map((p, i) => (
+                      <div
+                        key={i}
+                        className={`fu-traj-seg ${p.level}`}
+                        style={{ height: `${Math.max(8, Math.round((p.score || 0) * 100))}%` }}
+                        title={`${p.note || ''} → ${Math.round((p.score || 0) * 100)}/100`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 分析日志 */}
               <div className="fu-live-log" ref={logBoxRef}>
@@ -569,6 +659,63 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                 </div>
               )}
 
+              {/* === 突破点1: 跨模态错位 === */}
+              {result.asr_ocr_conflict?.conflict && (
+                <div className={`fu-crossmodal-panel severity-${result.asr_ocr_conflict.severity || 'medium'}`}>
+                  <div className="result-section-title">
+                    🔀 {t(lang, 'crossmodalTitle')}
+                    <span className="fu-cm-method">{result.asr_ocr_conflict.method === 'model' ? t(lang, 'methodAi') : t(lang, 'methodRule')}</span>
+                  </div>
+                  <div className="fu-cm-reason">{lang !== 'en' ? (result.asr_ocr_conflict.reason_en || result.asr_ocr_conflict.reason) : result.asr_ocr_conflict.reason}</div>
+                  {result.crossmodal && (
+                    <div className="fu-cm-bars">
+                      <span>📝 {t(lang, 'visualRisk')}: {Math.round((result.crossmodal?.visual_risk || 0) * 100)}%</span>
+                      <span>🎙️ {t(lang, 'audioRisk')}: {Math.round((result.crossmodal?.audio_risk || 0) * 100)}%</span>
+                      <span>↔️ {t(lang, 'semanticDivergence')}: {Math.round((result.crossmodal?.divergence || 0) * 100)}%</span>
+                    </div>
+                  )}
+                  {result.asr_ocr_conflict.cot_explanation && (
+                    <div className="fu-cm-cot">🧠 GPT: {result.asr_ocr_conflict.cot_explanation}</div>
+                  )}
+                </div>
+              )}
+
+              {/* === 突破点2: 老年人诈骗操控手法标注 === */}
+              {(result.manipulation_detail || []).length > 0 && (
+                <div className="fu-manip-panel">
+                  <div className="result-section-title">
+                    🎭 {lang !== 'en' ? '诈骗操控手法' : 'Manipulation Tactics'}
+                    <span className="fu-manip-src">{result.manipulation_source === 'cognitive_model' ? 'AI' : (lang !== 'en' ? 'rule' : '规则')}</span>
+                  </div>
+                  <div className="fu-manip-chips">
+                    {(result.manipulation_detail || []).map((m, i) => (
+                      <div key={i} className="fu-manip-chip" title={m.desc}>
+                        <span className="fu-manip-name">{m.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* === 突破点4: 关联真实案例 === */}
+              {(result.related_cases || []).length > 0 && (
+                <div className="fu-cases-panel">
+                  <div className="result-section-title">📚 {lang !== 'en' ? '相似真实诈骗案例' : 'Similar Real Cases'}</div>
+                  {(result.related_cases || []).map((c, i) => (
+                    <div key={i} className="fu-case-card">
+                      <div className="fu-case-title">{c.title}
+                        <span className="fu-case-sim">{Math.round((c.similarity || 0) * 100)}%</span>
+                      </div>
+                      <div className="fu-case-meta">
+                        <span>🏷️ {c.category}</span>
+                        {c.victims != null && <span>👥 {c.victims}{lang !== 'en' ? '人受骗' : ' victims'}</span>}
+                        {c.avg_loss != null && <span>💰 {lang !== 'en' ? '平均损失' : 'Avg loss'} ¥{c.avg_loss.toLocaleString()}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* 风险因素 */}
               {(result.reasons || []).length > 0 && (
                 <div className="result-reasons-section">
@@ -682,6 +829,26 @@ const FileUpload: React.FC<FileUploadProps> = ({ onDetectionResult, onVideoUploa
                   {alertSent === 'sending' && (lang !== 'en' ? '📡 正在推送企业微信...' : '📡 Sending to WeCom...')}
                   {alertSent === 'sent' && (lang !== 'en' ? '✅ 已推送企业微信告警' : '✅ Alert sent to WeCom')}
                   {alertSent === 'failed' && (lang !== 'en' ? '❌ 推送失败' : '❌ Push failed')}
+                </div>
+              )}
+
+              {/* 用户反馈 — 误报控制 */}
+              {result && feedbackSent === 'none' && (
+                <div className="fu-feedback-bar">
+                  <span className="fu-feedback-label">{lang !== 'en' ? '这次判断准确吗？' : 'Was this accurate?'}</span>
+                  <div className="fu-feedback-actions">
+                    <button type="button" className="fu-feedback-btn correct" onClick={() => handleFeedback('correct')}>
+                      👍 {lang !== 'en' ? '准确' : 'Correct'}
+                    </button>
+                    <button type="button" className="fu-feedback-btn false-pos" onClick={() => handleFeedback('false_positive')}>
+                      👎 {lang !== 'en' ? '误报' : 'False alarm'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {feedbackSent !== 'none' && (
+                <div className="fu-feedback-done">
+                  ✅ {lang !== 'en' ? '已收到您的反馈' : 'Feedback received'}
                 </div>
               )}
 

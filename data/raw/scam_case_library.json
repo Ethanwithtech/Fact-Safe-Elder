@@ -1,0 +1,134 @@
+[
+  {
+    "case_id": "fin_pension_invest",
+    "title": "养老投资高额返利骗局",
+    "category": "financial",
+    "keywords": ["养老", "投资", "返利", "高息", "保本", "原始股", "理财", "分红", "充值返现"],
+    "typical_scripts": "以养老院床位、养老项目、原始股内部认购为名，承诺保本高息、月月返利，先返小利诱导加大投入，最终卷款跑路。",
+    "manipulation_features": ["benefit_luring", "authority_forgery", "urgency_pressure"],
+    "victims": 41200,
+    "avg_loss": 86000,
+    "source": "公安部 2024 养老诈骗专项整治通报"
+  },
+  {
+    "case_id": "fin_pig_butchering",
+    "title": "杀猪盘情感投资诈骗",
+    "category": "financial",
+    "keywords": ["干女儿", "干儿子", "缘分", "只告诉你", "理财导师", "跟单", "稳赚", "转账", "加微信"],
+    "typical_scripts": "通过虚假亲情或恋爱关系建立信任，自称理财高手，诱导老人在虚假平台投资跟单，先小赚后大亏直至无法提现。",
+    "manipulation_features": ["emotional_manipulation", "benefit_luring"],
+    "victims": 23800,
+    "avg_loss": 152000,
+    "source": "中国反诈中心 2024 典型案例"
+  },
+  {
+    "case_id": "med_miracle_cure",
+    "title": "祖传秘方/神药包治百病",
+    "category": "medical",
+    "keywords": ["祖传秘方", "包治百病", "三天见效", "特效药", "老中医", "糖尿病", "高血压", "癌症", "医院不告诉你"],
+    "typical_scripts": "假冒老中医或退休专家，宣称祖传秘方、特效药能根治慢性病甚至癌症，诱导高价购买无批号三无产品，延误正规治疗。",
+    "manipulation_features": ["authority_forgery", "benefit_luring"],
+    "victims": 56700,
+    "avg_loss": 12000,
+    "source": "市场监管总局 2024 虚假医疗宣传查处通报"
+  },
+  {
+    "case_id": "med_health_product",
+    "title": "免费体验会销保健品骗局",
+    "category": "medical",
+    "keywords": ["免费领", "免费体验", "鸡蛋", "大米", "保健品", "会员", "专家讲座", "理疗仪", "送大礼"],
+    "typical_scripts": "用免费领鸡蛋大米、免费体验理疗吸引老人到会销现场，安排假专家讲座制造健康焦虑，高价推销保健品。",
+    "manipulation_features": ["benefit_luring", "authority_forgery"],
+    "victims": 38000,
+    "avg_loss": 9800,
+    "source": "央视《焦点访谈》保健品会销调查"
+  },
+  {
+    "case_id": "imp_public_security",
+    "title": "冒充公检法诈骗",
+    "category": "impersonation",
+    "keywords": ["公安", "涉嫌洗钱", "安全账户", "通缉", "保密", "立即转账", "冻结", "传票"],
+    "typical_scripts": "冒充公安、检察院称受害人涉嫌洗钱犯罪，要求保密并将资金转入所谓安全账户配合调查，制造恐惧逼迫转账。",
+    "manipulation_features": ["authority_forgery", "urgency_pressure", "emotional_manipulation"],
+    "victims": 19500,
+    "avg_loss": 230000,
+    "source": "最高检 2024 电信网络诈骗典型案例"
+  },
+  {
+    "case_id": "imp_social_security",
+    "title": "冒充社保/医保中心诈骗",
+    "category": "impersonation",
+    "keywords": ["社保卡", "医保", "失效", "冻结", "验证", "身份证", "银行卡", "点击链接", "更新"],
+    "typical_scripts": "冒充社保医保部门，称账户即将失效冻结，诱导老人点击钓鱼链接填写身份证、银行卡、验证码，盗刷资金。",
+    "manipulation_features": ["authority_forgery", "urgency_pressure"],
+    "victims": 14300,
+    "avg_loss": 35000,
+    "source": "工信部反诈预警 2024"
+  },
+  {
+    "case_id": "ai_face_swap_celebrity",
+    "title": "AI换脸冒充明星/名人带货诈骗",
+    "category": "ai_synthetic",
+    "keywords": ["明星代言", "AI换脸", "数字人", "名人推荐", "粉丝群", "本人亲自", "直播带货"],
+    "typical_scripts": "利用 AI 换脸和合成语音伪造明星、名医、知名企业家形象推荐产品或投资，诱导老人进群充值。",
+    "manipulation_features": ["ai_synthetic", "authority_forgery", "benefit_luring"],
+    "victims": 8700,
+    "avg_loss": 47000,
+    "source": "公安部网安局 2024 AI 新型诈骗预警"
+  },
+  {
+    "case_id": "ai_voice_clone_family",
+    "title": "AI合成亲属语音求助诈骗",
+    "category": "ai_synthetic",
+    "keywords": ["儿子", "孙子", "出事了", "急需用钱", "合成声音", "克隆声音", "立即转账", "别告诉别人"],
+    "typical_scripts": "用 AI 克隆子女或孙辈声音，伪造其遭遇车祸、被扣押等紧急情况，要求老人立即向指定账户转账。",
+    "manipulation_features": ["ai_synthetic", "emotional_manipulation", "urgency_pressure"],
+    "victims": 5200,
+    "avg_loss": 68000,
+    "source": "中国反诈中心 2024 AI 拟声诈骗提示"
+  },
+  {
+    "case_id": "fin_crypto_mining",
+    "title": "虚拟货币/区块链高回报骗局",
+    "category": "financial",
+    "keywords": ["虚拟货币", "区块链", "挖矿", "日赚", "翻倍", "数字资产", "钱包", "私募"],
+    "typical_scripts": "以区块链、虚拟货币挖矿、数字资产私募为噱头，承诺日赚翻倍，搭建虚假交易平台操纵涨跌后关网跑路。",
+    "manipulation_features": ["benefit_luring", "urgency_pressure"],
+    "victims": 31000,
+    "avg_loss": 124000,
+    "source": "国家反诈中心 2024 投资理财类诈骗通报"
+  },
+  {
+    "case_id": "luck_lottery_prize",
+    "title": "中奖返利/缴税诈骗",
+    "category": "luring",
+    "keywords": ["中奖", "免费领奖", "缴税", "手续费", "刮刮卡", "幸运观众", "保证金"],
+    "typical_scripts": "谎称老人中大奖，但需先缴纳个人所得税、手续费或保证金才能领取，反复以各种名目要求转账。",
+    "manipulation_features": ["benefit_luring", "urgency_pressure"],
+    "victims": 12600,
+    "avg_loss": 28000,
+    "source": "公安部刑侦局反诈宣传 2024"
+  },
+  {
+    "case_id": "emo_companion_donation",
+    "title": "虚假慈善/情感陪伴募捐诈骗",
+    "category": "emotional",
+    "keywords": ["孤寡", "陪伴", "做公益", "献爱心", "捐款", "功德", "积德", "回报"],
+    "typical_scripts": "以慈善公益、积德行善、情感陪伴为名，长期嘘寒问暖博取信任，再诱导老人持续捐款或购买高价纪念品。",
+    "manipulation_features": ["emotional_manipulation", "benefit_luring"],
+    "victims": 6400,
+    "avg_loss": 21000,
+    "source": "民政部门虚假募捐风险提示 2024"
+  },
+  {
+    "case_id": "fin_collectibles",
+    "title": "收藏品高价回购骗局",
+    "category": "financial",
+    "keywords": ["纪念币", "邮票", "收藏品", "升值", "回购", "拍卖", "限量发行", "国家发行"],
+    "typical_scripts": "谎称纪念币、邮票等收藏品将大幅升值并承诺高价回购，诱导老人高价囤货，回购承诺无法兑现。",
+    "manipulation_features": ["benefit_luring", "authority_forgery"],
+    "victims": 9100,
+    "avg_loss": 56000,
+    "source": "市场监管部门收藏品诈骗查处通报"
+  }
+]

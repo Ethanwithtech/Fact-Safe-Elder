@@ -93,7 +93,7 @@ def paired_t_test(
     )
     
     # 判断是否显著
-    significant = p_value < alpha
+    significant = bool(p_value < alpha)
     
     # 解释
     direction = "优于" if mean_diff > 0 else "劣于"
@@ -161,7 +161,7 @@ def one_sample_t_test(
         scale=se
     )
     
-    significant = p_value < alpha
+    significant = bool(p_value < alpha)
     
     # 解释
     direction = "高于" if sample_mean > population_mean else "低于"
@@ -262,84 +262,186 @@ def k_fold_cross_validation(
     )
 
 
+import os
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _load_labeled_binary():
+    """读取 elder_scam_labeled.json，返回 (texts, y_binary[risky=1/safe=0])。"""
+    path = os.path.join(ROOT, "data", "raw", "elder_scam_labeled.json")
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    texts = [d.get("text", "") for d in data]
+    y = [1 if int(d.get("label", 0)) >= 1 else 0 for d in data]
+    return texts, y
+
+
+def real_model_vs_rule_cv(n_splits: int = 5, seed: int = 42):
+    """
+    真实 5 折交叉验证（不再用硬编码数字）：
+      - 模型组: TF-IDF(char n-gram) + LogisticRegression
+      - 基线组: 关键词规则（命中操控手法词即判风险）
+    返回每折 F1 列表，可直接做配对 t 检验。
+    """
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold
+    from sklearn.metrics import f1_score
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(ROOT, "backend"))
+    from app.core.manipulation_taxonomy import weak_label
+
+    # 规则基线兜底关键词（与生产规则引擎同源的高频诈骗词）
+    RULE_KW = ["保证收益", "无风险", "稳赚", "包治百病", "祖传秘方", "免费领", "转账",
+               "加微信", "限时", "立即", "名额有限", "原始股", "高收益", "特效药"]
+
+    texts, y = _load_labeled_binary()
+    skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    model_f1, rule_f1 = [], []
+    for tr, va in skf.split(texts, y):
+        tr_t = [texts[i] for i in tr]; tr_y = [y[i] for i in tr]
+        va_t = [texts[i] for i in va]; va_y = [y[i] for i in va]
+        vec = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4))
+        Xtr = vec.fit_transform(tr_t)
+        clf = LogisticRegression(max_iter=1000, class_weight="balanced")
+        clf.fit(Xtr, tr_y)
+        pred = clf.predict(vec.transform(va_t))
+        model_f1.append(float(f1_score(va_y, pred, zero_division=0)))
+        rule_pred = [1 if (weak_label(t) or any(k in t for k in RULE_KW)) else 0 for t in va_t]
+        rule_f1.append(float(f1_score(va_y, rule_pred, zero_division=0)))
+    return model_f1, rule_f1
+
+
+def crossmodal_paired_test():
+    """从 crossmodal_eval_results.json 取真实逐样本正确性做配对检验（基线融合 vs 联合推理）。"""
+    path = os.path.join(ROOT, "scripts", "crossmodal_eval_results.json")
+    if not os.path.exists(path):
+        return None
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    rows = data.get("rows", [])
+    base_c, joint_c = [], []
+    for r in rows:
+        exp = r.get("expected_danger")
+        base_c.append(1.0 if r["baseline"]["danger"] == exp else 0.0)
+        joint_c.append(1.0 if r["joint"]["danger"] == exp else 0.0)
+    if len(base_c) < 2:
+        return None
+    return base_c, joint_c, data.get("summary", {})
+
+
 def report_statistical_tests() -> Dict[str, Any]:
     """
-    复现 FYP Final Report 中的统计检验
-    
-    Returns:
-        包含所有统计检验结果的字典
+    用**真实实验数据**复现统计检验（替换原硬编码数字）。
     """
-    results = {}
-    
-    # ===== Section 4.3: 安全阀 vs 基线 =====
-    # 模拟数据 (实际应从实验结果文件读取)
-    safety_valve_f1 = [0.970, 0.968, 0.972, 0.965, 0.971]
-    baseline_f1 = [0.952, 0.950, 0.955, 0.948, 0.953]
-    
-    results['safety_valve_vs_baseline'] = paired_t_test(
-        safety_valve_f1,
-        baseline_f1
-    )
-    
-    # ===== Section 4.5: OOD vs In-Distribution =====
-    ood_f1 = [0.78, 0.76, 0.80, 0.74, 0.79]
-    in_dist_f1 = [0.97, 0.96, 0.98, 0.95, 0.97]
-    
-    results['ood_vs_indist'] = paired_t_test(
-        in_dist_f1,
-        ood_f1
-    )
-    
-    # ===== Section 4.12: UAT SUS vs Industry Average =====
-    sus_scores = [75, 80, 65, 70, 78, 72, 68, 77, 71, 69]
-    industry_avg = 68
-    
-    results['uat_sus_vs_industry'] = one_sample_t_test(
-        sus_scores,
-        industry_avg
-    )
-    
+    results: Dict[str, Any] = {}
+
+    # ===== 真实 5 折 CV：TF-IDF 模型 vs 关键词规则基线 =====
+    try:
+        model_f1, rule_f1 = real_model_vs_rule_cv()
+        results["model_vs_rule_cv"] = {
+            "type": "paired_t_test",
+            "model_f1_per_fold": [round(x, 4) for x in model_f1],
+            "rule_f1_per_fold": [round(x, 4) for x in rule_f1],
+            "result": paired_t_test(model_f1, rule_f1),
+            "cv_summary": {
+                "model_mean_f1": round(float(np.mean(model_f1)), 4),
+                "model_std": round(float(np.std(model_f1, ddof=1)), 4),
+                "rule_mean_f1": round(float(np.mean(rule_f1)), 4),
+            },
+            "data_source": "data/raw/elder_scam_labeled.json (真实标注集, 5-fold StratifiedKFold)",
+        }
+    except Exception as e:
+        results["model_vs_rule_cv"] = {"error": str(e), "note": "需要 scikit-learn 与标注数据集"}
+
+    # ===== 真实跨模态：单模态融合 vs 联合推理 =====
+    cm = crossmodal_paired_test()
+    if cm:
+        base_c, joint_c, summary = cm
+        entry = {
+            "type": "paired_t_test",
+            "result": paired_t_test(joint_c, base_c) if sum(joint_c) != sum(base_c) else None,
+            "summary": summary,
+            "data_source": "scripts/crossmodal_eval_results.json (eval_crossmodal.py 真实输出)",
+            "note": "逐样本正确性配对检验；样本量小时建议结合 McNemar 检验解读",
+        }
+        results["crossmodal_joint_vs_baseline"] = entry
+    else:
+        results["crossmodal_joint_vs_baseline"] = {
+            "note": "未找到 crossmodal_eval_results.json，请先运行 python scripts/eval_crossmodal.py",
+        }
+
+    # ===== UAT SUS：无真实问卷数据时不编造，标记待补 =====
+    sus_path = os.path.join(ROOT, "data", "raw", "uat_sus_scores.json")
+    if os.path.exists(sus_path):
+        with open(sus_path, "r", encoding="utf-8") as f:
+            sus_scores = json.load(f)
+        results["uat_sus_vs_industry"] = {
+            "type": "one_sample_t_test",
+            "result": one_sample_t_test(sus_scores, 68),
+            "data_source": sus_path,
+        }
+    else:
+        results["uat_sus_vs_industry"] = {
+            "status": "PENDING_REAL_USER_STUDY",
+            "note": "SUS 可用性得分需真实老年用户测试采集；为保证科学诚信，未采集到数据前不提供任何分数。"
+                    "采集后将数据写入 data/raw/uat_sus_scores.json 即可自动计算。",
+        }
+
     return results
 
 
+def _serialize(obj):
+    if isinstance(obj, TTestResult):
+        return {
+            "t_statistic": obj.t_statistic, "p_value": obj.p_value, "df": obj.df,
+            "mean_diff": obj.mean_diff, "ci_95": list(obj.ci_95) if obj.ci_95 else None,
+            "significant": obj.significant, "interpretation": obj.interpretation,
+        }
+    if isinstance(obj, dict):
+        return {k: _serialize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_serialize(v) for v in obj]
+    if isinstance(obj, np.bool_):
+        return bool(obj)
+    if isinstance(obj, np.integer):
+        return int(obj)
+    if isinstance(obj, np.floating):
+        return float(obj)
+    return obj
+
+
 def main():
-    """运行统计检验并打印结果"""
+    """运行真实统计检验并打印结果"""
     print("=" * 80)
-    print("FactSafe 统计显著性检验报告")
-    print("FYP Final Report - Statistical Validation")
+    print("FactSafe 统计显著性检验报告 (真实实验数据)")
     print("=" * 80)
     print()
-    
+
     results = report_statistical_tests()
-    
-    for test_name, result in results.items():
-        print(f"【{test_name}】")
-        print(f"  t({result.df}) = {result.t_statistic:.4f}")
-        print(f"  p-value = {result.p_value:.4f}")
-        print(f"  Mean diff = {result.mean_diff:.4f}")
-        print(f"  95% CI = [{result.ci_95[0]:.4f}, {result.ci_95[1]:.4f}]")
-        print(f"  Significant (α=0.05): {result.significant}")
-        print(f"  解释: {result.interpretation}")
+    output = _serialize(results)
+
+    for name, entry in output.items():
+        print(f"【{name}】")
+        if isinstance(entry, dict):
+            res = entry.get("result")
+            if isinstance(res, dict):
+                print(f"  t({res['df']})={res['t_statistic']:.4f}  p={res['p_value']:.4f}  "
+                      f"significant={res['significant']}")
+                print(f"  {res['interpretation']}")
+            if entry.get("cv_summary"):
+                print(f"  CV: {entry['cv_summary']}")
+            if entry.get("status"):
+                print(f"  状态: {entry['status']} — {entry.get('note','')}")
+            elif entry.get("note") and not res:
+                print(f"  说明: {entry['note']}")
         print()
-    
-    # 保存为 JSON
-    output = {
-        name: {
-            't_statistic': res.t_statistic,
-            'p_value': res.p_value,
-            'df': res.df,
-            'mean_diff': res.mean_diff,
-            'ci_95': res.ci_95,
-            'significant': res.significant,
-            'interpretation': res.interpretation
-        }
-        for name, res in results.items()
-    }
-    
-    with open('statistical_tests_results.json', 'w', encoding='utf-8') as f:
+
+    out_path = os.path.join(ROOT, "scripts", "statistical_tests_results.json")
+    with open(out_path, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=2, ensure_ascii=False)
-    
-    print("✅ 结果已保存到 statistical_tests_results.json")
+    print(f"✅ 结果已保存到 {out_path}")
 
 
 if __name__ == '__main__':

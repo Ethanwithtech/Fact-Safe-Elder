@@ -120,6 +120,68 @@ class GPTFactChecker:
     def available(self) -> bool:
         return self._available
 
+    async def crossmodal_cot(
+        self, ocr_text: str, asr_text: str, title: str = ""
+    ) -> Dict[str, Any]:
+        """
+        跨模态意图联合推理的 GPT 思维链(CoT)解释 (突破点1)
+
+        不是分别判断字幕和语音，而是让 GPT 像人类审核员一样"观察-归因-判断"：
+        这段内容画面文字与语音的整体意图是否一致？是否存在用合规外壳掩盖诈骗的错位？
+
+        Returns: {mismatch: bool, intent: str, severity: str, cot: str} 或 fallback
+        """
+        if not self._available:
+            return {"mismatch": False, "cot": "", "available": False, "reason": "GPT 不可用"}
+        if PII_REDACTION_AVAILABLE:
+            ocr_text = redact_pii(ocr_text or "", aggressive=False)
+            asr_text = redact_pii(asr_text or "", aggressive=False)
+
+        system = (
+            "你是面向老年人短视频的反诈审核员。请对画面文字(OCR)与语音(ASR)做跨模态联合推理，"
+            "判断两者的整体意图是否一致，是否存在'用合规外壳掩盖诈骗意图'的跨模态错位伪装。"
+            "用'观察→归因→判断'的思维链分析，最后只输出一个 JSON："
+            '{"mismatch": true/false, "severity": "high|medium|low", '
+            '"intent": "一句话概括真实意图", "cot": "简短的思维链解释(中文,<=120字)"}'
+        )
+        user = f"视频标题：{title or '(无)'}\n画面文字(OCR)：{ocr_text or '(无)'}\n语音转写(ASR)：{asr_text or '(无)'}"
+        try:
+            url = f"{self.api_base}/deployments/{self.model}/chat/completions"
+            headers = {"Content-Type": "application/json", "api-key": self.api_key}
+            payload = {
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "max_tokens": 400,
+            }
+            if not any(tag in self.model for tag in ("gpt-5", "o3", "o4")):
+                payload["temperature"] = 0.2
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(url, json=payload, headers=headers)
+                if resp.status_code != 200:
+                    return {"mismatch": False, "cot": "", "available": False,
+                            "reason": f"HTTP {resp.status_code}"}
+                data = resp.json()
+            reply = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+            parsed = self._parse_gpt_response(reply) if reply else {}
+            # _parse_gpt_response 兜底解析 JSON；这里取我们关心的字段
+            out = {
+                "mismatch": bool(parsed.get("mismatch", False)) if isinstance(parsed, dict) else False,
+                "severity": parsed.get("severity", "medium") if isinstance(parsed, dict) else "medium",
+                "intent": parsed.get("intent", "") if isinstance(parsed, dict) else "",
+                "cot": parsed.get("cot", "") if isinstance(parsed, dict) else reply[:200],
+                "available": True,
+            }
+            # 若解析失败，直接保留原始文本作为 CoT
+            if not out["cot"]:
+                out["cot"] = reply[:200]
+            logger.info(f"跨模态 CoT: mismatch={out['mismatch']} severity={out.get('severity')}")
+            return out
+        except Exception as e:
+            logger.warning(f"跨模态 CoT 失败: {e}")
+            return {"mismatch": False, "cot": "", "available": False, "reason": str(e)}
+
     async def fact_check(
         self,
         content: str,

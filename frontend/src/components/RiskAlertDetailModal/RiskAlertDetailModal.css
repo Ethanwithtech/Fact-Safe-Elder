@@ -1,0 +1,121 @@
+.elder-detail-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 970;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  animation: elderDetailIn 0.25s ease-out;
+}
+
+.elder-detail-card {
+  width: 100%;
+  max-width: 340px;
+  max-height: calc(100% - 80px);
+  overflow-y: auto;
+  padding: 20px 18px 18px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+}
+
+.elder-detail-back {
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 18px;
+  font-weight: 700;
+  padding: 0 0 8px;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.elder-detail-source {
+  margin: -8px 0 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #888;
+}
+
+.elder-detail-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.45;
+  color: #1a1a1a;
+}
+
+.elder-detail-list {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.elder-detail-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.elder-detail-icon {
+  font-size: 22px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.elder-detail-line-title {
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.45;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.elder-detail-line-sub {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #444;
+}
+
+.elder-detail-item:first-child .elder-detail-line-title,
+.elder-detail-item:last-child .elder-detail-line-title {
+  color: #c62828;
+}
+
+.elder-detail-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.elder-detail-btn {
+  flex: 1;
+  min-height: 90px;
+  border-radius: 24px;
+  font-size: 22px;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+}
+
+.elder-detail-btn.primary {
+  background: #f57c00;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(245, 124, 0, 0.35);
+}
+
+.elder-detail-btn.secondary {
+  background: #fff;
+  color: #666;
+  border: 2px solid #ccc;
+}
+
+@keyframes elderDetailIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}

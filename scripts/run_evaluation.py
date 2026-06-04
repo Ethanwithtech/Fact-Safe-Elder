@@ -21,11 +21,21 @@ print("=" * 60)
 print("\n[1/6] Loading test data...")
 
 import joblib
-model_data = joblib.load(os.path.join(ROOT, 'simple_ai_model.joblib'))
-tfidf_model = model_data['model']
-tfidf_vectorizer = model_data['vectorizer']
-print(f"  TF-IDF model loaded: {model_data.get('version', 'unknown')}")
-print(f"  Training size: {model_data.get('training_data_size', '?')}")
+tfidf_model = None
+tfidf_vectorizer = None
+TRAIN_TFIDF_INLINE = False
+_joblib_path = os.path.join(ROOT, 'simple_ai_model.joblib')
+if os.path.exists(_joblib_path):
+    model_data = joblib.load(_joblib_path)
+    tfidf_model = model_data['model']
+    tfidf_vectorizer = model_data['vectorizer']
+    print(f"  TF-IDF model loaded: {model_data.get('version', 'unknown')}")
+    print(f"  Training size: {model_data.get('training_data_size', '?')}")
+else:
+    # 诚信修复: 旧的 simple_ai_model.joblib 不在仓库中。
+    # 不再硬失败，改为在真实标注集的训练分片上即时训练 TF-IDF+LR，并在留出测试分片上评估(无泄漏)。
+    TRAIN_TFIDF_INLINE = True
+    print("  simple_ai_model.joblib 缺失 -> 将在真实标注集训练分片上即时训练 TF-IDF+LR (留出测试评估)")
 
 # We need the actual test data. Let's reconstruct from the training pipeline.
 # The model was trained on open-source datasets. Let's load them.
@@ -69,67 +79,35 @@ def load_datasets():
     return all_texts, all_labels
 
 
-# Try loading real data, fall back to synthetic evaluation
-texts, labels = load_datasets()
+# 诚信基线: 优先使用项目自建的"老人专属诈骗标注集"作为评估基准。
+# 不使用 ced/mcfend/weibo 等 BERT 训练同源数据做测试(否则 BERT 会因训练/测试同分布而虚高到 100%)。
+train_texts, train_labels = None, None
+labeled_path = os.path.join(ROOT, 'data', 'raw', 'elder_scam_labeled.json')
+_all_texts, _all_labels = [], []
+try:
+    with open(labeled_path, 'r', encoding='utf-8') as f:
+        real_data = json.load(f)
+    for item in real_data:
+        tt = (item.get('text') or '').strip()
+        if not tt:
+            continue
+        _all_texts.append(tt)
+        _all_labels.append(1 if int(item.get('label', 0)) >= 1 else 0)
+    print(f"  使用真实标注集 elder_scam_labeled.json: 共 {len(_all_texts)} 条")
+except Exception as e:
+    print(f"  ⚠️ 无法加载真实标注集: {e}")
 
-if len(texts) < 100:
-    print("  Raw datasets not found. Generating synthetic test set from model predictions...")
-    # Generate test samples using known patterns
-    import jieba
-    
-    safe_texts = [
-        "今天教大家做红烧肉，选用五花肉先焯水去腥",
-        "早上好跟着陈师傅一起练太极吧",
-        "根据国家相关部门最新通知养老金将继续上调",
-        "大家好我是某三甲医院的李医生今天给大家科普一下",
-        "姐妹们好今天教大家跳今年最流行的广场舞",
-        "这道经典红烧排骨简单易学",
-        "今天天气不错适合出去走走锻炼身体",
-        "科学饮食很重要建议每天摄入足够的蔬菜水果",
-        "读书是最好的投资每天坚持阅读半小时",
-        "公安部反诈中心提醒广大老年朋友注意安全",
-    ]
-    
-    risky_texts = [
-        "保证收益无风险投资月入万元加微信立即开始",
-        "祖传秘方三天治愈糖尿病医院不想让你知道",
-        "紧急通知您的社保卡即将失效请立即点击链接更新",
-        "这款保健品经过央视权威推荐延年益寿二十年",
-        "只要998就能加入VIP群保证月收益百分之三十",
-        "我家祖传的秘方专治各种疑难杂症包治百病",
-        "限时优惠原价三千九百八十现在只要三百九十八",
-        "虚拟货币挖矿每天轻松赚一千块财务自由",
-        "免费送出十台手机参与方式关注点赞转发加微信",
-        "紧急您的银行卡异常请立即输入密码验证",
-    ]
-    
-    # Expand with variations
-    np.random.seed(42)
-    texts = []
-    labels = []
-    
-    for _ in range(120):
-        t = np.random.choice(safe_texts)
-        # Add some noise
-        if np.random.random() < 0.3:
-            t = t + "这个视频很好看推荐给大家"
-        texts.append(t)
-        labels.append(0)
-    
-    for _ in range(120):
-        t = np.random.choice(risky_texts)
-        if np.random.random() < 0.3:
-            t = t + "赶紧行动不要错过机会难得"
-        texts.append(t)
-        labels.append(1)
-    
-    print(f"  Generated {len(texts)} synthetic test samples ({sum(1 for l in labels if l==0)} safe, {sum(1 for l in labels if l==1)} risky)")
-
-else:
-    # Use 10% as test set (matching training config)
+if len(_all_texts) >= 20:
+    # 分层切出留出测试集；训练分片用于即时训练 TF-IDF，避免训练/测试泄漏
     from sklearn.model_selection import train_test_split
-    _, texts, _, labels = train_test_split(texts, labels, test_size=0.1, random_state=42, stratify=labels)
-    print(f"  Test set: {len(texts)} samples ({sum(1 for l in labels if l==0)} safe, {sum(1 for l in labels if l==1)} risky)")
+    train_texts, texts, train_labels, labels = train_test_split(
+        _all_texts, _all_labels, test_size=0.3, random_state=42, stratify=_all_labels)
+    print(f"  留出评估: 训练={len(train_texts)} 测试={len(texts)} "
+          f"(测试集 {sum(1 for l in labels if l==0)} safe / {sum(1 for l in labels if l==1)} risky)")
+else:
+    # 极端兜底: 标注集不可用时退回旧数据加载逻辑
+    print("  标注集不足，退回 load_datasets() 兜底")
+    texts, labels = load_datasets()
 
 texts = np.array(texts)
 labels = np.array(labels)
@@ -138,20 +116,36 @@ labels = np.array(labels)
 print("\n[2/6] Running TF-IDF predictions...")
 import jieba
 
-t0 = time.time()
-tfidf_scores = []
-for text in texts:
-    words = ' '.join(jieba.cut(text))
-    features = tfidf_vectorizer.transform([words])
-    if hasattr(tfidf_model, 'predict_proba'):
-        proba = tfidf_model.predict_proba(features)[0]
-        score = float(proba[1]) if len(proba) > 1 else float(tfidf_model.predict(features)[0])
-    else:
-        score = float(tfidf_model.predict(features)[0])
-    tfidf_scores.append(score)
-tfidf_scores = np.array(tfidf_scores)
-tfidf_time = time.time() - t0
-print(f"  TF-IDF done in {tfidf_time:.1f}s ({tfidf_time/len(texts)*1000:.1f}ms per sample)")
+if (tfidf_model is None or tfidf_vectorizer is None) and train_texts:
+    # 即时训练 TF-IDF + LogisticRegression（仅用训练分片，杜绝训练/测试泄漏）
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    _tr_tokens = [' '.join(jieba.cut(t)) for t in train_texts]
+    tfidf_vectorizer = TfidfVectorizer(max_features=20000, ngram_range=(1, 2))
+    _Xtr = tfidf_vectorizer.fit_transform(_tr_tokens)
+    tfidf_model = LogisticRegression(max_iter=1000, class_weight='balanced')
+    tfidf_model.fit(_Xtr, np.array(train_labels))
+    print(f"  即时训练 TF-IDF+LR 完成 (训练样本={len(train_texts)})")
+
+if tfidf_model is None or tfidf_vectorizer is None:
+    print("  ⚠️ 无可用 TF-IDF 模型且无训练分片，TF-IDF 层记为 0.5 中性分")
+    tfidf_scores = np.full(len(texts), 0.5)
+    tfidf_time = 0.0
+else:
+    t0 = time.time()
+    tfidf_scores = []
+    for text in texts:
+        words = ' '.join(jieba.cut(text))
+        features = tfidf_vectorizer.transform([words])
+        if hasattr(tfidf_model, 'predict_proba'):
+            proba = tfidf_model.predict_proba(features)[0]
+            score = float(proba[1]) if len(proba) > 1 else float(tfidf_model.predict(features)[0])
+        else:
+            score = float(tfidf_model.predict(features)[0])
+        tfidf_scores.append(score)
+    tfidf_scores = np.array(tfidf_scores)
+    tfidf_time = time.time() - t0
+    print(f"  TF-IDF done in {tfidf_time:.1f}s ({tfidf_time/len(texts)*1000:.1f}ms per sample)")
 
 # ===== 3. Run BERT predictions =====
 print("\n[3/6] Running BERT predictions...")

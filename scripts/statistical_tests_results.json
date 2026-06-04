@@ -1,11 +1,56 @@
 {
-  "safety_valve_vs_baseline": {
-    "t_statistic": 71.8516991216399,
-    "p_value": 2.248238982546654e-07,
-    "df": 4,
-    "mean_diff": 0.017600000000000015,
-    "ci_95": [
-      0.016919912619341757,
-      0.018280087380658273
+  "model_vs_rule_cv": {
+    "type": "paired_t_test",
+    "model_f1_per_fold": [
+      0.9231,
+      0.928,
+      0.9489,
+      0.9356,
+      0.9565
     ],
-    "significant": 
+    "rule_f1_per_fold": [
+      0.4301,
+      0.4632,
+      0.4694,
+      0.5168,
+      0.4739
+    ],
+    "result": {
+      "t_statistic": 35.90550917222883,
+      "p_value": 3.5914053424489814e-06,
+      "df": 4,
+      "mean_diff": 0.4677775484513488,
+      "ci_95": [
+        0.43160597716156746,
+        0.5039491197411301
+      ],
+      "significant": true,
+      "interpretation": "方法 A 优于 方法 B (平均差异=0.4678, p=0.0000 < 0.05)，差异具有统计学显著性"
+    },
+    "cv_summary": {
+      "model_mean_f1": 0.9384,
+      "model_std": 0.014,
+      "rule_mean_f1": 0.4707
+    },
+    "data_source": "data/raw/elder_scam_labeled.json (真实标注集, 5-fold StratifiedKFold)"
+  },
+  "crossmodal_joint_vs_baseline": {
+    "type": "paired_t_test",
+    "result": null,
+    "summary": {
+      "n_samples": 18,
+      "baseline_accuracy": 0.8333,
+      "joint_accuracy": 0.8333,
+      "mismatch_total": 10,
+      "baseline_mismatch_recall": 1.0,
+      "joint_mismatch_recall": 1.0,
+      "method": "model"
+    },
+    "data_source": "scripts/crossmodal_eval_results.json (eval_crossmodal.py 真实输出)",
+    "note": "逐样本正确性配对检验；样本量小时建议结合 McNemar 检验解读"
+  },
+  "uat_sus_vs_industry": {
+    "status": "PENDING_REAL_USER_STUDY",
+    "note": "SUS 可用性得分需真实老年用户测试采集；为保证科学诚信，未采集到数据前不提供任何分数。采集后将数据写入 data/raw/uat_sus_scores.json 即可自动计算。"
+  }
+}

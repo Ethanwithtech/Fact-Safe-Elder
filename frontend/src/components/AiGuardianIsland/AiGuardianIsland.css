@@ -1,0 +1,220 @@
+/* 嵌入状态栏的灵动岛 — AI 反诈 */
+.ai-guardian-island {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 6px;
+  min-width: 126px;
+  max-width: 200px;
+  height: 37px;
+  background: #000;
+  border-radius: 20px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 20px rgba(0, 0, 0, 0.45);
+  cursor: default;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ai-guardian-island.clickable {
+  cursor: pointer;
+}
+
+.ai-guardian-island.clickable:active {
+  transform: translateX(-50%) scale(0.97);
+}
+
+.dy-island-slot .ai-guardian-island.clickable:active {
+  transform: scale(0.97);
+}
+
+.dy-island-slot .ai-guardian-island {
+  position: relative;
+  top: 2px;
+  left: auto;
+  transform: none;
+}
+
+.ai-guardian-island.expanded {
+  min-width: 168px;
+  max-width: 220px;
+  padding-right: 14px;
+}
+
+.ai-guardian-island.scanning {
+  background: linear-gradient(135deg, #0a1628, #000);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.ai-guardian-island.danger {
+  border-color: rgba(232, 140, 90, 0.45);
+  box-shadow: 0 0 16px rgba(232, 140, 90, 0.25);
+}
+
+.ai-guardian-island.warning {
+  border-color: rgba(245, 215, 120, 0.4);
+}
+
+.ai-guardian-island.safe {
+  border-color: rgba(149, 212, 117, 0.35);
+}
+
+.ai-guardian-island.tier-low.result {
+  border-color: rgba(245, 215, 120, 0.45);
+}
+
+.ai-guardian-island.tier-medium.result {
+  min-width: 148px;
+}
+
+.ai-guardian-island.tier-high.result.high-blink {
+  border-color: rgba(232, 68, 68, 0.65);
+  animation: islandHighBlink 1.4s ease-in-out infinite;
+}
+
+.agi-warn-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.agi-low-tip {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 6px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #f5d78e;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@keyframes islandHighBlink {
+  0%, 100% { box-shadow: 0 0 12px rgba(232, 68, 68, 0.35); }
+  50% { box-shadow: 0 0 20px rgba(232, 68, 68, 0.55); }
+}
+
+.agi-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+  flex: 1;
+}
+
+.agi-brand {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+}
+
+.agi-status {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agi-progress,
+.agi-score {
+  font-size: 12px;
+  font-weight: 800;
+  color: #60a5fa;
+  flex-shrink: 0;
+}
+
+.ai-guardian-island.danger .agi-score { color: #e8a87c; }
+.ai-guardian-island.warning .agi-score { color: #f5d78e; }
+.ai-guardian-island.safe .agi-score { color: #95d475; }
+
+.agi-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #60a5fa;
+  animation: agiPulse 1s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes agiPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* 详情 sheet（岛内） */
+.agi-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 52px;
+}
+
+.agi-sheet {
+  width: calc(100% - 24px);
+  max-width: 340px;
+  background: rgba(28, 28, 32, 0.96);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  animation: agiSheetIn 0.28s ease-out;
+}
+
+@keyframes agiSheetIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.agi-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.agi-sheet-title { font-size: 15px; font-weight: 800; color: #fff; }
+.agi-sheet-sub { font-size: 12px; color: rgba(255, 255, 255, 0.6); margin-top: 2px; }
+
+.agi-sheet-line {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.agi-sheet-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.agi-btn {
+  flex: 1;
+  padding: 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+.agi-btn.primary { background: #e8a87c; color: #fff; }
+.agi-btn.ghost { background: rgba(255, 255, 255, 0.1); color: #fff; }

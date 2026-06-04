@@ -28,93 +28,85 @@ export default class DetectionService {
    * 检测内容是否为虚假信息
    * 策略：始终调用后端 AI API 进行深度检测，本地规则作为补充
    */
-  async detectContent(content: string): Promise<DetectionResult> {
+  private getSensitivity(): string {
     try {
-      // 检查缓存（带过期时间）
-      const cacheKey = this.generateCacheKey(content);
-      const cached = this.cache.get(cacheKey);
-      
-      if (cached && (Date.now() - cached.time < this.cacheTimeout)) {
-        console.log('[DetectionService] 使用缓存结果 (剩余', Math.round((this.cacheTimeout - (Date.now() - cached.time)) / 1000), '秒过期)');
-        return cached.result;
-      }
-
-      // 本地快速检测（用于兜底和辅助判断，不再短路）
-      const quickResult = this.quickLocalDetection(content);
-      console.log('[DetectionService] 本地预检测:', quickResult.level, '分数:', quickResult.score.toFixed(2));
-
-      // 始终调用后端 AI API 进行深度检测
-      try {
-        console.log('[DetectionService] 正在调用后端 AI API:', `${this.baseURL}/api/detect`);
-        const response = await axios.post(`${this.baseURL}/api/detect`, {
-          text: content,
-          timestamp: new Date().toISOString()
-        }, {
-          timeout: 10000, // 10秒超时（BERT推理可能需要更长时间）
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-
-        console.log('[DetectionService] 后端响应:', response.status, response.data?.success);
-
-        // 后端返回 { success, message, data: { level, score, ... } }
-        const apiData = response.data?.data || response.data;
-        
-        const result: DetectionResult = {
-          level: apiData.level || quickResult.level,
-          score: apiData.score ?? quickResult.score,
-          confidence: apiData.confidence ?? 0.8,
-          message: apiData.message || '',
-          reasons: apiData.reasons || [],
-          suggestions: apiData.suggestions || [],
-          detection_method: apiData.detection_method || 'ai_multimodal',
-          timestamp: new Date()
-        };
-
-        // 融合策略：如果 AI 判断为 safe 但本地关键词检测为 danger/warning，取更严格的
-        if (result.level === 'safe' && quickResult.level !== 'safe') {
-          result.level = quickResult.level;
-          result.score = Math.max(result.score, quickResult.score);
-          result.reasons = [...(quickResult.reasons || []), ...(result.reasons || [])];
-          result.suggestions = [...new Set([...(quickResult.suggestions || []), ...(result.suggestions || [])])];
-          result.message = quickResult.message;
-          result.detection_method = 'hybrid';
-        }
-
-        console.log('[DetectionService] 最终结果:', result.level, '分数:', result.score, '方法:', result.detection_method);
-
-        // 缓存结果
-        this.cache.set(cacheKey, { result, time: Date.now() });
-        
-        // 清理过期缓存
-        this.cleanExpiredCache();
-
-        return result;
-      } catch (apiError: any) {
-        console.warn('[DetectionService] 后端 API 调用失败:', apiError?.message || apiError);
-        console.warn('[DetectionService] 降级使用本地规则引擎检测');
-        // API 失败时使用本地检测结果，标记检测方法
-        quickResult.detection_method = 'local_rule_engine';
-        this.cache.set(cacheKey, { result: quickResult, time: Date.now() });
-        return quickResult;
-      }
-
-    } catch (error) {
-      console.error('[DetectionService] 检测服务错误:', error);
-      
-      // 返回默认安全结果，避免系统崩溃
-      return {
-        level: 'safe',
-        score: 0,
-        confidence: 0.5,
-        message: '检测服务暂时不可用',
-        reasons: ['系统检测异常'],
-        suggestions: ['建议谨慎对待此内容'],
-        detection_method: 'error_fallback',
-        timestamp: new Date()
-      };
+      const raw = localStorage.getItem('elderSafetySettings');
+      if (!raw) return 'precision';
+      const s = JSON.parse(raw);
+      const v = (s.sensitivity || 'low').toLowerCase();
+      if (v === 'low' || v === 'precision') return 'precision';
+      if (v === 'high' || v === 'recall') return 'recall';
+      return 'balanced';
+    } catch {
+      return 'precision';
     }
+  }
+
+  /** 分离 ASR（口播）与 OCR（标题+描述）做语义 + 跨模态检测 */
+  async detectVideoContent(params: {
+    asrText: string;
+    ocrText: string;
+    title: string;
+  }): Promise<DetectionResult> {
+    const cacheKey = this.generateCacheKey(`${params.title}|${params.ocrText}|${params.asrText}`);
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.time < this.cacheTimeout) {
+      return cached.result;
+    }
+
+    try {
+      const response = await axios.post(
+        `${this.baseURL}/api/detect`,
+        {
+          text: params.asrText,
+          audio_text: params.asrText,
+          ocr_text: params.ocrText,
+          title: params.title,
+          sensitivity: this.getSensitivity(),
+        },
+        { timeout: 15000, headers: { 'Content-Type': 'application/json' } },
+      );
+      const apiData = response.data?.data || response.data;
+      const result = this.mapApiResult(apiData);
+      this.cache.set(cacheKey, { result, time: Date.now() });
+      return result;
+    } catch (apiError: any) {
+      console.warn('[DetectionService] API 失败，降级本地:', apiError?.message);
+      const merged = `${params.title} ${params.ocrText} ${params.asrText}`;
+      const quickResult = this.quickLocalDetection(merged);
+      quickResult.detection_method = 'local_rule_engine';
+      this.cache.set(cacheKey, { result: quickResult, time: Date.now() });
+      return quickResult;
+    }
+  }
+
+  async detectContent(content: string): Promise<DetectionResult> {
+    return this.detectVideoContent({
+      asrText: content,
+      ocrText: '',
+      title: '',
+    });
+  }
+
+  private mapApiResult(apiData: any): DetectionResult {
+    return {
+      level: apiData.level || 'safe',
+      score: apiData.score ?? 0,
+      confidence: apiData.confidence ?? 0.8,
+      message: apiData.message || '',
+      reasons: apiData.reasons || [],
+      suggestions: apiData.suggestions || [],
+      detection_method: apiData.detection_method || 'ai_multimodal',
+      manipulation_detail: apiData.manipulation_detail,
+      manipulation_features: apiData.manipulation_features,
+      asr_ocr_conflict: apiData.asr_ocr_conflict,
+      crossmodal: apiData.crossmodal,
+      related_cases: apiData.related_cases,
+      evidence_chain: apiData.evidence_chain,
+      keywords: apiData.keywords,
+      merged_text: apiData.merged_text,
+      timestamp: new Date(),
+    };
   }
 
   /**
@@ -126,6 +118,7 @@ export default class DetectionService {
       const formData = new FormData();
       formData.append('video', file);
       if (text) formData.append('text', text);
+      formData.append('sensitivity', this.getSensitivity());
 
       console.log('[DetectionService] 上传视频文件:', file.name, '大小:', (file.size / 1024 / 1024).toFixed(1), 'MB');
 
@@ -179,14 +172,51 @@ export default class DetectionService {
    * @param onEvent 每收到一个 SSE 事件就调用
    * @returns Promise<void> 流结束时 resolve
    */
+  /**
+   * 从本地设置读取检测敏感度，映射到后端 precision/balanced/recall
+   */
+  getDetectSensitivity(): string {
+    try {
+      const raw = localStorage.getItem('elderSafetySettings');
+      if (!raw) return 'precision';
+      const s = JSON.parse(raw).sensitivity as string;
+      if (s === 'high') return 'recall';
+      if (s === 'medium') return 'balanced';
+      return 'precision'; // low 默认：宁漏勿误
+    } catch {
+      return 'precision';
+    }
+  }
+
+  /**
+   * 用户反馈 — 标记误报/漏报，写入后端用于迭代模型
+   */
+  async submitFeedback(payload: {
+    content_snippet: string;
+    predicted_level: string;
+    predicted_score: number;
+    feedback_type: 'false_positive' | 'false_negative' | 'correct';
+    comment?: string;
+  }): Promise<boolean> {
+    try {
+      const resp = await axios.post(`${this.baseURL}/feedback`, payload, { timeout: 8000 });
+      return resp.data?.success === true;
+    } catch (e) {
+      console.warn('[DetectionService] 反馈提交失败', e);
+      return false;
+    }
+  }
+
   async detectVideoStream(
     file: File,
     text: string,
     onEvent: (event: string, data: any) => void,
+    sensitivity?: string,
   ): Promise<void> {
     const formData = new FormData();
     formData.append('video', file);
     if (text) formData.append('text', text);
+    formData.append('sensitivity', sensitivity || this.getDetectSensitivity());
 
     console.log('[DetectionService] 开始流式视频检测:', file.name);
 
@@ -269,6 +299,20 @@ export default class DetectionService {
     const reasons: string[] = [];
     const suggestions: string[] = [];
 
+    const eduSafe = ['不能代替', '不能替代', '不要轻信', '建议咨询', '正规医院', '遵医嘱', '科学科普'];
+    if (eduSafe.some((p) => text.includes(p))) {
+      return {
+        level: 'safe',
+        score: 0.08,
+        confidence: 0.6,
+        message: '科普提醒语境，未发现推销诈骗',
+        reasons: [],
+        suggestions: ['如有疑问可咨询家人'],
+        detection_method: 'local_rule_engine',
+        timestamp: new Date(),
+      };
+    }
+
     // 金融诈骗关键词检测
     const financialRiskKeywords = [
       '保证收益', '无风险投资', '月入万元', '投资理财',
@@ -284,9 +328,16 @@ export default class DetectionService {
       '包治百病', '神奇疗效', '祖传秘方', '一次根治',
       '医院不告诉你', '医生都在用', '癌症克星', '延年益寿',
       '排毒养颜', '减肥神器', '壮阳补肾', '丰胸美白',
-      '偏方', '特效药', '保健品', '营养品',
+      '偏方', '特效药',
       '三无产品', '假药', '违禁药', '激素'
     ];
+
+    const scamCombo = /加微信|加微|包治|根治|特效|央视|订购/;
+    const transferScam = /转账|汇款/.test(text) && !/不要.{0,12}转账|勿转账|别转账/.test(text);
+    if (/保健品|营养品/.test(text) && (scamCombo.test(text) || transferScam)) {
+      riskScore += 0.45;
+      reasons.push('保健品推销并诱导私下联系');
+    }
 
     // 通用诈骗关键词
     const generalRiskKeywords = [
@@ -335,6 +386,33 @@ export default class DetectionService {
       riskScore += 0.1;
       reasons.push('含有联系方式且存在其他风险因素');
       suggestions.push('不要轻易添加陌生人联系方式');
+    }
+
+    // 平台内正常带货：小黄车/官旗等 + 无典型诈骗话术 → 压低误报
+    const legitMarkers = [
+      '官方旗舰店', '小黄车', '购物车', '直播间', '抖音商城',
+      '包邮', '7天无理由', '现货', '正品', '官旗', '店铺客服',
+    ];
+    const scamMarkers = [
+      '加微信', '加微', '私信买', '包治百病', '保证收益', '无风险',
+      '月入万元', '稳赚', '祖传秘方', '央视推荐', '传销',
+    ];
+    const legitHits = legitMarkers.filter((m) => text.includes(m));
+    const scamHits = scamMarkers.filter((m) => text.includes(m)).filter((m) => {
+      if (m === '加微信' || m === '加微') {
+        return !/不要.{0,10}(加微信|加微|私信)/.test(text);
+      }
+      return true;
+    });
+    if (legitHits.length >= 2 && scamHits.length === 0) {
+      riskScore = Math.min(riskScore, 0.22);
+      const filtered = reasons.filter(
+        (r) => !r.includes('金融') && !r.includes('诈骗常用') && !r.includes('医疗'),
+      );
+      reasons.length = 0;
+      reasons.push(
+        ...(filtered.length ? filtered : ['平台内商品介绍，未发现典型诈骗话术']),
+      );
     }
 
     // 计算最终风险等级

@@ -72,7 +72,18 @@ const Settings: React.FC<SettingsProps> = ({
     setEnableSound(true);
     setFamilyContact('');
     setEnableNotification(true);
-    updateOpenClaw({ enabled: true, qclawWebhookUrl: '', directWebhookUrl: '', channel: 'wecom', threshold: 70, useQClaw: true, useWecom: true, wecomWebhookUrl: '', useFeishu: false, feishuWebhookUrl: '' });
+    updateOpenClaw({
+      enabled: true,
+      qclawWebhookUrl: '',
+      directWebhookUrl: '',
+      channel: 'wecom',
+      threshold: 50,
+      useQClaw: false,
+      useWecom: false,
+      wecomWebhookUrl: '',
+      useFeishu: true,
+      feishuWebhookUrl: 'https://open.feishu.cn/open-apis/bot/v2/hook/952f27b2-c29d-47dd-b4d3-d77b2598f592',
+    });
     showToast(t(lang, 'settingsReset'), 'info');
   };
 
@@ -120,6 +131,7 @@ const Settings: React.FC<SettingsProps> = ({
     }
     setFeishuTesting(true);
     try {
+      await openClawService.saveFeishuWebhookToBackend(openClawConfig.feishuWebhookUrl);
       const success = await openClawService.sendFeishuTestAlert();
       if (success) {
         showToast(lang !== 'en' ? '飞书测试消息发送成功！' : 'Feishu test message sent!', 'success');
@@ -172,10 +184,6 @@ const Settings: React.FC<SettingsProps> = ({
                 <label className={`native-radio ${lang === 'zh' ? 'checked' : ''}`}>
                   <input type="radio" name="lang" checked={lang === 'zh'} onChange={() => onLanguageChange('zh')} />
                   <span className="radio-dot" /><span>🇨🇳 中文</span>
-                </label>
-                <label className={`native-radio ${lang === 'yue' ? 'checked' : ''}`}>
-                  <input type="radio" name="lang" checked={lang === 'yue'} onChange={() => onLanguageChange('yue')} />
-                  <span className="radio-dot" /><span>🇭🇰 粵語</span>
                 </label>
                 <label className={`native-radio ${lang === 'en' ? 'checked' : ''}`}>
                   <input type="radio" name="lang" checked={lang === 'en'} onChange={() => onLanguageChange('en')} />
@@ -444,6 +452,30 @@ const Settings: React.FC<SettingsProps> = ({
               </div>
             </>
           )}
+        </div>
+
+          <div className="settings-section im-section">
+          <h3>📱 {lang !== 'en' ? '家人 IM 通知通道' : 'Family IM Channels'}</h3>
+          <p className="section-desc">{lang !== 'en' ? '支持企业微信、飞书、WhatsApp 推送家人告警（后端已接通 /notify-family）' : 'WeCom, Feishu, WhatsApp family alerts via /notify-family'}</p>
+          <div className="openclaw-skill-info wecom-info">
+            <div className="skill-info-content">
+              {lang !== 'en' ? (
+                <>
+                  <p>• <strong>企业微信</strong>：群机器人 Webhook（上方配置）</p>
+                  <p>• <strong>飞书</strong>：自定义机器人 Webhook（上方配置）</p>
+                  <p>• <strong>WhatsApp</strong>：需后端配置 <code>WHATSAPP_PHONE_NUMBER_ID</code> 与 <code>WHATSAPP_ACCESS_TOKEN</code>，家人号码填 E.164 格式</p>
+                  <p>• <strong>微信公众号</strong>：需配置 <code>WECHAT_APP_ID</code> 与家人 openid</p>
+                </>
+              ) : (
+                <>
+                  <p>• <strong>WeCom</strong>: group bot webhook</p>
+                  <p>• <strong>Feishu</strong>: custom bot webhook</p>
+                  <p>• <strong>WhatsApp</strong>: Meta Cloud API env vars + E.164 phone</p>
+                  <p>• <strong>WeChat</strong>: official account template message</p>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* 隐私 */}

@@ -1,14 +1,15 @@
-<<<<<<< Current (Your changes)
-=======
 """
 家人通知服务
 当检测到高风险内容时，自动通知家人
 
 支持的通知方式:
-1. 微信消息（通过企业微信/公众号模板消息）
-2. 短信提醒
-3. 邮件通知
-4. App推送通知
+1. 微信公众号模板消息
+2. 企业微信群机器人 webhook
+3. 飞书自定义机器人 webhook
+4. WhatsApp Cloud API
+5. 短信提醒
+6. 邮件通知
+7. App推送通知
 """
 
 import os
@@ -40,7 +41,10 @@ except ImportError:
 
 class NotificationType(Enum):
     """通知类型"""
-    WECHAT = "wechat"
+    WECHAT = "wechat"        # 微信公众号模板消息
+    WECOM = "wecom"          # 企业微信群机器人 webhook
+    FEISHU = "feishu"        # 飞书自定义机器人 webhook
+    WHATSAPP = "whatsapp"    # WhatsApp Cloud API
     SMS = "sms"
     EMAIL = "email"
     PUSH = "push"
@@ -61,6 +65,10 @@ class FamilyContact:
     phone: Optional[str] = None
     email: Optional[str] = None
     wechat_openid: Optional[str] = None
+    # 即时通讯(IM)联系方式：可针对单个联系人覆盖全局 webhook
+    wecom_webhook: Optional[str] = None      # 企业微信群机器人 webhook URL(或仅 key)
+    feishu_webhook: Optional[str] = None     # 飞书自定义机器人 webhook URL
+    whatsapp_phone: Optional[str] = None     # WhatsApp 接收号码(E.164, 如 8613800138000)
     notification_preferences: List[NotificationType] = None
     notification_threshold: RiskLevel = RiskLevel.DANGER
     
@@ -96,6 +104,20 @@ class NotificationConfig:
     wechat_app_id: str = ""
     wechat_app_secret: str = ""
     wechat_template_id: str = ""
+
+    # 企业微信群机器人(全局默认 webhook，可被联系人级覆盖)
+    # 申请方式：企业微信群 -> 添加群机器人 -> 复制 Webhook 地址
+    wecom_webhook: str = os.getenv("WECOM_WEBHOOK", "")
+
+    # 飞书自定义机器人(全局默认 webhook)
+    # 申请方式：飞书群 -> 设置 -> 群机器人 -> 添加自定义机器人 -> 复制 webhook
+    feishu_webhook: str = os.getenv("FEISHU_WEBHOOK", "")
+
+    # WhatsApp Cloud API(Meta) 配置
+    # 申请方式：Meta for Developers -> WhatsApp -> 获取 phone_number_id 与永久 access_token
+    whatsapp_phone_number_id: str = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+    whatsapp_access_token: str = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+    whatsapp_api_version: str = os.getenv("WHATSAPP_API_VERSION", "v18.0")
     
     # 短信配置
     sms_api_key: str = ""
@@ -255,6 +277,12 @@ class FamilyNotificationService:
             try:
                 if notification_type == NotificationType.WECHAT:
                     result = await self._send_wechat(event, contact)
+                elif notification_type == NotificationType.WECOM:
+                    result = await self._send_wecom(event, contact)
+                elif notification_type == NotificationType.FEISHU:
+                    result = await self._send_feishu(event, contact)
+                elif notification_type == NotificationType.WHATSAPP:
+                    result = await self._send_whatsapp(event, contact)
                 elif notification_type == NotificationType.SMS:
                     result = await self._send_sms(event, contact)
                 elif notification_type == NotificationType.EMAIL:
@@ -353,6 +381,97 @@ class FamilyNotificationService:
             logger.error(f"获取微信access_token失败: {e}")
             return None
     
+    def _build_im_text(self, event: AlertEvent, contact: FamilyContact) -> str:
+        """构建 IM(企业微信/飞书/WhatsApp) 纯文本消息体(已内含适老化提醒)"""
+        risk_text = self._get_risk_level_text(event.risk_level)
+        icon = {"安全": "✅", "可疑": "⚠️", "高风险": "🚨"}.get(risk_text, "⚠️")
+        reasons = "\n".join(f"  • {r}" for r in (event.reasons or [])[:3]) or "  • (无具体说明)"
+        suggestion = (event.suggestions or ["请尽快与老人沟通，核实信息真伪"])[0]
+        return (
+            f"{icon} AI守护·家人提醒\n"
+            f"尊敬的{contact.relationship}，检测到您的家人正在接触可疑内容：\n"
+            f"风险等级：{risk_text}\n"
+            f"内容来源：{event.platform}\n"
+            f"内容摘要：{event.content_summary[:80]}\n"
+            f"风险因素：\n{reasons}\n"
+            f"建议：{suggestion}\n"
+            f"时间：{event.detection_time.strftime('%Y-%m-%d %H:%M')}"
+        )
+
+    async def _send_wecom(self, event: AlertEvent, contact: FamilyContact) -> bool:
+        """
+        发送企业微信通知(群机器人 webhook)
+        文档: https://developer.work.weixin.qq.com/document/path/91770
+        """
+        webhook = contact.wecom_webhook or self.config.wecom_webhook
+        if not webhook or not self.http_client:
+            logger.warning("企业微信 webhook 未配置")
+            return False
+        # 允许只填 key，自动补全完整地址
+        if not webhook.startswith("http"):
+            webhook = f"https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key={webhook}"
+        payload = {"msgtype": "text", "text": {"content": self._build_im_text(event, contact)}}
+        try:
+            resp = await self.http_client.post(webhook, json=payload, timeout=10)
+            ok = resp.json().get("errcode", -1) == 0
+            if not ok:
+                logger.error(f"企业微信返回: {resp.text}")
+            return ok
+        except Exception as e:
+            logger.error(f"企业微信通知失败: {e}")
+            return False
+
+    async def _send_feishu(self, event: AlertEvent, contact: FamilyContact) -> bool:
+        """
+        发送飞书通知(自定义机器人 webhook)
+        文档: https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot
+        """
+        webhook = contact.feishu_webhook or self.config.feishu_webhook
+        if not webhook or not self.http_client:
+            logger.warning("飞书 webhook 未配置")
+            return False
+        payload = {"msg_type": "text", "content": {"text": self._build_im_text(event, contact)}}
+        try:
+            resp = await self.http_client.post(webhook, json=payload, timeout=10)
+            # 飞书成功返回 {"StatusCode":0,...} 或 {"code":0,...}
+            data = resp.json()
+            ok = data.get("StatusCode", data.get("code", -1)) == 0
+            if not ok:
+                logger.error(f"飞书返回: {resp.text}")
+            return ok
+        except Exception as e:
+            logger.error(f"飞书通知失败: {e}")
+            return False
+
+    async def _send_whatsapp(self, event: AlertEvent, contact: FamilyContact) -> bool:
+        """
+        发送 WhatsApp 通知(Meta WhatsApp Cloud API)
+        文档: https://developers.facebook.com/docs/whatsapp/cloud-api/reference/messages
+        """
+        to = contact.whatsapp_phone or contact.phone
+        pnid = self.config.whatsapp_phone_number_id
+        token = self.config.whatsapp_access_token
+        if not (to and pnid and token and self.http_client):
+            logger.warning("WhatsApp Cloud API 未配置")
+            return False
+        url = f"https://graph.facebook.com/{self.config.whatsapp_api_version}/{pnid}/messages"
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to.lstrip("+"),
+            "type": "text",
+            "text": {"body": self._build_im_text(event, contact)},
+        }
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        try:
+            resp = await self.http_client.post(url, json=payload, headers=headers, timeout=15)
+            ok = resp.status_code == 200 and "messages" in resp.json()
+            if not ok:
+                logger.error(f"WhatsApp 返回[{resp.status_code}]: {resp.text}")
+            return ok
+        except Exception as e:
+            logger.error(f"WhatsApp 通知失败: {e}")
+            return False
+
     async def _send_sms(self, event: AlertEvent, contact: FamilyContact) -> bool:
         """
         发送短信通知
@@ -723,10 +842,5 @@ __all__ = [
     'get_notification_service',
     'get_alert_system'
 ]
-
-
-
-
->>>>>>> Incoming (Background Agent changes)
 
 

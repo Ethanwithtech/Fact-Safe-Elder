@@ -210,8 +210,10 @@ toc = [
     '    5.3 Comparative Discussion: Fine-tuning Gemma vs Current Pipeline',
     '    5.4 Limitations and Honest Reflection',
     '    5.5 Ethical Considerations and Privacy',
-    '    5.6 Future Work',
-    '    5.7 Conclusion',
+    '    5.6 Filling Platform Blind Spots: Four Technical Breakthroughs',
+    '    5.7 Business Model and Commercialization Roadmap',
+    '    5.8 Future Work',
+    '    5.9 Conclusion',
     'References',
     'Appendices',
     '    Appendix A: Test Cases (White-box and Black-box Testing)',
@@ -1598,7 +1600,104 @@ p('The FactSafe system is designed exclusively for end-user voluntary personal p
   'open-source release under a non-commercial license, prohibiting its use for large-scale content '
   'review or any application that violates user privacy and freedom of speech.', first_indent=0.7)
 
-doc.add_heading('5.6 Future Work', level=2)
+doc.add_heading('5.6 Filling Platform Blind Spots: Four Technical Breakthroughs', level=2)
+
+p('A central design philosophy of FactSafe is that it is not a competitor to the in-house risk-control '
+  'systems of large short-video platforms, but rather a complementary consumer-side layer that fills four '
+  'structural blind spots those systems leave open. Large platforms moderate content at the production/'
+  'publishing stage using general-purpose, single-modality models optimized for the average user. This '
+  'creates four systematic gaps that FactSafe is explicitly engineered to close, and each gap corresponds '
+  'to one of the project\'s four technical breakthroughs.', first_indent=0.7)
+
+_fig5_path = os.path.join(screenshots_dir, 'fig5_breakthrough_architecture.png')
+if os.path.exists(_fig5_path):
+    doc.add_paragraph()
+    _fig5p = doc.add_paragraph()
+    _fig5p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _fig5p.add_run().add_picture(_fig5_path, width=Inches(6.2))
+    p('Figure 5. Consumer-side four-breakthrough pipeline. Each horizontal band fills one platform '
+      'blind spot: streaming sliding-window inference (B3), cross-modal intent joint reasoning (B1), '
+      'the elderly cognitive multi-task model (B2), and evidence-chain explainability with case '
+      'retrieval (B4).', italic=True, size=10, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=10)
+
+p('5.6.1 Breakthrough 1 — Cross-modal Intent Joint Reasoning (vs. single-modality moderation)', bold=True, space_after=4)
+p('Platform pipelines typically analyze the visual track (frames/subtitles) and the audio track '
+  '(speech) independently, so an attacker can pass compliant, benign subtitles while delivering a '
+  'fraudulent script through speech. FactSafe introduces a CrossModalIntentReasoner that embeds OCR '
+  'and ASR text through a shared encoder, fuses them with a cross-modal attention module, and computes '
+  'a semantic divergence and cross-modal coupling signal. This joint reasoning detects the '
+  'subtitle-disguise attack that any independent single-modality classifier is structurally blind to, '
+  'and is validated on a dedicated cross-modal mismatch (OOD) evaluation set comparing single-modal + '
+  'simple fusion against joint reasoning.', first_indent=0.7)
+
+p('5.6.2 Breakthrough 2 — Elderly-specific Cognitive Manipulation Model (vs. general-purpose models)', bold=True, space_after=4)
+p('General models are trained to classify whether content is "fake," not whether it exploits the '
+  'specific cognitive vulnerabilities of elderly users. FactSafe trains a multi-task cognitive model '
+  '(ElderCognitiveClassifier) that jointly predicts a three-level risk grade and a multi-label set of '
+  'manipulation tactics drawn from an elderly-oriented taxonomy: emotional manipulation, authority '
+  'forgery, benefit luring, urgency pressure, and AI-synthetic (deepfake) presentation. By naming the '
+  'manipulation technique rather than only emitting a risk score, the system produces evidence that '
+  'caregivers and elderly users can actually understand and act upon.', first_indent=0.7)
+
+p('5.6.3 Breakthrough 3 — Consumer-side Real-time Streaming Protection (vs. publish-time-only review)', bold=True, space_after=4)
+p('Platforms review content once, at publication; a video that slips through, or that is re-uploaded '
+  'or live-streamed, reaches the elderly viewer with no further check. FactSafe performs detection at '
+  'consumption time using a sliding time-window incremental inference pipeline over SSE, emitting '
+  'progress_risk events that accumulate context window-by-window and surface a rising risk trajectory '
+  'as the user watches. This "protection while watching" model closes the production-to-consumption '
+  'time gap and is the basis for the live risk-escalation animation in the demonstration UI.', first_indent=0.7)
+
+p('5.6.4 Breakthrough 4 — Evidence-chain Explainability with Case Retrieval (vs. black-box scores)', bold=True, space_after=4)
+p('A bare "this is risky" verdict does not persuade an elderly user already emotionally invested in a '
+  'scam narrative. FactSafe assembles an evidence chain that combines the tagged manipulation tactics '
+  '(Breakthrough 2), GPT-based claim extraction and correction, and a semantic retrieval over a '
+  'structured scam case library (scam_case_library.json) via a TF-IDF character n-gram case retriever. '
+  'The result links the current content to similar real reported cases ("X elderly victims were '
+  'deceived by a comparable script, average loss Y yuan"), turning an opaque score into a concrete, '
+  'relatable explanation rendered in a dedicated evidence-chain panel.', first_indent=0.7)
+
+p('Collectively, these four breakthroughs reposition the system from a standalone classifier into a '
+  'consumer-side safety net that is deliberately orthogonal to platform-side moderation, which is the '
+  'project\'s core differentiation and the basis for the commercialization paths discussed next.', first_indent=0.7)
+
+doc.add_heading('5.7 Business Model and Commercialization Roadmap', level=2)
+
+p('Beyond the research prototype, FactSafe\'s consumer-side positioning enables several complementary '
+  'commercialization and deployment paths, each addressing a distinct stakeholder while preserving the '
+  'privacy-first, on-device principles established in Section 5.5.', first_indent=0.7)
+
+p('5.7.1 Platform Protection SDK', bold=True, space_after=4)
+p('The detection pipeline can be packaged as a lightweight SDK that short-video and messaging platforms '
+  'embed as an optional, user-enabled "elder-care mode." Rather than replacing platform moderation, the '
+  'SDK runs the cross-modal and cognitive checks on-device and surfaces evidence-chain warnings only to '
+  'consenting users, allowing platforms to offer demonstrable elderly protection without centralizing '
+  'sensitive viewing data.', first_indent=0.7)
+
+p('5.7.2 Hardware Integration (mmWave Radar and Edge Companion Devices)', bold=True, space_after=4)
+p('For elderly users with limited digital literacy, the software can be paired with low-cost edge '
+  'companion hardware. Millimeter-wave radar and on-device sensors can detect prolonged engagement with '
+  'a flagged live stream or high-pressure purchase moment and trigger a gentle audio warning or family '
+  'alert, bridging the gap for users who do not actively read on-screen warnings.', first_indent=0.7)
+
+p('5.7.3 Anti-Fraud Insurance Partnerships', bold=True, space_after=4)
+p('The structured risk trajectory, manipulation tags, and evidence chain produce an auditable risk '
+  'record that insurers can use to underwrite affordable anti-fraud micro-insurance for elderly '
+  'subscribers. Verified, timestamped warnings that a user dismissed (or heeded) provide an objective '
+  'basis for claims assessment, aligning incentives between insurers, families, and users.', first_indent=0.7)
+
+p('5.7.4 Open Banking and Transaction Interception', bold=True, space_after=4)
+p('Through open-banking APIs, a confirmed high-risk evidence chain can be linked to a soft hold or '
+  'second-factor confirmation on an outgoing transfer that matches the detected scam pattern (for '
+  'example, an "investment guarantee" or "medical miracle cure" purchase). This converts detection into '
+  'a concrete financial circuit-breaker at the moment of potential loss.', first_indent=0.7)
+
+p('5.7.5 Family Subscription Service', bold=True, space_after=4)
+p('A consumer subscription aimed at adult children provides a managed dashboard of (consented) risk '
+  'summaries for elderly relatives, configurable sensitivity, and multi-channel family notification. '
+  'This is the most direct near-term revenue path and reuses the existing family-notification service '
+  'and privacy controls without requiring platform or banking integration.', first_indent=0.7)
+
+doc.add_heading('5.8 Future Work', level=2)
 
 p('The future work is structured to directly address each limitation identified in Section 5.4, '
   'ensuring a complete limitation-to-solution mapping. '
@@ -1627,7 +1726,7 @@ p('The future work is structured to directly address each limitation identified 
   'TF-IDF vocabulary and rule engine keyword lists without manual intervention, addressing the '
   'out-of-vocabulary limitation.', first_indent=0.7)
 
-doc.add_heading('5.7 Conclusion', level=2)
+doc.add_heading('5.9 Conclusion', level=2)
 
 p('This project set out to achieve five core objectives defined in Section 1.2, all of which have '
   'been met. Objective 1 (detection accuracy above 85%): the optimized three-layer fusion achieves '
